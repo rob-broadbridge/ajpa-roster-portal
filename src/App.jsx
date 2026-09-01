@@ -3,7 +3,7 @@ import {
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
-  LogOut, Phone, Mail, Award, Check, X, Smartphone, Monitor,
+  LogOut, Phone, Mail, Award, Check, X,
   Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info,
   Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock
 } from 'lucide-react';
@@ -100,7 +100,6 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(INITIAL_USERS[0]);
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [activeTab, setActiveTab] = useState('calendar');
-  const [deviceMode, setDeviceMode] = useState('responsive');
 
   const [regions, setRegions] = useState(INITIAL_REGIONS);
   const [serviceDesks, setServiceDesks] = useState(INITIAL_SERVICE_DESKS);
@@ -551,16 +550,6 @@ END:VCALENDAR`;
     }
   };
 
-  const switchUserRole = (role) => {
-    const found = users.find(u => u.role === role && u.status === 'Approved');
-    if (found) {
-      setCurrentUser(found);
-      setIsAuthenticated(true);
-    } else {
-      setCurrentUser(prev => ({ ...prev, role }));
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans">
       {/* TOAST NOTIFICATION */}
@@ -570,40 +559,6 @@ END:VCALENDAR`;
           <span className="font-bold text-xs">Service Desk statistics logged successfully!</span>
         </div>
       )}
-
-      {/* --- TOP BAR --- */}
-      <header className="bg-slate-900 text-white border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 py-2 flex flex-wrap justify-between items-center text-xs">
-          <div className="flex items-center space-x-3">
-            <span className="bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-bold uppercase">Official</span>
-            <span>Auckland Justices of the Peace Association Platform</span>
-          </div>
-
-          <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-            <div className="flex items-center bg-slate-800 rounded p-1 border border-slate-700">
-              <button onClick={() => setDeviceMode('responsive')} className={`px-2 py-1 rounded flex items-center space-x-1 ${deviceMode === 'responsive' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'}`}>
-                <Monitor className="w-3 h-3" />
-                <span>Web View</span>
-              </button>
-              <button onClick={() => setDeviceMode('mobile')} className={`px-2 py-1 rounded flex items-center space-x-1 ${deviceMode === 'mobile' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300'}`}>
-                <Smartphone className="w-3 h-3" />
-                <span>Mobile Sim</span>
-              </button>
-            </div>
-
-            {isAuthenticated && (
-              <div className="flex items-center space-x-2">
-                <span className="text-slate-400">Demo Role:</span>
-                <select value={currentUser.role} onChange={(e) => switchUserRole(e.target.value)} className="bg-slate-800 text-amber-400 border border-slate-700 rounded px-2 py-0.5 font-bold">
-                  <option value="Registrar">Registrar</option>
-                  <option value="Admin">Desk Admin</option>
-                  <option value="Member">JP Member</option>
-                </select>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
 
       {/* --- BRANDING HEADER --- */}
       <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 text-white relative overflow-hidden border-b-4 border-amber-500">
@@ -644,7 +599,7 @@ END:VCALENDAR`;
       </div>
 
       {/* --- MAIN CONTAINER --- */}
-      <div className={`mx-auto ${deviceMode === 'mobile' ? 'max-w-sm my-6 border-8 border-slate-800 rounded-[3rem] shadow-2xl overflow-hidden bg-slate-50' : 'max-w-7xl px-4 py-6'}`}>
+      <div className="max-w-7xl mx-auto px-4 py-6">
         
         {!isAuthenticated ? (
           <div className="bg-white rounded-xl shadow-md p-8 border border-slate-200 text-center space-y-6">
@@ -653,7 +608,7 @@ END:VCALENDAR`;
           </div>
         ) : (
           <>
-            {/* STREAMLINED NAVIGATION TABS */}
+            {/* NAVIGATION TABS */}
             <div className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 mb-6 flex flex-wrap gap-2">
               <button onClick={() => setActiveTab('calendar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'calendar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <Calendar className="w-4 h-4" />
@@ -736,7 +691,7 @@ END:VCALENDAR`;
                         <span className="text-xs text-slate-300 font-bold">{week.startDate} to {week.endDate}</span>
                       </div>
 
-                      <div className={`grid gap-3 ${deviceMode === 'mobile' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-7'}`}>
+                      <div className="grid gap-3 grid-cols-1 md:grid-cols-7">
                         {week.days.map(dayObj => {
                           const dayOccurrences = generatedOccurrences.filter(occ => {
                             const parentDesk = activeDeskMap[occ.deskId] || {};
