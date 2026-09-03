@@ -3,7 +3,7 @@ import {
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
-  LogOut, Phone, Mail, Award, Check, X,
+  LogOut, Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
   Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info,
   Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock
 } from 'lucide-react';
@@ -85,9 +85,9 @@ const INITIAL_SLOT_TEMPLATES = [
 ];
 
 const INITIAL_USERS = [
-  { id: 'usr-1', fullName: 'Robert Broadbridge', email: 'robert@ajpa.org.nz', phone: '021 123 4567', warrantNumber: 'JP-10928', role: 'Registrar', isProvisional: false, status: 'Approved' },
-  { id: 'usr-2', fullName: 'Sarah Jenkins', email: 'sarah.j@ajpa.org.nz', phone: '027 888 9911', warrantNumber: 'JP-12401', role: 'Admin', isProvisional: false, status: 'Approved' },
-  { id: 'usr-3', fullName: 'David Chen', email: 'd.chen@ajpa.org.nz', phone: '022 454 1122', warrantNumber: 'JP-14502', role: 'Member', isProvisional: true, status: 'Approved' }
+  { id: 'usr-1', fullName: 'Robert Broadbridge', email: 'robert@ajpa.org.nz', password: 'password123', phone: '021 123 4567', warrantNumber: 'JP-10928', role: 'Registrar', isProvisional: false, status: 'Approved' },
+  { id: 'usr-2', fullName: 'Sarah Jenkins', email: 'sarah.j@ajpa.org.nz', password: 'password123', phone: '027 888 9911', warrantNumber: 'JP-12401', role: 'Admin', isProvisional: false, status: 'Approved' },
+  { id: 'usr-3', fullName: 'David Chen', email: 'd.chen@ajpa.org.nz', password: 'password123', phone: '022 454 1122', warrantNumber: 'JP-14502', role: 'Member', isProvisional: true, status: 'Approved' }
 ];
 
 const INITIAL_ASSIGNMENTS = {
@@ -95,30 +95,147 @@ const INITIAL_ASSIGNMENTS = {
   'desk-newmarket_slot-nm-2_2026-09-26': ['usr-1']
 };
 
+const INITIAL_LOGGED_STATISTICS = [
+  {
+    id: 'stat-1',
+    jpId: 'usr-1',
+    jpName: 'Robert Broadbridge',
+    warrantNumber: 'JP-10928',
+    deskId: 'desk-remuera',
+    deskName: 'Remuera Library Service Desk',
+    deskCode: 'RM',
+    region: 'Central East Auckland',
+    date: '2026-09-01',
+    startTime: '10:00',
+    endTime: '12:00',
+    noOfJpDuties: 1,
+    noOfClients: 8,
+    noOfHoursWorked: 2.0,
+    certifiedCopies: 12,
+    statutoryDeclarations: 4,
+    signatureWitnessed: 3,
+    affidavits: 1,
+    other: 0,
+    notes: 'Busy morning session'
+  },
+  {
+    id: 'stat-2',
+    jpId: 'usr-3',
+    jpName: 'David Chen',
+    warrantNumber: 'JP-14502',
+    deskId: 'desk-remuera',
+    deskName: 'Remuera Library Service Desk',
+    deskCode: 'RM',
+    region: 'Central East Auckland',
+    date: '2026-09-01',
+    startTime: '10:00',
+    endTime: '12:00',
+    noOfJpDuties: 1,
+    noOfClients: 5,
+    noOfHoursWorked: 2.0,
+    certifiedCopies: 6,
+    statutoryDeclarations: 2,
+    signatureWitnessed: 1,
+    affidavits: 0,
+    other: 0,
+    notes: 'Assisted senior JP'
+  },
+  {
+    id: 'stat-3',
+    jpId: 'usr-1',
+    jpName: 'Robert Broadbridge',
+    warrantNumber: 'JP-10928',
+    deskId: 'desk-parnell',
+    deskName: 'Parnell Library Service Desk',
+    deskCode: 'PL',
+    region: 'Central Auckland',
+    date: '2026-08-15',
+    startTime: '10:00',
+    endTime: '12:00',
+    noOfJpDuties: 1,
+    noOfClients: 6,
+    noOfHoursWorked: 2.0,
+    certifiedCopies: 9,
+    statutoryDeclarations: 3,
+    signatureWitnessed: 2,
+    affidavits: 1,
+    other: 0,
+    notes: 'August duty log'
+  }
+];
+
 export default function App() {
-  // --- GLOBAL STATE ---
-  const [currentUser, setCurrentUser] = useState(INITIAL_USERS[0]);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  // --- AUTH & GLOBAL STATE ---
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('calendar');
 
+  const [users, setUsers] = useState(INITIAL_USERS);
   const [regions, setRegions] = useState(INITIAL_REGIONS);
   const [serviceDesks, setServiceDesks] = useState(INITIAL_SERVICE_DESKS);
   const [slotTemplates, setSlotTemplates] = useState(INITIAL_SLOT_TEMPLATES);
-  const [users, setUsers] = useState(INITIAL_USERS);
   const [followedDesks, setFollowedDesks] = useState(['desk-remuera', 'desk-parnell', 'desk-glen-innes', 'desk-newmarket']);
 
   const [slotAssignments, setSlotAssignments] = useState(INITIAL_ASSIGNMENTS);
   const [cancelledSlotInstances, setCancelledSlotInstances] = useState([]);
 
-  // Desk Tab Filters
+  // LOGGED STATISTICS STATE
+  const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
+
+  // AUTH SCREEN MODALS & FORMS
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Register Modal State
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [registerForm, setRegisterForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
+  const [registerSuccessMsg, setRegisterSuccessMsg] = useState(false);
+
+  // Forgot Password & Reset Modal State
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLinkSent, setResetLinkSent] = useState(false);
+
+  const [resetScreenOpen, setResetScreenOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetError, setResetError] = useState('');
+
+  // Simulated Email Alert Banner for Registrar
+  const [emailAlert, setEmailAlert] = useState(null);
+
+  // Desk & Calendar Filters
   const [deskViewFilter, setDeskViewFilter] = useState('Active');
   const [selectedDeskRegions, setSelectedDeskRegions] = useState(INITIAL_REGIONS.map(r => r.name));
-
-  // Calendar Desk & Region Filters
   const [calendarDeskFilter, setCalendarDeskFilter] = useState('FOLLOWED');
   const [calendarRegionFilter, setCalendarRegionFilter] = useState('ALL');
 
-  // LOG STATS MODAL STATE
+  // STATISTICS TAB FILTERS
+  const [statsRegionFilter, setStatsRegionFilter] = useState('ALL');
+  const [statsDeskFilter, setStatsDeskFilter] = useState('ALL');
+  const [statsJpFilter, setStatsJpFilter] = useState('ALL');
+  const [statsDatePreset, setStatsDatePreset] = useState('CURRENT_AND_PREVIOUS'); 
+  const [customDateModalOpen, setCustomDateModalOpen] = useState(false);
+  const [customFromDate, setCustomFromDate] = useState('2026-08-01');
+  const [customToDate, setCustomToDate] = useState('2026-09-30');
+
+  // EDITING EXISTING STATS RECORD MODAL
+  const [editingStatRecord, setEditingStatRecord] = useState(null);
+  const [editStatForm, setEditStatForm] = useState({
+    noOfJpDuties: 1,
+    noOfClients: 0,
+    noOfHoursWorked: 2.00,
+    certifiedCopies: 0,
+    statutoryDeclarations: 0,
+    signatureWitnessed: 0,
+    affidavits: 0,
+    other: 0,
+    notes: ''
+  });
+  const [confirmDeleteStatId, setConfirmDeleteStatId] = useState(null);
+
+  // Log Stats Modal State
   const [logStatsOccurrence, setLogStatsOccurrence] = useState(null);
   const [statsForm, setStatsForm] = useState({
     noOfJpDuties: 1,
@@ -133,14 +250,14 @@ export default function App() {
   });
   const [statsSuccessToast, setStatsSuccessToast] = useState(false);
 
-  // FULL SLOT DETAILS MODAL STATE
+  // Full Slot Details Modal State
   const [detailedSlotModal, setDetailedSlotModal] = useState(null);
 
-  // REGISTRAR PORTAL STATE
+  // Registrar Portal Subtab State
   const [registrarSubTab, setRegistrarSubTab] = useState('members');
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
-  const [userForm, setUserForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: '', role: 'Member', isProvisional: false, status: 'Approved' });
+  const [userForm, setUserForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: '', password: 'password123', role: 'Member', isProvisional: false, status: 'Approved' });
   const [pendingDeleteUserId, setPendingDeleteUserId] = useState(null);
 
   const [regionModalOpen, setRegionModalOpen] = useState(false);
@@ -148,7 +265,7 @@ export default function App() {
   const [regionForm, setRegionForm] = useState({ name: '', code: '' });
   const [pendingDeleteRegionId, setPendingDeleteRegionId] = useState(null);
 
-  // Service Desk Modal
+  // Service Desk Modals
   const [createDeskModalOpen, setCreateDeskModalOpen] = useState(false);
   const [editingDeskId, setEditingDeskId] = useState(null);
   const [editDeskForm, setEditDeskForm] = useState({ code: '', name: '', address: '', region: 'Central Auckland', contactPerson: '', notes: '' });
@@ -156,15 +273,17 @@ export default function App() {
   const [pendingDeleteDeskId, setPendingDeleteDeskId] = useState(null);
 
   useEffect(() => {
-    if (currentUser.role === 'Member') {
+    if (currentUser?.role === 'Member') {
       setCalendarDeskFilter('FOLLOWED');
+      setStatsJpFilter(currentUser.id);
     } else {
       setCalendarDeskFilter('ALL');
+      setStatsJpFilter('ALL');
     }
-  }, [currentUser.role]);
+  }, [currentUser]);
 
   const canManage = useMemo(() => {
-    return currentUser.role === 'Admin' || currentUser.role === 'Registrar';
+    return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
 
   const userMap = useMemo(() => {
@@ -188,6 +307,275 @@ export default function App() {
   const archivedDesksList = useMemo(() => {
     return serviceDesks.filter(d => d.status === 'Archived');
   }, [serviceDesks]);
+
+  // --- AUTH HANDLERS ---
+  const handleLoginSubmit = (e) => {
+    e.preventDefault();
+    setLoginError('');
+
+    const foundUser = users.find(u => u.email.toLowerCase() === loginEmail.trim().toLowerCase());
+
+    if (!foundUser) {
+      setLoginError('No account found with this email address.');
+      return;
+    }
+
+    if (foundUser.password !== loginPassword) {
+      setLoginError('Invalid password. Please check your credentials and try again.');
+      return;
+    }
+
+    if (foundUser.status === 'Pending') {
+      setLoginError('Your registration is currently PENDING approval by an AJPA Registrar.');
+      return;
+    }
+
+    if (foundUser.status === 'Rejected') {
+      setLoginError('Your account application was not approved. Please contact the Registrar.');
+      return;
+    }
+
+    setCurrentUser(foundUser);
+    setIsAuthenticated(true);
+    setLoginEmail('');
+    setLoginPassword('');
+  };
+
+  const handleQuickDemoLogin = (role) => {
+    const demoUser = users.find(u => u.role === role && u.status === 'Approved');
+    if (demoUser) {
+      setCurrentUser(demoUser);
+      setIsAuthenticated(true);
+      setLoginError('');
+    }
+  };
+
+  const handleRegisterSubmit = (e) => {
+    e.preventDefault();
+    
+    if (users.some(u => u.email.toLowerCase() === registerForm.email.trim().toLowerCase())) {
+      alert('An account with this email address already exists.');
+      return;
+    }
+
+    const newUser = {
+      id: `usr-${Date.now()}`,
+      fullName: registerForm.fullName,
+      email: registerForm.email.trim(),
+      phone: registerForm.phone,
+      warrantNumber: registerForm.warrantNumber,
+      password: registerForm.password || 'password123',
+      role: 'Member',
+      isProvisional: registerForm.isProvisional,
+      status: 'Pending'
+    };
+
+    setUsers(prev => [...prev, newUser]);
+    setRegisterSuccessMsg(true);
+
+    setEmailAlert({
+      title: 'Automated Email Alert Sent to Registrars',
+      message: `New JP Registration received for ${newUser.fullName} (${newUser.warrantNumber}). Status set to PENDING awaiting Registrar Portal approval.`
+    });
+
+    setTimeout(() => {
+      setRegisterSuccessMsg(false);
+      setRegisterModalOpen(false);
+      setRegisterForm({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
+    }, 2500);
+  };
+
+  const handleSendResetLink = (e) => {
+    e.preventDefault();
+    const found = users.find(u => u.email.toLowerCase() === resetEmail.trim().toLowerCase());
+    if (!found) {
+      alert('No registered JP account found with this email address.');
+      return;
+    }
+    setResetLinkSent(true);
+  };
+
+  const handleSimulateOpenResetLink = () => {
+    setForgotModalOpen(false);
+    setResetLinkSent(false);
+    setResetScreenOpen(true);
+  };
+
+  const handleSaveNewPassword = (e) => {
+    e.preventDefault();
+    setResetError('');
+
+    if (newPassword !== confirmPassword) {
+      setResetError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setResetError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setUsers(prev => prev.map(u => u.email.toLowerCase() === resetEmail.trim().toLowerCase() ? { ...u, password: newPassword } : u));
+    alert('Password updated successfully! You can now log in with your new password.');
+    setResetScreenOpen(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetEmail('');
+  };
+
+  const handleApprovePendingUser = (userId) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Approved' } : u));
+  };
+
+  const handleRejectPendingUser = (userId) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Rejected' } : u));
+  };
+
+  // --- STATISTICS FILTERING ENGINE ---
+  const filteredStatisticsList = useMemo(() => {
+    if (!currentUser) return [];
+
+    const today = new Date(2026, 8, 2); 
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); 
+
+    return loggedStatistics.filter(stat => {
+      if (currentUser.role === 'Member' && stat.jpId !== currentUser.id) {
+        return false;
+      }
+
+      if (currentUser.role !== 'Member' && statsJpFilter !== 'ALL' && stat.jpId !== statsJpFilter) {
+        return false;
+      }
+
+      if (statsRegionFilter !== 'ALL' && stat.region !== statsRegionFilter) {
+        return false;
+      }
+
+      if (statsDeskFilter !== 'ALL' && stat.deskId !== statsDeskFilter) {
+        return false;
+      }
+
+      const statDate = new Date(stat.date);
+      const statYear = statDate.getFullYear();
+      const statMonth = statDate.getMonth();
+
+      if (statsDatePreset === 'CURRENT_AND_PREVIOUS') {
+        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+        const isCurrentMonth = statYear === currentYear && statMonth === currentMonth;
+        const isPrevMonth = statYear === prevYear && statMonth === prevMonth;
+        if (!isCurrentMonth && !isPrevMonth) return false;
+      } 
+      else if (statsDatePreset === 'CURRENT_MONTH') {
+        if (statYear !== currentYear || statMonth !== currentMonth) return false;
+      } 
+      else if (statsDatePreset === 'LAST_MONTH') {
+        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        if (statYear !== prevYear || statMonth !== prevMonth) return false;
+      } 
+      else if (statsDatePreset === 'LAST_30_DAYS') {
+        const diffTime = today.getTime() - statDate.getTime();
+        const diffDays = diffTime / (1000 * 3600 * 24);
+        if (diffDays < 0 || diffDays > 30) return false;
+      } 
+      else if (statsDatePreset === 'CUSTOM') {
+        const from = new Date(customFromDate);
+        const to = new Date(customToDate);
+        to.setHours(23, 59, 59, 999);
+        if (statDate < from || statDate > to) return false;
+      }
+
+      return true;
+    });
+  }, [loggedStatistics, currentUser, statsRegionFilter, statsDeskFilter, statsJpFilter, statsDatePreset, customFromDate, customToDate]);
+
+  // --- CSV DOWNLOAD EXPORTER ---
+  const handleDownloadCsv = () => {
+    if (filteredStatisticsList.length === 0) {
+      alert('No statistics available to export for the selected filter range.');
+      return;
+    }
+
+    const headers = [
+      'Log ID', 'Date', 'Start Time', 'End Time', 'Region', 
+      'Service Desk', 'Desk Code', 'JP Name', 'Warrant Number', 
+      'JP Duties', 'Clients Served', 'Hours Worked', 
+      'Certified Copies', 'Statutory Declarations', 'Signatures Witnessed', 
+      'Affidavits', 'Other Duties', 'Notes'
+    ];
+
+    const rows = filteredStatisticsList.map(s => [
+      `"${s.id}"`, `"${s.date}"`, `"${s.startTime}"`, `"${s.endTime}"`, `"${s.region}"`,
+      `"${s.deskName}"`, `"${s.deskCode}"`, `"${s.jpName}"`, `"${s.warrantNumber}"`,
+      s.noOfJpDuties, s.noOfClients, s.noOfHoursWorked,
+      s.certifiedCopies, s.statutoryDeclarations, s.signatureWitnessed,
+      s.affidavits, s.other, `"${(s.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `JP_Service_Desk_Statistics_${statsDatePreset}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- EDIT EXISTING STAT RECORD HANDLERS ---
+  const handleOpenEditStatModal = (statRecord) => {
+    setEditingStatRecord(statRecord);
+    setEditStatForm({
+      noOfJpDuties: statRecord.noOfJpDuties,
+      noOfClients: statRecord.noOfClients,
+      noOfHoursWorked: statRecord.noOfHoursWorked,
+      certifiedCopies: statRecord.certifiedCopies,
+      statutoryDeclarations: statRecord.statutoryDeclarations,
+      signatureWitnessed: statRecord.signatureWitnessed,
+      affidavits: statRecord.affidavits,
+      other: statRecord.other,
+      notes: statRecord.notes || ''
+    });
+  };
+
+  const handleEditStatInputChange = (field, value, isFloat = false) => {
+    if (isFloat) {
+      const val = parseFloat(value);
+      setEditStatForm(prev => ({ ...prev, [field]: isNaN(val) || val < 0 ? 0 : val }));
+    } else {
+      const val = parseInt(value, 10);
+      setEditStatForm(prev => ({ ...prev, [field]: isNaN(val) || val < 0 ? 0 : val }));
+    }
+  };
+
+  const handleSaveEditedStatSubmit = (e) => {
+    e.preventDefault();
+    if (!editingStatRecord) return;
+
+    setLoggedStatistics(prev => prev.map(item => {
+      if (item.id === editingStatRecord.id) {
+        return {
+          ...item,
+          ...editStatForm
+        };
+      }
+      return item;
+    }));
+
+    setEditingStatRecord(null);
+    setStatsSuccessToast(true);
+    setTimeout(() => setStatsSuccessToast(false), 3000);
+  };
+
+  const confirmDeleteStatRecord = () => {
+    if (!confirmDeleteStatId) return;
+    setLoggedStatistics(prev => prev.filter(item => item.id !== confirmDeleteStatId));
+    setConfirmDeleteStatId(null);
+    setEditingStatRecord(null);
+  };
 
   // --- SERVICE DESKS GROUPED BY REGION & ALPHABETIZED ---
   const groupedServiceDesks = useMemo(() => {
@@ -332,6 +720,34 @@ export default function App() {
 
   const handleSaveStatsSubmit = (e) => {
     e.preventDefault();
+    if (!logStatsOccurrence || !currentUser) return;
+
+    const desk = activeDeskMap[logStatsOccurrence.deskId] || {};
+
+    const newStatEntry = {
+      id: `stat-${Date.now()}`,
+      jpId: currentUser.id,
+      jpName: currentUser.fullName,
+      warrantNumber: currentUser.warrantNumber,
+      deskId: logStatsOccurrence.deskId,
+      deskName: desk.name || 'Service Desk',
+      deskCode: desk.code || 'JP',
+      region: desk.region || 'Central Auckland',
+      date: logStatsOccurrence.date,
+      startTime: logStatsOccurrence.startTime,
+      endTime: logStatsOccurrence.endTime,
+      noOfJpDuties: statsForm.noOfJpDuties,
+      noOfClients: statsForm.noOfClients,
+      noOfHoursWorked: statsForm.noOfHoursWorked,
+      certifiedCopies: statsForm.certifiedCopies,
+      statutoryDeclarations: statsForm.statutoryDeclarations,
+      signatureWitnessed: statsForm.signatureWitnessed,
+      affidavits: statsForm.affidavits,
+      other: statsForm.other,
+      notes: statsForm.notes
+    };
+
+    setLoggedStatistics(prev => [newStatEntry, ...prev]);
     setLogStatsOccurrence(null);
     setStatsSuccessToast(true);
     setTimeout(() => setStatsSuccessToast(false), 4000);
@@ -410,6 +826,7 @@ END:VCALENDAR`;
       email: '',
       phone: '',
       warrantNumber: 'JP-',
+      password: 'password123',
       role: 'Member',
       isProvisional: false,
       status: 'Approved'
@@ -424,6 +841,7 @@ END:VCALENDAR`;
       email: u.email,
       phone: u.phone,
       warrantNumber: u.warrantNumber,
+      password: u.password || 'password123',
       role: u.role,
       isProvisional: u.isProvisional,
       status: u.status
@@ -552,11 +970,25 @@ END:VCALENDAR`;
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans">
+      {/* EMAIL ALERT SIMULATOR BANNER FOR REGISTRARS */}
+      {emailAlert && (
+        <div className="bg-purple-900 text-white px-4 py-3 border-b-2 border-purple-400 flex justify-between items-center text-xs animate-fade-in">
+          <div className="flex items-center space-x-2">
+            <Mail className="w-4 h-4 text-purple-300 shrink-0" />
+            <span className="font-bold">{emailAlert.title}:</span>
+            <span className="text-purple-100">{emailAlert.message}</span>
+          </div>
+          <button onClick={() => setEmailAlert(null)} className="text-purple-300 hover:text-white font-bold p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* TOAST NOTIFICATION */}
       {statsSuccessToast && (
         <div className="fixed top-4 right-4 z-50 bg-emerald-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-500 flex items-center space-x-2 animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          <span className="font-bold text-xs">Service Desk statistics logged successfully!</span>
+          <span className="font-bold text-xs">Service Desk statistics updated successfully!</span>
         </div>
       )}
 
@@ -573,7 +1005,7 @@ END:VCALENDAR`;
             </div>
           </div>
 
-          {isAuthenticated ? (
+          {isAuthenticated && currentUser && (
             <div className="flex items-center space-x-3 mt-4 sm:mt-0 bg-slate-900/80 backdrop-blur p-3 rounded-lg border border-slate-700">
               <div className="text-right">
                 <div className="font-bold flex items-center justify-end space-x-1">
@@ -584,14 +1016,15 @@ END:VCALENDAR`;
                 </div>
                 <div className="text-xs text-slate-400">{currentUser.warrantNumber} • <span className="text-amber-400 font-semibold">{currentUser.role}</span></div>
               </div>
-              <button onClick={() => setIsAuthenticated(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 hover:text-white" title="Sign Out">
+              <button 
+                onClick={() => {
+                  setIsAuthenticated(false);
+                  setCurrentUser(null);
+                }} 
+                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 hover:text-white" 
+                title="Sign Out"
+              >
                 <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex space-x-2 mt-4 sm:mt-0">
-              <button onClick={() => setIsAuthenticated(true)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-md font-bold text-sm shadow">
-                Sign In
               </button>
             </div>
           )}
@@ -599,16 +1032,187 @@ END:VCALENDAR`;
       </div>
 
       {/* --- MAIN CONTAINER --- */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         
+        {/* --- LANDING / LOGIN PAGE (WHEN NOT AUTHENTICATED) --- */}
         {!isAuthenticated ? (
-          <div className="bg-white rounded-xl shadow-md p-8 border border-slate-200 text-center space-y-6">
-            <h2 className="text-3xl font-extrabold text-slate-900">AJPA Roster Portal</h2>
-            <button onClick={() => setIsAuthenticated(true)} className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold">Quick Demo Access</button>
-          </div>
+          resetScreenOpen ? (
+            /* PASSWORD RESET PAGE FROM EMAIL LINK */
+            <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto">
+                  <Key className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-900">Create New Password</h2>
+                <p className="text-xs text-slate-500">Set a new secure password for your AJPA JP Member account.</p>
+              </div>
+
+              {resetError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs font-bold flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveNewPassword} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">New Password</label>
+                  <input 
+                    type="password" 
+                    required 
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
+                    placeholder="At least 6 characters"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Confirm New Password</label>
+                  <input 
+                    type="password" 
+                    required 
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
+                    placeholder="Re-enter new password"
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-bold text-sm shadow transition"
+                >
+                  Update Password & Return to Login
+                </button>
+              </form>
+            </div>
+          ) : (
+            /* STANDARD LANDING / LOGIN SCREEN */
+            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+              <div className="md:col-span-7 space-y-5">
+                <span className="bg-amber-100 text-amber-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                  Official Association Portal
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                  Auckland JP Service Desk Roster & Governance Platform
+                </h2>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  Welcome to the official roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view 12-week rolling service desk calendars, export device schedules, and log desk statistics.
+                </p>
+
+                <div className="pt-2 grid grid-cols-2 gap-4 text-xs font-bold text-slate-700">
+                  <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
+                    <Calendar className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>12-Week Rolling Calendar</span>
+                  </div>
+                  <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
+                    <MapPin className="w-5 h-5 text-sky-600 shrink-0" />
+                    <span>Regional Desk Roster</span>
+                  </div>
+                </div>
+
+                {/* DEMO QUICK ACCESS ROLES */}
+                <div className="bg-slate-200/70 p-4 rounded-xl border border-slate-300/80 space-y-2">
+                  <span className="text-[11px] font-black uppercase text-slate-600 tracking-wider block">
+                    Demo Fast Access (Click to test roles):
+                  </span>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <button onClick={() => handleQuickDemoLogin('Registrar')} className="px-3 py-1.5 bg-purple-900 text-white rounded-lg font-bold hover:bg-purple-800 transition">
+                      Login as Registrar
+                    </button>
+                    <button onClick={() => handleQuickDemoLogin('Admin')} className="px-3 py-1.5 bg-sky-800 text-white rounded-lg font-bold hover:bg-sky-700 transition">
+                      Login as Desk Admin
+                    </button>
+                    <button onClick={() => handleQuickDemoLogin('Member')} className="px-3 py-1.5 bg-slate-900 text-amber-400 rounded-lg font-bold hover:bg-slate-800 transition">
+                      Login as JP Member
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* LOGIN CARD */}
+              <div className="md:col-span-5 bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5">
+                <div className="border-b border-slate-100 pb-4">
+                  <h3 className="text-xl font-black text-slate-900">Sign In to Your Account</h3>
+                  <p className="text-xs text-slate-500 mt-1">Enter your registered email address and password</p>
+                </div>
+
+                {loginError && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs font-bold flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input 
+                        type="email" 
+                        required 
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
+                        placeholder="e.g. robert@ajpa.org.nz"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block font-bold text-slate-700">Password</label>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setForgotModalOpen(true);
+                          setResetLinkSent(false);
+                          setResetEmail('');
+                        }}
+                        className="text-[11px] text-sky-700 hover:text-sky-800 font-bold underline cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                      <input 
+                        type="password" 
+                        required 
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-extrabold text-sm shadow transition cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                </form>
+
+                <div className="pt-4 border-t border-slate-100 text-center space-y-2">
+                  <span className="text-xs text-slate-500 block">Not registered on the AJPA Roster yet?</span>
+                  <button 
+                    onClick={() => setRegisterModalOpen(true)}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider shadow transition cursor-pointer"
+                  >
+                    Click here to Register
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
         ) : (
+          /* --- AUTHENTICATED PORTAL VIEW --- */
           <>
-            {/* NAVIGATION TABS */}
+            {/* NAVIGATION TABS WITH STATISTICS TAB */}
             <div className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 mb-6 flex flex-wrap gap-2">
               <button onClick={() => setActiveTab('calendar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'calendar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <Calendar className="w-4 h-4" />
@@ -623,6 +1227,11 @@ END:VCALENDAR`;
               <button onClick={() => setActiveTab('my-shifts')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'my-shifts' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <UserCheck className="w-4 h-4" />
                 <span>My Shifts</span>
+              </button>
+
+              <button onClick={() => setActiveTab('statistics')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'statistics' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+                <BarChart2 className="w-4 h-4" />
+                <span>Statistics</span>
               </button>
 
               {(currentUser.role === 'Registrar' || currentUser.role === 'Admin') && (
@@ -1001,13 +1610,187 @@ END:VCALENDAR`;
               </div>
             )}
 
-            {/* TAB 4: REGISTRAR GOVERNANCE PORTAL */}
+            {/* TAB 4: STATISTICS LOG TAB */}
+            {activeTab === 'statistics' && (
+              <div className="space-y-6">
+                {/* TOP FILTER BAR */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                  <div className="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-900">Service Desk Statistics Log</h2>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {currentUser.role === 'Member' 
+                          ? 'Viewing your personal logged shift statistics. Click any row to view, edit, or delete.' 
+                          : 'Viewing full Association Service Desk statistics. Click any row to view, edit, or delete.'}
+                      </p>
+                    </div>
+
+                    <button 
+                      onClick={handleDownloadCsv}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-black shadow flex items-center space-x-1.5 cursor-pointer"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Filtered CSV</span>
+                    </button>
+                  </div>
+
+                  {/* FILTERS CONTAINER */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-2 border-t border-slate-100">
+                    {/* DATE PRESET FILTER */}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+                      <label className="block font-extrabold text-slate-700">Date Range:</label>
+                      <select 
+                        value={statsDatePreset}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setStatsDatePreset(val);
+                          if (val === 'CUSTOM') {
+                            setCustomDateModalOpen(true);
+                          }
+                        }}
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 cursor-pointer"
+                      >
+                        <option value="CURRENT_AND_PREVIOUS">Current & Previous Month (Default)</option>
+                        <option value="CURRENT_MONTH">Current Month Only</option>
+                        <option value="LAST_MONTH">Last Month Only</option>
+                        <option value="LAST_30_DAYS">Last 30 Days</option>
+                        <option value="CUSTOM">Custom Timeframe...</option>
+                      </select>
+                    </div>
+
+                    {/* REGION FILTER */}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+                      <label className="block font-extrabold text-slate-700">Region:</label>
+                      <select 
+                        value={statsRegionFilter}
+                        onChange={(e) => setStatsRegionFilter(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 cursor-pointer"
+                      >
+                        <option value="ALL">All Regions</option>
+                        {regions.map(r => (
+                          <option key={r.id} value={r.name}>{r.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* SERVICE DESK FILTER */}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+                      <label className="block font-extrabold text-slate-700">Service Desk:</label>
+                      <select 
+                        value={statsDeskFilter}
+                        onChange={(e) => setStatsDeskFilter(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 cursor-pointer"
+                      >
+                        <option value="ALL">All Service Desks</option>
+                        {activeDesksList.map(d => (
+                          <option key={d.id} value={d.id}>[{d.code}] {d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* JP MEMBER FILTER (ADMIN / REGISTRAR ONLY) */}
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
+                      <label className="block font-extrabold text-slate-700">
+                        JP Member {currentUser.role === 'Member' ? '(Self Restricted)' : ''}:
+                      </label>
+                      <select 
+                        value={statsJpFilter}
+                        onChange={(e) => setStatsJpFilter(e.target.value)}
+                        disabled={currentUser.role === 'Member'}
+                        className={`w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 cursor-pointer ${currentUser.role === 'Member' ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      >
+                        {currentUser.role === 'Member' ? (
+                          <option value={currentUser.id}>{currentUser.fullName} ({currentUser.warrantNumber})</option>
+                        ) : (
+                          <>
+                            <option value="ALL">All JP Members</option>
+                            {users.map(u => (
+                              <option key={u.id} value={u.id}>{u.fullName} ({u.warrantNumber})</option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* STATISTICS DATA TABLE */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h3 className="font-bold text-slate-900 text-base">
+                      Logged Statistics Records ({filteredStatisticsList.length})
+                    </h3>
+                    <span className="text-xs text-slate-500 font-bold">
+                      Click any row to edit or delete record
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900 text-white uppercase font-black tracking-wider">
+                          <th className="p-2.5">Date</th>
+                          <th className="p-2.5">Desk [Code]</th>
+                          <th className="p-2.5">JP Member</th>
+                          <th className="p-2.5 text-center">Duties</th>
+                          <th className="p-2.5 text-center">Clients</th>
+                          <th className="p-2.5 text-center">Hours</th>
+                          <th className="p-2.5 text-center">Copies</th>
+                          <th className="p-2.5 text-center">Stat Decs</th>
+                          <th className="p-2.5 text-center">Witness</th>
+                          <th className="p-2.5 text-center">Affidavits</th>
+                          <th className="p-2.5">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {filteredStatisticsList.length === 0 ? (
+                          <tr>
+                            <td colSpan={11} className="p-6 text-center text-slate-400 italic">
+                              No statistic records match your active filter criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredStatisticsList.map(stat => (
+                            <tr 
+                              key={stat.id} 
+                              onClick={() => handleOpenEditStatModal(stat)}
+                              className="hover:bg-amber-50/80 cursor-pointer transition"
+                              title="Click to view or edit this statistic log"
+                            >
+                              <td className="p-2.5 font-bold font-mono text-slate-900 whitespace-nowrap">{stat.date}</td>
+                              <td className="p-2.5 font-bold text-slate-900">
+                                <span className="bg-slate-900 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-black mr-1">{stat.deskCode}</span>
+                                <span>{stat.deskName}</span>
+                              </td>
+                              <td className="p-2.5 font-bold text-slate-900 whitespace-nowrap">
+                                <div>{stat.jpName}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{stat.warrantNumber}</div>
+                              </td>
+                              <td className="p-2.5 text-center font-bold text-slate-800">{stat.noOfJpDuties}</td>
+                              <td className="p-2.5 text-center font-black text-amber-600 bg-amber-50/50">{stat.noOfClients}</td>
+                              <td className="p-2.5 text-center font-bold text-sky-700 bg-sky-50/50">{stat.noOfHoursWorked}h</td>
+                              <td className="p-2.5 text-center font-medium text-slate-700">{stat.certifiedCopies}</td>
+                              <td className="p-2.5 text-center font-medium text-slate-700">{stat.statutoryDeclarations}</td>
+                              <td className="p-2.5 text-center font-medium text-slate-700">{stat.signatureWitnessed}</td>
+                              <td className="p-2.5 text-center font-medium text-slate-700">{stat.affidavits}</td>
+                              <td className="p-2.5 text-slate-500 italic max-w-xs truncate">{stat.notes || '-'}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: REGISTRAR GOVERNANCE PORTAL */}
             {activeTab === 'registrar' && (currentUser.role === 'Registrar' || currentUser.role === 'Admin') && (
               <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">Registrar Governance Portal</h2>
-                    <p className="text-xs text-slate-500 mt-1">Maintain master lists for JP Members, Roles, Regions, and System Permissions.</p>
+                    <p className="text-xs text-slate-500 mt-1">Maintain master lists for JP Members, Approve pending registrations, and manage Regions.</p>
                   </div>
 
                   <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
@@ -1022,13 +1805,13 @@ END:VCALENDAR`;
                   </div>
                 </div>
 
-                {/* SUBTAB 1: JP MEMBERS MANAGEMENT */}
+                {/* SUBTAB 1: JP MEMBERS & PENDING REGISTRATION APPROVAL QUEUE */}
                 {registrarSubTab === 'members' && (
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-slate-900 text-base">Association Members & Officers</h3>
-                        <p className="text-xs text-slate-500">JPs can volunteer at any service desk across the region.</p>
+                        <h3 className="font-bold text-slate-900 text-base">Association Members & Registration Queue</h3>
+                        <p className="text-xs text-slate-500">Approve pending applications or maintain active profiles.</p>
                       </div>
                       <button onClick={handleOpenAddUserModal} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
                         <UserPlus className="w-4 h-4" />
@@ -1050,7 +1833,7 @@ END:VCALENDAR`;
                         </thead>
                         <tbody className="divide-y divide-slate-200">
                           {users.map(u => (
-                            <tr key={u.id} className="hover:bg-slate-50 transition">
+                            <tr key={u.id} className={`hover:bg-slate-50 transition ${u.status === 'Pending' ? 'bg-amber-50/60' : ''}`}>
                               <td className="p-3 font-mono font-bold text-slate-900">{u.warrantNumber}</td>
                               <td className="p-3 font-bold text-slate-900">
                                 {u.fullName}
@@ -1066,17 +1849,48 @@ END:VCALENDAR`;
                                 <div className="text-[11px] text-slate-400">{u.phone}</div>
                               </td>
                               <td className="p-3">
-                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-bold text-[10px]">
-                                  {u.status}
-                                </span>
+                                {u.status === 'Pending' ? (
+                                  <span className="bg-amber-200 text-amber-900 border border-amber-400 px-2 py-0.5 rounded font-black text-[10px] uppercase animate-pulse">
+                                    Pending Approval
+                                  </span>
+                                ) : u.status === 'Approved' ? (
+                                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-bold text-[10px]">
+                                    Active / Approved
+                                  </span>
+                                ) : (
+                                  <span className="bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded font-bold text-[10px]">
+                                    Rejected
+                                  </span>
+                                )}
                               </td>
                               <td className="p-3 text-right space-x-1">
-                                <button onClick={() => handleOpenEditUserModal(u)} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 cursor-pointer" title="Edit JP Details">
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => setPendingDeleteUserId(u.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded text-rose-700 cursor-pointer" title="Delete JP Member">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                {u.status === 'Pending' ? (
+                                  <div className="flex justify-end space-x-1">
+                                    <button 
+                                      onClick={() => handleApprovePendingUser(u.id)}
+                                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] flex items-center space-x-0.5 cursor-pointer shadow-xs"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button 
+                                      onClick={() => handleRejectPendingUser(u.id)}
+                                      className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[10px] flex items-center space-x-0.5 cursor-pointer shadow-xs"
+                                    >
+                                      <X className="w-3 h-3" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button onClick={() => handleOpenEditUserModal(u)} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 cursor-pointer" title="Edit JP Details">
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => setPendingDeleteUserId(u.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded text-rose-700 cursor-pointer" title="Delete JP Member">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1166,8 +1980,432 @@ END:VCALENDAR`;
         )}
       </div>
 
+      {/* --- EDITING EXISTING STATISTIC RECORD MODAL --- */}
+      {editingStatRecord && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 border border-slate-200 my-auto max-h-[95vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Maintain Record</span>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">Edit Service Desk Statistics</h3>
+              </div>
+              <button onClick={() => setEditingStatRecord(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedStatSubmit} className="space-y-4 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 font-semibold text-slate-700">
+                <div className="text-slate-900 font-extrabold text-xs sm:text-sm">
+                  {editingStatRecord.deskName} [{editingStatRecord.deskCode}]
+                </div>
+                <div className="flex flex-wrap justify-between text-[11px] text-slate-600">
+                  <span>📅 {editingStatRecord.date}</span>
+                  <span>⏰ {editingStatRecord.startTime} - {editingStatRecord.endTime}</span>
+                </div>
+                <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
+                  JP: <span className="font-bold text-slate-800">{editingStatRecord.jpName}</span> ({editingStatRecord.warrantNumber})
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <label className="block font-bold text-slate-700 mb-1">No. of JP Duties</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="1"
+                    required 
+                    value={editStatForm.noOfJpDuties} 
+                    onChange={(e) => handleEditStatInputChange('noOfJpDuties', e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-sm bg-white" 
+                  />
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <label className="block font-bold text-slate-700 mb-1">No. of Clients</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="1"
+                    required 
+                    value={editStatForm.noOfClients} 
+                    onChange={(e) => handleEditStatInputChange('noOfClients', e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-sm bg-white" 
+                  />
+                </div>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <label className="block font-bold text-slate-700 mb-1">Hours Worked (0.00)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="0.25"
+                    required 
+                    value={editStatForm.noOfHoursWorked} 
+                    onChange={(e) => handleEditStatInputChange('noOfHoursWorked', e.target.value, true)} 
+                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-sm bg-white" 
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+                <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Document Breakdown</h4>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">Certified Copies</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      step="1"
+                      value={editStatForm.certifiedCopies} 
+                      onChange={(e) => handleEditStatInputChange('certifiedCopies', e.target.value)} 
+                      className="w-full border rounded p-2 font-bold bg-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">Statutory Declarations</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      step="1"
+                      value={editStatForm.statutoryDeclarations} 
+                      onChange={(e) => handleEditStatInputChange('statutoryDeclarations', e.target.value)} 
+                      className="w-full border rounded p-2 font-bold bg-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">Signatures Witnessed</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      step="1"
+                      value={editStatForm.signatureWitnessed} 
+                      onChange={(e) => handleEditStatInputChange('signatureWitnessed', e.target.value)} 
+                      className="w-full border rounded p-2 font-bold bg-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-slate-700 mb-1">Affidavits</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      step="1"
+                      value={editStatForm.affidavits} 
+                      onChange={(e) => handleEditStatInputChange('affidavits', e.target.value)} 
+                      className="w-full border rounded p-2 font-bold bg-white" 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block font-medium text-slate-700 mb-1">Other Duties</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      step="1"
+                      value={editStatForm.other} 
+                      onChange={(e) => handleEditStatInputChange('other', e.target.value)} 
+                      className="w-full border rounded p-2 font-bold bg-white" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Shift Notes</label>
+                <textarea 
+                  rows={3}
+                  value={editStatForm.notes} 
+                  onChange={(e) => setEditStatForm(prev => ({ ...prev, notes: e.target.value }))} 
+                  className="w-full border border-slate-300 rounded-lg p-2 text-xs" 
+                  placeholder="Optional shift notes or observations..."
+                />
+              </div>
+
+              <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-slate-100">
+                <button 
+                  type="button" 
+                  onClick={() => setConfirmDeleteStatId(editingStatRecord.id)} 
+                  className="px-4 py-2 rounded-lg font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 cursor-pointer flex items-center space-x-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Entry</span>
+                </button>
+
+                <div className="flex space-x-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setEditingStatRecord(null)} 
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2 rounded-lg font-bold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow-md cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CONFIRMATION MODAL FOR DELETIING STAT ENTRY --- */}
+      {confirmDeleteStatId && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center space-x-2 text-rose-700">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-black">Confirm Statistics Log Deletion</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to permanently delete this statistics record? This action cannot be undone and will update the master association logs immediately.
+            </p>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button 
+                onClick={() => setConfirmDeleteStatId(null)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                No / Keep Record
+              </button>
+              <button 
+                onClick={confirmDeleteStatRecord} 
+                className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer"
+              >
+                Yes / Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- CUSTOM DATE RANGE MODAL WINDOW --- */}
+      {customDateModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <h3 className="text-base font-black text-slate-900">Select Custom Date Frame</h3>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">From Date (Inclusive)</label>
+                <input 
+                  type="date" 
+                  value={customFromDate}
+                  onChange={(e) => setCustomFromDate(e.target.value)}
+                  className="w-full border border-slate-300 rounded p-2 font-bold"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">To Date (Inclusive)</label>
+                <input 
+                  type="date" 
+                  value={customToDate}
+                  onChange={(e) => setCustomToDate(e.target.value)}
+                  className="w-full border border-slate-300 rounded p-2 font-bold"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button 
+                onClick={() => setCustomDateModalOpen(false)}
+                className="px-4 py-2 bg-slate-900 text-amber-400 font-bold rounded text-xs"
+              >
+                Apply Custom Range
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- REGISTER NEW JP MEMBER POPUP MODAL --- */}
+      {registerModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Registration</span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">Register as a JP Member</h3>
+              </div>
+              <button onClick={() => setRegisterModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {registerSuccessMsg ? (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-xl text-xs space-y-2 text-center">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <h4 className="font-extrabold text-sm">Registration Submitted!</h4>
+                <p>Your details have been logged with status <b>PENDING</b>. An email notification has been dispatched to all Registrars to review and activate your account.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Full Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={registerForm.fullName}
+                    onChange={(e) => setRegisterForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg p-2 font-medium"
+                    placeholder="e.g. Margaret Smith"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={registerForm.warrantNumber}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, warrantNumber: e.target.value }))}
+                      className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold"
+                      placeholder="JP-XXXXX"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Mobile Phone</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={registerForm.phone}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full border border-slate-300 rounded-lg p-2 font-medium"
+                      placeholder="021 000 0000"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg p-2 font-medium"
+                    placeholder="e.g. margaret@ajpa.org.nz"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Create Password</label>
+                  <input 
+                    type="password" 
+                    required 
+                    value={registerForm.password}
+                    onChange={(e) => setRegisterForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg p-2 font-medium"
+                    placeholder="Minimum 6 characters"
+                  />
+                </div>
+
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={registerForm.isProvisional}
+                      onChange={(e) => setRegisterForm(prev => ({ ...prev, isProvisional: e.target.checked }))}
+                      className="rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                    />
+                    <span>Check if you are a Provisional JP</span>
+                  </label>
+                </div>
+
+                <p className="text-[10px] text-slate-400 italic">
+                  Note: Upon submission, your registration is set to Pending until verified by an AJPA Registrar.
+                </p>
+
+                <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                  <button 
+                    type="button" 
+                    onClick={() => setRegisterModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2 rounded-lg font-bold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow cursor-pointer"
+                  >
+                    Submit Registration
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- FORGOT PASSWORD PROMPT MODAL --- */}
+      {forgotModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <span className="bg-sky-500 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Account Recovery</span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">Forgot Your Password?</h3>
+              </div>
+              <button onClick={() => setForgotModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {resetLinkSent ? (
+              <div className="bg-sky-50 border border-sky-200 text-sky-900 p-4 rounded-xl text-xs space-y-3">
+                <div className="flex items-center space-x-2 font-bold text-sm text-sky-950">
+                  <Mail className="w-5 h-5 text-sky-600 shrink-0" />
+                  <span>Password Reset Email Dispatched!</span>
+                </div>
+                <p>An email containing a secure password change link has been sent to <b>{resetEmail}</b>.</p>
+                <div className="pt-2 border-t border-sky-200 flex justify-between items-center">
+                  <span className="text-[10px] text-sky-700 italic">Demo shortcut: Click link below to open change screen</span>
+                  <button 
+                    onClick={handleSimulateOpenResetLink}
+                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded text-[11px] cursor-pointer"
+                  >
+                    Open Reset Link &rarr;
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSendResetLink} className="space-y-4 text-xs">
+                <p className="text-slate-600">Enter your registered email address below. We will send you an email with instructions and a link to reset your password.</p>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Registered Email Address</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-medium"
+                    placeholder="e.g. robert@ajpa.org.nz"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                  <button 
+                    type="button" 
+                    onClick={() => setForgotModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2 rounded-lg font-bold bg-sky-600 text-white hover:bg-sky-700 shadow cursor-pointer flex items-center space-x-1"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Reset Email</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* --- SLOT DETAILS MODAL WINDOW --- */}
-      {detailedSlotModal && (
+      {detailedSlotModal && currentUser && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-200">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
@@ -1296,7 +2534,7 @@ END:VCALENDAR`;
       )}
 
       {/* --- LOG STATS MODAL WINDOW --- */}
-      {logStatsOccurrence && (
+      {logStatsOccurrence && currentUser && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 border border-slate-200 my-auto max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
