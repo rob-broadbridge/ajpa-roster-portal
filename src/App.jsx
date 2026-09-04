@@ -5,7 +5,8 @@ import {
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
   LogOut, Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
   Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info, HelpCircle, Star,
-  Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Settings, Database
+  Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Settings, Database,
+  Eye, EyeOff
 } from 'lucide-react';
 
 // --- MASTER REGIONS LIST ---
@@ -192,7 +193,11 @@ export default function App() {
   // AUTH SCREEN MODALS & FORMS
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  // PENDING MEMBERS REGISTRAR POPUP
+  const [pendingMembersNoticeCount, setPendingMembersNoticeCount] = useState(0);
 
   // Sign Up Modal State
   const [signUpModalOpen, setSignUpModalOpen] = useState(false);
@@ -291,7 +296,7 @@ export default function App() {
   });
   const [slotValidationError, setSlotValidationError] = useState('');
   const [pendingDeleteSlotId, setPendingDeleteSlotId] = useState(null);
-  const [slotActionConfirm, setSlotActionConfirm] = useState(null); // 'SAVE' | 'CANCEL' | 'DELETE'
+  const [slotActionConfirm, setSlotActionConfirm] = useState(null);
 
   // SERVICE DESK MODALS WITH EXPANDED ADMIN & SITE CONTACT FIELDS
   const [createDeskModalOpen, setCreateDeskModalOpen] = useState(false);
@@ -347,6 +352,40 @@ export default function App() {
     }, {});
   }, [users]);
 
+  const sortedUsersForRegistrar = useMemo(() => {
+    const parseName = (fullName) => {
+      const cleanName = fullName.replace(/\s*\((?:JP|A|R)\)\s*/g, '').trim();
+      const parts = cleanName.split(/\s+/);
+      if (parts.length === 1) {
+        return { firstName: parts[0], lastName: '' };
+      }
+      const lastName = parts.pop();
+      const firstName = parts.join(' ');
+      return { firstName, lastName };
+    };
+
+    const pending = users.filter(u => u.status === 'Pending');
+    const nonPending = users.filter(u => u.status !== 'Pending');
+
+    const sortFn = (a, b) => {
+      const nameA = parseName(a.fullName);
+      const nameB = parseName(b.fullName);
+
+      const lastNameCompare = nameA.lastName.localeCompare(nameB.lastName, undefined, { sensitivity: 'base' });
+      if (lastNameCompare !== 0) return lastNameCompare;
+
+      const firstNameCompare = nameA.firstName.localeCompare(nameB.firstName, undefined, { sensitivity: 'base' });
+      if (firstNameCompare !== 0) return firstNameCompare;
+
+      return (a.warrantNumber || '').localeCompare(b.warrantNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+    };
+
+    pending.sort(sortFn);
+    nonPending.sort(sortFn);
+
+    return [...pending, ...nonPending];
+  }, [users]);
+
   const activeDeskMap = useMemo(() => {
     return serviceDesks.reduce((acc, desk) => {
       acc[desk.id] = desk;
@@ -362,7 +401,6 @@ export default function App() {
     return serviceDesks.filter(d => d.status === 'Archived');
   }, [serviceDesks]);
 
-  // --- REGISTRAR: MASTER SYSTEM DATA CSV EXPORTER ENGINE ---
   const handleExecuteFullDataDownload = () => {
     setConfirmDownloadModalOpen(false);
 
@@ -398,35 +436,19 @@ export default function App() {
       return [headers.join(','), ...rows].join('\n');
     };
 
-    // FILE 1: INITIAL_REGIONS
-    const file1Headers = ['id', 'name', 'code'];
-    triggerDownload(`${timestamp}_1.csv`, convertToCsv(regions, file1Headers));
-
-    // FILE 2: INITIAL_USERS
-    const file2Headers = ['id', 'fullName', 'email', 'password', 'phone', 'warrantNumber', 'role', 'isProvisional', 'status'];
-    triggerDownload(`${timestamp}_2.csv`, convertToCsv(users, file2Headers));
-
-    // FILE 3: INITIAL_SERVICE_DESKS
-    const file3Headers = ['id', 'code', 'name', 'address', 'region', 'primaryAdminId', 'secondaryAdminId', 'siteContactName', 'siteContactEmail', 'contactPerson', 'notes', 'status'];
-    triggerDownload(`${timestamp}_3.csv`, convertToCsv(serviceDesks, file3Headers));
-
-    // FILE 4: INITIAL_SLOT_TEMPLATES
-    const file4Headers = ['id', 'deskId', 'dayOfWeek', 'startTime', 'endTime', 'minJps', 'targetJps', 'maxJps', 'status', 'effectiveFromDate'];
-    triggerDownload(`${timestamp}_4.csv`, convertToCsv(slotTemplates, file4Headers));
-
-    // FILE 5: INITIAL_ASSIGNMENTS
+    triggerDownload(`${timestamp}_1.csv`, convertToCsv(regions, ['id', 'name', 'code']));
+    triggerDownload(`${timestamp}_2.csv`, convertToCsv(users, ['id', 'fullName', 'email', 'password', 'phone', 'warrantNumber', 'role', 'isProvisional', 'status']));
+    triggerDownload(`${timestamp}_3.csv`, convertToCsv(serviceDesks, ['id', 'code', 'name', 'address', 'region', 'primaryAdminId', 'secondaryAdminId', 'siteContactName', 'siteContactEmail', 'contactPerson', 'notes', 'status']));
+    triggerDownload(`${timestamp}_4.csv`, convertToCsv(slotTemplates, ['id', 'deskId', 'dayOfWeek', 'startTime', 'endTime', 'minJps', 'targetJps', 'maxJps', 'status', 'effectiveFromDate']));
+    
     const assignmentsArray = Object.entries(slotAssignments).map(([instanceKey, assignedJpIds]) => ({
       instanceKey,
       assignedJpIds: JSON.stringify(assignedJpIds)
     }));
     triggerDownload(`${timestamp}_5.csv`, convertToCsv(assignmentsArray, ['instanceKey', 'assignedJpIds']));
-
-    // FILE 6: INITIAL_LOGGED_STATISTICS
-    const file6Headers = ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes'];
-    triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, file6Headers));
+    triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes']));
   };
 
-  // --- AUTH HANDLERS ---
   const handleLoginSubmit = (e) => {
     e.preventDefault();
     setLoginError('');
@@ -457,7 +479,17 @@ export default function App() {
     setIsAuthenticated(true);
     setLoginEmail('');
     setLoginPassword('');
-    setActiveTab('calendar');
+
+    if (foundUser.role === 'Registrar') {
+      const pendingCount = users.filter(u => u.status === 'Pending').length;
+      if (pendingCount > 0) {
+        setPendingMembersNoticeCount(pendingCount);
+      } else {
+        setActiveTab('calendar');
+      }
+    } else {
+      setActiveTab('calendar');
+    }
   };
 
   const handleQuickDemoLogin = (role) => {
@@ -466,8 +498,24 @@ export default function App() {
       setCurrentUser(demoUser);
       setIsAuthenticated(true);
       setLoginError('');
-      setActiveTab('calendar');
+
+      if (demoUser.role === 'Registrar') {
+        const pendingCount = users.filter(u => u.status === 'Pending').length;
+        if (pendingCount > 0) {
+          setPendingMembersNoticeCount(pendingCount);
+        } else {
+          setActiveTab('calendar');
+        }
+      } else {
+        setActiveTab('calendar');
+      }
     }
+  };
+
+  const handleDismissPendingNoticeAndGoToRegistrar = () => {
+    setPendingMembersNoticeCount(0);
+    setActiveTab('registrar');
+    setRegistrarSubTab('members');
   };
 
   const handleSignUpSubmit = (e) => {
@@ -551,7 +599,6 @@ export default function App() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Rejected' } : u));
   };
 
-  // --- CLIENT-SIDE DATA VALIDATION ENGINE FOR SLOT TEMPLATES ---
   const validateSlotForm = (form) => {
     const { startTime, endTime, minJps, targetJps, maxJps } = form;
 
@@ -572,11 +619,11 @@ export default function App() {
     }
 
     if (minJps > targetJps) {
-      return `Minimum JPs (${minJps}) cannot exceed Target JPs (${targetJps}). Rule: Min JPs \u2264 Target JPs \u2264 Max JPs.`;
+      return `Minimum JPs (${minJps}) cannot exceed Target JPs (${targetJps}). Rule: Min JPs ≤ Target JPs ≤ Max JPs.`;
     }
 
     if (targetJps > maxJps) {
-      return `Target JPs (${targetJps}) cannot exceed Max JPs Capacity (${maxJps}). Rule: Min JPs \u2264 Target JPs \u2264 Max JPs.`;
+      return `Target JPs (${targetJps}) cannot exceed Max JPs Capacity (${maxJps}). Rule: Min JPs ≤ Target JPs ≤ Max JPs.`;
     }
 
     return null;
@@ -586,7 +633,6 @@ export default function App() {
     return validateSlotForm(slotForm);
   }, [slotForm]);
 
-  // --- SLOT MANAGEMENT HANDLERS & CONFIRMATION ENGINE ---
   const handleOpenAddSlotModal = (targetDeskId = null) => {
     setEditingSlotId(null);
     setSlotValidationError('');
@@ -669,7 +715,6 @@ export default function App() {
     setPendingDeleteSlotId(null);
   };
 
-  // --- STATISTICS FILTERING ENGINE ---
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
 
@@ -730,7 +775,6 @@ export default function App() {
     });
   }, [loggedStatistics, currentUser, statsRegionFilter, statsDeskFilter, statsJpFilter, statsDatePreset, customFromDate, customToDate]);
 
-  // --- CSV DOWNLOAD EXPORTER ---
   const handleDownloadCsv = () => {
     if (filteredStatisticsList.length === 0) {
       alert('No statistics available to export for the selected filter range.');
@@ -763,7 +807,6 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // --- EDIT EXISTING STAT RECORD HANDLERS ---
   const handleOpenEditStatModal = (statRecord) => {
     setEditingStatRecord(statRecord);
     setEditStatForm({
@@ -815,7 +858,6 @@ export default function App() {
     setEditingStatRecord(null);
   };
 
-  // --- SERVICE DESKS GROUPED BY REGION & ALPHABETIZED ---
   const groupedServiceDesks = useMemo(() => {
     const list = deskViewFilter === 'Active' ? activeDesksList : archivedDesksList;
     const filteredByRegion = list.filter(d => selectedDeskRegions.includes(d.region));
@@ -841,7 +883,6 @@ export default function App() {
     return grouped;
   }, [deskViewFilter, activeDesksList, archivedDesksList, selectedDeskRegions, regions]);
 
-  // --- AUTOMATIC 12-WEEK ROLLING CALENDAR ENGINE ---
   const rolling12Weeks = useMemo(() => {
     const weeks = [];
     const dayNameMap = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 0: 'Sunday' };
@@ -920,7 +961,6 @@ export default function App() {
     return instances;
   }, [rolling12Weeks, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap]);
 
-  // --- LOG STATS MODAL HANDLERS ---
   const handleOpenLogStatsModal = (occ, e) => {
     if (e) e.stopPropagation();
     setLogStatsOccurrence(occ);
@@ -935,12 +975,12 @@ export default function App() {
 
     setStatsForm({
       noOfJpDuties: 1,
-      noOfClients: 5,
+      noOfClients: 0,
       noOfHoursWorked: defaultHours,
-      certifiedCopies: 8,
-      statutoryDeclarations: 3,
-      signatureWitnessed: 2,
-      affidavits: 1,
+      certifiedCopies: 0,
+      statutoryDeclarations: 0,
+      signatureWitnessed: 0,
+      affidavits: 0,
       other: 0,
       notes: ''
     });
@@ -991,7 +1031,6 @@ export default function App() {
     setTimeout(() => setStatsSuccessToast(false), 4000);
   };
 
-  // --- REGISTRATION & CALENDAR EXPORT ---
   const handleDirectRegister = (occurrence, e) => {
     if (e) e.stopPropagation();
 
@@ -1056,7 +1095,6 @@ END:VCALENDAR`;
     document.body.removeChild(link);
   };
 
-  // --- REGISTRAR: JP MEMBER HANDLERS ---
   const handleOpenAddUserModal = () => {
     setEditingUserId(null);
     setUserForm({
@@ -1106,7 +1144,6 @@ END:VCALENDAR`;
     setPendingDeleteUserId(null);
   };
 
-  // --- REGISTRAR: MASTER REGION HANDLERS ---
   const handleOpenAddRegionModal = () => {
     setEditingRegionId(null);
     setRegionForm({ name: '', code: '' });
@@ -1148,7 +1185,6 @@ END:VCALENDAR`;
     setPendingDeleteRegionId(null);
   };
 
-  // --- SERVICE DESK HANDLERS ---
   const handleCreateDeskSubmit = (e) => {
     e.preventDefault();
 
@@ -1250,6 +1286,40 @@ END:VCALENDAR`;
           <button onClick={() => setEmailAlert(null)} className="text-purple-300 hover:text-white font-bold p-1">
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* REGISTRAR PENDING MEMBERS POPUP NOTICE */}
+      {pendingMembersNoticeCount > 0 && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border-2 border-amber-500 animate-fade-in">
+            <div className="flex items-center space-x-3 border-b border-slate-100 pb-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-900 flex items-center justify-center shrink-0 font-extrabold">
+                <Users className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Pending JP Member Applications</h3>
+                <p className="text-[11px] text-slate-500 font-bold">Registrar Portal Alert</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-700 leading-relaxed font-medium">
+              There {pendingMembersNoticeCount === 1 ? 'is' : 'are'}{' '}
+              <span className="font-black text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                {pendingMembersNoticeCount} pending new JP Member {pendingMembersNoticeCount === 1 ? 'application' : 'applications'}
+              </span>{' '}
+              awaiting your review and approval.
+            </p>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <button
+                onClick={handleDismissPendingNoticeAndGoToRegistrar}
+                className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold rounded-lg text-xs uppercase tracking-wider shadow transition cursor-pointer flex items-center justify-center space-x-1"
+              >
+                <span>Ok</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1360,7 +1430,6 @@ END:VCALENDAR`;
           ) : (
             /* STANDARD LANDING / LOGIN SCREEN OR HELP TAB WHEN UNAUTHENTICATED */
             <div className="space-y-6 max-w-4xl mx-auto">
-              {/* TOP NAVIGATION FOR UNAUTHENTICATED USERS TO SWITCH TO HELP */}
               <div className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 flex flex-wrap gap-2 justify-end">
                 <button 
                   onClick={() => setShowUnauthHelp(!showUnauthHelp)} 
@@ -1374,7 +1443,6 @@ END:VCALENDAR`;
               </div>
 
               {showUnauthHelp ? (
-                /* HELP VIEW FOR UNAUTHENTICATED USERS */
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
                   <div className="border-b border-slate-200 pb-4">
                     <span className="bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-1 rounded uppercase tracking-wider">Help & Guidelines</span>
@@ -1409,7 +1477,6 @@ END:VCALENDAR`;
                   </div>
                 </div>
               ) : (
-                /* MAIN LOGIN / LANDING SCREEN */
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
                   <div className="md:col-span-7 space-y-5">
                     <span className="bg-amber-100 text-amber-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
@@ -1433,7 +1500,6 @@ END:VCALENDAR`;
                       </div>
                     </div>
 
-                    {/* DEMO QUICK ACCESS ROLES */}
                     <div className="bg-slate-200/70 p-4 rounded-xl border border-slate-300/80 space-y-2">
                       <span className="text-[11px] font-black uppercase text-slate-600 tracking-wider block">
                         Demo Fast Access (Click to test roles):
@@ -1452,7 +1518,6 @@ END:VCALENDAR`;
                     </div>
                   </div>
 
-                  {/* LOGIN CARD */}
                   <div className="md:col-span-5 bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5">
                     <div className="border-b border-slate-100 pb-4">
                       <h3 className="text-xl font-black text-slate-900">Sign In to Your Account</h3>
@@ -1500,13 +1565,21 @@ END:VCALENDAR`;
                         <div className="relative">
                           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                           <input 
-                            type="password" 
+                            type={showPassword ? 'text' : 'password'} 
                             required 
                             value={loginPassword}
                             onChange={(e) => setLoginPassword(e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
+                            className="w-full border border-slate-300 rounded-lg pl-9 pr-10 p-2.5 text-sm font-medium"
                             placeholder="••••••••"
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                            title={showPassword ? "Hide Password" : "Show Password"}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
                         </div>
                       </div>
 
@@ -1582,7 +1655,6 @@ END:VCALENDAR`;
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 text-xs">
-                    {/* REGION FILTER */}
                     <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300">
                       <Globe className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span className="font-bold text-slate-600">Region:</span>
@@ -1598,7 +1670,6 @@ END:VCALENDAR`;
                       </select>
                     </div>
 
-                    {/* DESK FILTER */}
                     <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300">
                       <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                       <span className="font-bold text-slate-600">Desk:</span>
@@ -1679,7 +1750,6 @@ END:VCALENDAR`;
                                         <span>{occ.startTime} - {occ.endTime}</span>
                                       </div>
 
-                                      {/* ACTION BUTTONS CONTAINER */}
                                       <div className="pt-1.5 border-t border-slate-200/60 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                                         {isRegistered ? (
                                           <>
@@ -1768,7 +1838,6 @@ END:VCALENDAR`;
                     </div>
                   </div>
 
-                  {/* MULTI-REGION SELECTION BAR */}
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center space-x-1.5">
@@ -1805,7 +1874,6 @@ END:VCALENDAR`;
                   </div>
                 </div>
 
-                {/* GROUPED SERVICE DESKS */}
                 {Object.entries(groupedServiceDesks).map(([regionName, desks]) => {
                   const regionObj = regions.find(r => r.name === regionName) || { code: 'AKL' };
 
@@ -2060,30 +2128,36 @@ END:VCALENDAR`;
             {activeTab === 'my-shifts' && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                 <h2 className="text-xl font-bold text-slate-900">My Registered Roster Shifts</h2>
-                {generatedOccurrences.filter(o => o.assignedJpIds.includes(currentUser.id)).map(occ => {
-                  const desk = activeDeskMap[occ.deskId] || {};
-                  return (
-                    <div key={occ.instanceKey} onClick={() => setDetailedSlotModal(occ)} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-slate-100 transition">
-                      <div>
-                        <h3 className="font-bold text-slate-900 flex items-center space-x-2">
-                          <span className="bg-slate-900 text-amber-400 text-xs px-2 py-0.5 rounded font-black">{desk.code || 'JP'}</span>
-                          <span>{desk.name}</span>
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-1">{occ.formattedDate} • {occ.startTime} - {occ.endTime}</p>
+                {generatedOccurrences.filter(o => o.assignedJpIds.includes(currentUser.id)).length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
+                    You have not registered for any shifts yet.
+                  </div>
+                ) : (
+                  generatedOccurrences.filter(o => o.assignedJpIds.includes(currentUser.id)).map(occ => {
+                    const desk = activeDeskMap[occ.deskId] || {};
+                    return (
+                      <div key={occ.instanceKey} onClick={() => setDetailedSlotModal(occ)} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-slate-100 transition">
+                        <div>
+                          <h3 className="font-bold text-slate-900 flex items-center space-x-2">
+                            <span className="bg-slate-900 text-amber-400 text-xs px-2 py-0.5 rounded font-black">{desk.code || 'JP'}</span>
+                            <span>{desk.name}</span>
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-1">{occ.formattedDate} • {occ.startTime} - {occ.endTime}</p>
+                        </div>
+                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={(e) => handleOpenLogStatsModal(occ, e)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer">
+                            <BarChart2 className="w-3.5 h-3.5" />
+                            <span>Log Stats</span>
+                          </button>
+                          <button onClick={(e) => generateIcsFile(occ, e)} className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer">
+                            <CalendarPlus className="w-3.5 h-3.5" />
+                            <span>Add to Cal</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={(e) => handleOpenLogStatsModal(occ, e)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer">
-                          <BarChart2 className="w-3.5 h-3.5" />
-                          <span>Log Stats</span>
-                        </button>
-                        <button onClick={(e) => generateIcsFile(occ, e)} className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer">
-                          <CalendarPlus className="w-3.5 h-3.5" />
-                          <span>Add to Cal</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             )}
 
@@ -2296,7 +2370,7 @@ END:VCALENDAR`;
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="font-bold text-slate-900 text-base">Association Members & Sign-up Queue</h3>
-                        <p className="text-xs text-slate-500">Approve pending applications or maintain active profiles.</p>
+                        <p className="text-xs text-slate-500">Approve pending applications or maintain active profiles. Pending members appear at the top, followed by members sorted by surname, first name, and JP number.</p>
                       </div>
                       <button onClick={handleOpenAddUserModal} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
                         <UserPlus className="w-4 h-4" />
@@ -2317,8 +2391,8 @@ END:VCALENDAR`;
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                          {users.map(u => (
-                            <tr key={u.id} className={`hover:bg-slate-50 transition ${u.status === 'Pending' ? 'bg-amber-50/60' : ''}`}>
+                          {sortedUsersForRegistrar.map(u => (
+                            <tr key={u.id} className={`hover:bg-slate-50 transition ${u.status === 'Pending' ? 'bg-amber-50/80 border-l-4 border-amber-500' : ''}`}>
                               <td className="p-3 font-mono font-bold text-slate-900">{u.warrantNumber}</td>
                               <td className="p-3 font-bold text-slate-900">
                                 {u.fullName}
@@ -2542,7 +2616,6 @@ END:VCALENDAR`;
                 </div>
 
                 <div className="space-y-6 text-xs text-slate-700">
-                  {/* --- JP MEMBER HELP SECTION (AVAILABLE TO ALL LOGGED IN ROLES) --- */}
                   <div className="space-y-4">
                     <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wide border-b border-amber-200 pb-1 text-amber-800">
                       JP Member Core Instructions
@@ -2611,7 +2684,6 @@ END:VCALENDAR`;
                     </div>
                   </div>
 
-                  {/* --- DESK ADMIN HELP SECTION --- */}
                   {(currentUser.role === 'Admin' || currentUser.role === 'Registrar') && (
                     <div className="space-y-4 pt-4 border-t border-slate-200">
                       <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wide border-b border-sky-200 pb-1 text-sky-800 flex items-center space-x-2">
@@ -2658,7 +2730,6 @@ END:VCALENDAR`;
                     </div>
                   )}
 
-                  {/* --- REGISTRAR HELP SECTION --- */}
                   {currentUser.role === 'Registrar' && (
                     <div className="space-y-4 pt-4 border-t border-slate-200">
                       <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wide border-b border-purple-200 pb-1 text-purple-900 flex items-center space-x-2">
@@ -2699,16 +2770,7 @@ END:VCALENDAR`;
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
                           <li>Go to <b>Registrar Portal</b> and click <b>"Download Data (CSV Archive)"</b>.</li>
                           <li>Confirm the action in the prompt modal window.</li>
-                          <li>The system will automatically generate and download <b>6 separate timestamped CSV files</b> containing all system datasets:
-                            <ul className="list-disc pl-5 mt-1 text-[11px] font-mono text-slate-600">
-                              <li>Regions (_1.csv)</li>
-                              <li>Users (_2.csv)</li>
-                              <li>Service Desks (_3.csv)</li>
-                              <li>Slot Templates (_4.csv)</li>
-                              <li>Slot Assignments (_5.csv)</li>
-                              <li>Logged Statistics (_6.csv)</li>
-                            </ul>
-                          </li>
+                          <li>The system will automatically generate and download <b>6 separate timestamped CSV files</b> containing all system datasets.</li>
                         </ol>
                       </div>
                     </div>
@@ -3315,363 +3377,52 @@ END:VCALENDAR`;
       {/* --- CUSTOM DATE RANGE MODAL WINDOW --- */}
       {customDateModalOpen && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-base font-black text-slate-900">Select Custom Date Frame</h3>
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Select Custom Date Range</h3>
+              <button onClick={() => setCustomDateModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">From Date (Inclusive)</label>
+                <label className="block font-bold text-slate-700 mb-1">From Date</label>
                 <input 
                   type="date" 
-                  value={customFromDate}
-                  onChange={(e) => setCustomFromDate(e.target.value)}
-                  className="w-full border border-slate-300 rounded p-2 font-bold"
+                  value={customFromDate} 
+                  onChange={(e) => setCustomFromDate(e.target.value)} 
+                  className="w-full border rounded p-2 font-bold bg-white" 
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">To Date (Inclusive)</label>
+                <label className="block font-bold text-slate-700 mb-1">To Date</label>
                 <input 
                   type="date" 
-                  value={customToDate}
-                  onChange={(e) => setCustomToDate(e.target.value)}
-                  className="w-full border border-slate-300 rounded p-2 font-bold"
+                  value={customToDate} 
+                  onChange={(e) => setCustomToDate(e.target.value)} 
+                  className="w-full border rounded p-2 font-bold bg-white" 
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button 
-                onClick={() => setCustomDateModalOpen(false)}
-                className="px-4 py-2 bg-slate-900 text-amber-400 font-bold rounded text-xs cursor-pointer"
-              >
-                Apply Custom Range
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button onClick={() => setCustomDateModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-amber-400 cursor-pointer">
+                Apply Date Range
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- SIGN UP NEW JP MEMBER POPUP MODAL --- */}
-      {signUpModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Account Creation</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">Sign up as a JP Member</h3>
-              </div>
-              <button onClick={() => setSignUpModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {signUpSuccessMsg ? (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-xl text-xs space-y-2 text-center">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <h4 className="font-extrabold text-sm">Sign-up Submitted!</h4>
-                <p>Your details have been logged with status <b>PENDING</b>. An email notification has been dispatched to all Registrars to review and activate your account.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSignUpSubmit} className="space-y-3 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Full Name</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={signUpForm.fullName}
-                    onChange={(e) => setSignUpForm(prev => ({ ...prev, fullName: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-medium"
-                    placeholder="e.g. Margaret Smith"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={signUpForm.warrantNumber}
-                      onChange={(e) => setSignUpForm(prev => ({ ...prev, warrantNumber: e.target.value }))}
-                      className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold"
-                      placeholder="JP-XXXXX"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Mobile Phone</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={signUpForm.phone}
-                      onChange={(e) => setSignUpForm(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full border border-slate-300 rounded-lg p-2 font-medium"
-                      placeholder="021 000 0000"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Email Address</label>
-                  <input 
-                    type="email" 
-                    required 
-                    value={signUpForm.email}
-                    onChange={(e) => setSignUpForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-medium"
-                    placeholder="e.g. margaret@ajpa.org.nz"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Create Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={signUpForm.password}
-                    onChange={(e) => setSignUpForm(prev => ({ ...prev, password: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg p-2 font-medium"
-                    placeholder="Minimum 6 characters"
-                  />
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={signUpForm.isProvisional}
-                      onChange={(e) => setSignUpForm(prev => ({ ...prev, isProvisional: e.target.checked }))}
-                      className="rounded border-slate-300 text-amber-500 focus:ring-amber-400"
-                    />
-                    <span>Check if you are a Provisional JP</span>
-                  </label>
-                </div>
-
-                <p className="text-[10px] text-slate-400 italic">
-                  Note: Upon submission, your account is set to Pending until verified by an AJPA Registrar.
-                </p>
-
-                <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-                  <button 
-                    type="button" 
-                    onClick={() => setSignUpModalOpen(false)}
-                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-5 py-2 rounded-lg font-bold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow cursor-pointer"
-                  >
-                    Submit Sign-up
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* --- FORGOT PASSWORD PROMPT MODAL --- */}
-      {forgotModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <span className="bg-sky-500 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Account Recovery</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">Forgot Your Password?</h3>
-              </div>
-              <button onClick={() => setForgotModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {resetLinkSent ? (
-              <div className="bg-sky-50 border border-sky-200 text-sky-900 p-4 rounded-xl text-xs space-y-3">
-                <div className="flex items-center space-x-2 font-bold text-sm text-sky-950">
-                  <Mail className="w-5 h-5 text-sky-600 shrink-0" />
-                  <span>Password Reset Email Dispatched!</span>
-                </div>
-                <p>An email containing a secure password change link has been sent to <b>{resetEmail}</b>.</p>
-                <div className="pt-2 border-t border-sky-200 flex justify-between items-center">
-                  <span className="text-[10px] text-sky-700 italic">Demo shortcut: Click link below to open change screen</span>
-                  <button 
-                    onClick={handleSimulateOpenResetLink}
-                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded text-[11px] cursor-pointer"
-                  >
-                    Open Reset Link &rrArr;
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSendResetLink} className="space-y-4 text-xs">
-                <p className="text-slate-600">Enter your registered email address below. We will send you an email with instructions and a link to reset your password.</p>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Registered Email Address</label>
-                  <input 
-                    type="email" 
-                    required 
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-medium"
-                    placeholder="e.g. rob@broadbridge.co.nz"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-                  <button 
-                    type="button" 
-                    onClick={() => setForgotModalOpen(false)}
-                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="px-5 py-2 rounded-lg font-bold bg-sky-600 text-white hover:bg-sky-700 shadow cursor-pointer flex items-center space-x-1"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send Reset Email</span>
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* --- SLOT DETAILS MODAL WINDOW --- */}
-      {detailedSlotModal && currentUser && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 border border-slate-200">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <span className="bg-slate-900 text-amber-400 text-xs font-black px-2 py-0.5 rounded uppercase">
-                  {activeDeskMap[detailedSlotModal.deskId]?.code || 'JP'}
-                </span>
-                <h3 className="text-lg font-extrabold text-slate-900 mt-1">
-                  {activeDeskMap[detailedSlotModal.deskId]?.name || 'Service Desk'}
-                </h3>
-                <p className="text-xs text-slate-500 flex items-center space-x-1 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                  <span>{activeDeskMap[detailedSlotModal.deskId]?.address}</span>
-                </p>
-              </div>
-              <button onClick={() => setDetailedSlotModal(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400">Day & Date</span>
-                <span className="text-slate-900 font-bold">{detailedSlotModal.fullDayName}, {detailedSlotModal.formattedDate}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400">Shift Time</span>
-                <span className="text-slate-900 font-bold">{detailedSlotModal.startTime} - {detailedSlotModal.endTime}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400">Region</span>
-                <span className="text-slate-900 font-bold">{activeDeskMap[detailedSlotModal.deskId]?.region}</span>
-              </div>
-              <div>
-                <span className="block text-[10px] uppercase font-bold text-slate-400">Capacity Status</span>
-                <span className="text-slate-900 font-bold">{detailedSlotModal.assignedJpIds.length} / {detailedSlotModal.targetJps} JPs Assigned</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center justify-between">
-                <span>Registered JP Members</span>
-                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono text-[10px]">
-                  {detailedSlotModal.assignedJpIds.length} Person(s)
-                </span>
-              </h4>
-
-              <div className="bg-slate-50 rounded-xl border border-slate-200 p-2 space-y-1.5 max-h-36 overflow-y-auto">
-                {detailedSlotModal.assignedJpIds.length === 0 ? (
-                  <div className="text-xs text-slate-400 italic py-2 text-center">No JPs registered for this shift yet</div>
-                ) : (
-                  detailedSlotModal.assignedJpIds.map(jpId => {
-                    const member = userMap[jpId] || { fullName: 'Registered JP', warrantNumber: 'JP-MEMBER', email: 'jp@broadbridge.co.nz' };
-                    return (
-                      <div key={jpId} className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between items-center text-xs">
-                        <div>
-                          <div className="font-bold text-slate-900">{member.fullName}</div>
-                          <div className="text-[10px] text-slate-500">{member.warrantNumber} • {member.email}</div>
-                        </div>
-                        {jpId === currentUser.id && (
-                          <span className="bg-amber-100 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">You</span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-              {detailedSlotModal.assignedJpIds.includes(currentUser.id) ? (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      type="button" 
-                      onClick={(e) => {
-                        setDetailedSlotModal(null);
-                        handleOpenLogStatsModal(detailedSlotModal, e);
-                      }} 
-                      className="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-black text-xs uppercase shadow flex items-center justify-center space-x-1 cursor-pointer"
-                    >
-                      <BarChart2 className="w-3.5 h-3.5" />
-                      <span>Log Stats</span>
-                    </button>
-
-                    <button 
-                      type="button" 
-                      onClick={(e) => generateIcsFile(detailedSlotModal, e)} 
-                      className="py-2 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-black text-xs uppercase shadow flex items-center justify-center space-x-1 cursor-pointer"
-                    >
-                      <CalendarPlus className="w-3.5 h-3.5" />
-                      <span>Add to Cal</span>
-                    </button>
-                  </div>
-
-                  <button 
-                    type="button" 
-                    onClick={(e) => {
-                      handleDirectRegister(detailedSlotModal, e);
-                      setDetailedSlotModal(null);
-                    }} 
-                    className="w-full py-2.5 rounded-lg font-black text-xs uppercase shadow transition flex items-center justify-center space-x-1 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    <span>Withdraw From Shift</span>
-                  </button>
-                </>
-              ) : (
-                <button 
-                  type="button" 
-                  onClick={(e) => {
-                    handleDirectRegister(detailedSlotModal, e);
-                    setDetailedSlotModal(null);
-                  }} 
-                  className="w-full py-2.5 rounded-lg font-black text-xs uppercase shadow transition flex items-center justify-center space-x-1 bg-slate-900 hover:bg-slate-800 text-amber-400 cursor-pointer"
-                >
-                  <UserCheck className="w-4 h-4" />
-                  <span>Register For Shift</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- LOG STATS MODAL WINDOW --- */}
-      {logStatsOccurrence && currentUser && (
+      {/* --- LOG STATS MODAL WINDOW FOR JP DUTY SHIFTS --- */}
+      {logStatsOccurrence && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 border border-slate-200 my-auto max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Official Log</span>
-                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">Log Service Desk Statistics</h3>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Shift Completion Log</span>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">Log Shift Service Statistics</h3>
               </div>
               <button onClick={() => setLogStatsOccurrence(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
@@ -3679,16 +3430,13 @@ END:VCALENDAR`;
             </div>
 
             <form onSubmit={handleSaveStatsSubmit} className="space-y-4 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 font-semibold text-slate-700">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 font-semibold text-slate-700">
                 <div className="text-slate-900 font-extrabold text-xs sm:text-sm">
-                  {activeDeskMap[logStatsOccurrence.deskId]?.name || 'Service Desk'}
+                  {activeDeskMap[logStatsOccurrence.deskId]?.name} [{activeDeskMap[logStatsOccurrence.deskId]?.code}]
                 </div>
                 <div className="flex flex-wrap justify-between text-[11px] text-slate-600">
                   <span>📅 {logStatsOccurrence.formattedDate}</span>
                   <span>⏰ {logStatsOccurrence.startTime} - {logStatsOccurrence.endTime}</span>
-                </div>
-                <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
-                  JP: <span className="font-bold text-slate-800">{currentUser.fullName}</span> ({currentUser.warrantNumber})
                 </div>
               </div>
 
@@ -3803,17 +3551,17 @@ END:VCALENDAR`;
                 />
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
                 <button 
                   type="button" 
                   onClick={() => setLogStatsOccurrence(null)} 
-                  className="px-4 py-2.5 rounded-lg font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+                  className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2.5 rounded-lg font-bold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow-md cursor-pointer"
+                  className="px-5 py-2 rounded-lg font-bold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow-md cursor-pointer"
                 >
                   Save Statistics Log
                 </button>
@@ -3823,77 +3571,185 @@ END:VCALENDAR`;
         </div>
       )}
 
-      {/* --- ADD / EDIT JP USER MODAL --- */}
-      {userModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">{editingUserId ? 'Maintain JP Member Profile' : 'Add New JP Member'}</h3>
-            <form onSubmit={handleSaveUserSubmit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Full Name</label>
-                  <input type="text" required value={userForm.fullName} onChange={(e) => setUserForm(prev => ({ ...prev, fullName: e.target.value }))} className="w-full border rounded p-2" />
+      {/* --- DETAILED SHIFT OCCURRENCE MODAL --- */}
+      {detailedSlotModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <span className="bg-slate-900 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded uppercase mr-2">
+                  {activeDeskMap[detailedSlotModal.deskId]?.code || 'JP'}
+                </span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Shift Details</span>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-1">{activeDeskMap[detailedSlotModal.deskId]?.name}</h3>
+              </div>
+              <button onClick={() => setDetailedSlotModal(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                <div className="flex justify-between">
+                  <span className="font-bold text-slate-600">Date & Day:</span>
+                  <span className="font-extrabold text-slate-900">{detailedSlotModal.fullDayName}, {detailedSlotModal.formattedDate}</span>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
-                  <input type="text" required value={userForm.warrantNumber} onChange={(e) => setUserForm(prev => ({ ...prev, warrantNumber: e.target.value }))} className="w-full border rounded p-2 font-mono font-bold" />
+                <div className="flex justify-between">
+                  <span className="font-bold text-slate-600">Shift Hours:</span>
+                  <span className="font-extrabold text-slate-900">{detailedSlotModal.startTime} - {detailedSlotModal.endTime}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold text-slate-600">Region:</span>
+                  <span className="font-extrabold text-slate-900">{activeDeskMap[detailedSlotModal.deskId]?.region}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-slate-900 uppercase tracking-wider text-[10px]">
+                    Assigned Duty JPs ({detailedSlotModal.assignedJpIds.length}/{detailedSlotModal.targetJps})
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500">Max Capacity: {detailedSlotModal.maxJps}</span>
+                </div>
+
+                {detailedSlotModal.assignedJpIds.length === 0 ? (
+                  <div className="text-slate-400 italic text-[11px] py-1">No JPs registered for this shift yet.</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {detailedSlotModal.assignedJpIds.map(id => {
+                      const jp = userMap[id];
+                      return (
+                        <li key={id} className="p-2 bg-white rounded border border-slate-200 flex justify-between items-center font-bold text-slate-900">
+                          <span>{jp ? jp.fullName : id}</span>
+                          <span className="text-slate-500 font-mono text-[10px]">{jp?.warrantNumber}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                <span className="font-extrabold text-slate-900 uppercase tracking-wider text-[10px] block">Desk Notes</span>
+                <p className="text-slate-600 leading-relaxed text-[11px]">
+                  {activeDeskMap[detailedSlotModal.deskId]?.notes || 'No specific operational notes.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button 
+                onClick={() => setDetailedSlotModal(null)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD / EDIT USER MODAL --- */}
+      {userModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-900">{editingUserId ? 'Edit JP Member Profile' : 'Add New JP Member'}</h3>
+            <form onSubmit={handleSaveUserSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Full Legal Name</label>
+                <input type="text" required value={userForm.fullName} onChange={(e) => setUserForm(prev => ({ ...prev, fullName: e.target.value }))} className="w-full border rounded p-2" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
+                  <input type="text" required value={userForm.warrantNumber} onChange={(e) => setUserForm(prev => ({ ...prev, warrantNumber: e.target.value }))} className="w-full border rounded p-2 font-mono" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Role</label>
+                  <select value={userForm.role} onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value }))} className="w-full border rounded p-2 font-bold">
+                    <option value="Member">Member</option>
+                    <option value="Admin">Desk Admin</option>
+                    <option value="Registrar">Registrar</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Email Address</label>
                   <input type="email" required value={userForm.email} onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))} className="w-full border rounded p-2" />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Phone Number</label>
-                  <input type="text" value={userForm.phone} onChange={(e) => setUserForm(prev => ({ ...prev, phone: e.target.value }))} className="w-full border rounded p-2" />
+                  <label className="block font-bold text-slate-700 mb-1">Mobile Phone</label>
+                  <input type="tel" value={userForm.phone} onChange={(e) => setUserForm(prev => ({ ...prev, phone: e.target.value }))} className="w-full border rounded p-2" />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">System Role</label>
-                  <select value={userForm.role} onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value }))} className="w-full border rounded p-2 font-bold">
-                    <option value="Member">JP Member</option>
-                    <option value="Admin">Desk Admin</option>
-                    <option value="Registrar">Registrar</option>
-                  </select>
+                  <label className="block font-bold text-slate-700 mb-1">Password</label>
+                  <input type="text" required value={userForm.password} onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))} className="w-full border rounded p-2 font-mono" />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Provisional Status</label>
-                  <select value={userForm.isProvisional ? 'YES' : 'NO'} onChange={(e) => setUserForm(prev => ({ ...prev, isProvisional: e.target.value === 'YES' }))} className="w-full border rounded p-2 font-bold">
-                    <option value="NO">Fully Sworn</option>
-                    <option value="YES">Provisional</option>
+                  <label className="block font-bold text-slate-700 mb-1">Account Status</label>
+                  <select value={userForm.status} onChange={(e) => setUserForm(prev => ({ ...prev, status: e.target.value }))} className="w-full border rounded p-2 font-bold">
+                    <option value="Approved">Approved</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Rejected">Rejected</option>
                   </select>
                 </div>
               </div>
+              <div className="flex items-center space-x-2 pt-1">
+                <input type="checkbox" id="userIsProv" checked={userForm.isProvisional} onChange={(e) => setUserForm(prev => ({ ...prev, isProvisional: e.target.checked }))} className="rounded text-amber-500 cursor-pointer" />
+                <label htmlFor="userIsProv" className="font-bold text-slate-800 cursor-pointer">Provisional JP</label>
+              </div>
 
-              <div className="flex justify-end space-x-2 pt-3">
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button type="button" onClick={() => setUserModalOpen(false)} className="px-4 py-2 rounded font-bold bg-slate-100 text-slate-700">Cancel</button>
-                <button type="submit" className="px-4 py-2 rounded font-bold bg-slate-900 text-amber-400">Save JP Profile</button>
+                <button type="submit" className="px-4 py-2 rounded font-bold bg-slate-900 text-amber-400">Save Member</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* --- CONFIRMATION MODAL FOR DELETING USER --- */}
+      {pendingDeleteUserId && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center space-x-2 text-rose-700">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-black">Confirm Member Deletion</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete this JP member profile? Their registrations and logged data will be removed from future views.
+            </p>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setPendingDeleteUserId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteUser} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
+                Delete Member
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- ADD / EDIT REGION MODAL --- */}
       {regionModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">{editingRegionId ? 'Edit Master Region' : 'Add New Region'}</h3>
+            <h3 className="text-lg font-bold text-slate-900">{editingRegionId ? 'Edit Master Region' : 'Add New Master Region'}</h3>
             <form onSubmit={handleSaveRegionSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Region Name</label>
-                <input type="text" required value={regionForm.name} onChange={(e) => setRegionForm(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded p-2" placeholder="e.g. West Auckland" />
+                <input type="text" required value={regionForm.name} onChange={(e) => setRegionForm(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded p-2" placeholder="e.g. Auckland East" />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Region Short Code</label>
-                <input type="text" required value={regionForm.code} onChange={(e) => setRegionForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 font-bold uppercase" placeholder="e.g. AKL-W" />
+                <label className="block font-bold text-slate-700 mb-1">Short Code</label>
+                <input type="text" required value={regionForm.code} onChange={(e) => setRegionForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 font-mono uppercase" placeholder="e.g. AKL-E" />
               </div>
 
-              <div className="flex justify-end space-x-2 pt-3">
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button type="button" onClick={() => setRegionModalOpen(false)} className="px-4 py-2 rounded font-bold bg-slate-100 text-slate-700">Cancel</button>
                 <button type="submit" className="px-4 py-2 rounded font-bold bg-slate-900 text-amber-400">Save Region</button>
               </div>
@@ -3902,48 +3758,230 @@ END:VCALENDAR`;
         </div>
       )}
 
-      {/* --- CONFIRMATION MODALS --- */}
-      {pendingDeleteUserId && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-lg font-bold text-rose-700">Confirm Deletion of JP Member</h3>
-            <p className="text-xs text-slate-600">
-              Are you sure you want to delete this JP Member record? This action will remove their profile and access across all roster views.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2">
-              <button onClick={() => setPendingDeleteUserId(null)} className="px-4 py-2 rounded text-xs font-bold bg-slate-100 text-slate-700">No / Keep Member</button>
-              <button onClick={confirmDeleteUser} className="px-4 py-2 rounded text-xs font-bold bg-rose-600 text-white">Yes / Delete Member</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* --- CONFIRMATION MODAL FOR DELETING REGION --- */}
       {pendingDeleteRegionId && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-lg font-bold text-rose-700">Confirm Master Region Deletion</h3>
-            <p className="text-xs text-slate-600">
-              Are you sure you want to delete this region? Attached service desks will need to be rebound to another active region.
+            <div className="flex items-center space-x-2 text-rose-700">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-black">Confirm Region Deletion</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete this master region?
             </p>
-            <div className="flex justify-end space-x-2 pt-2">
-              <button onClick={() => setPendingDeleteRegionId(null)} className="px-4 py-2 rounded text-xs font-bold bg-slate-100 text-slate-700">No / Cancel</button>
-              <button onClick={confirmDeleteRegion} className="px-4 py-2 rounded text-xs font-bold bg-rose-600 text-white">Yes / Delete Region</button>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setPendingDeleteRegionId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteRegion} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
+                Delete Region
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* --- CONFIRMATION MODAL FOR DELETING SERVICE DESK --- */}
       {pendingDeleteDeskId && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-lg font-bold text-rose-700">Confirm Service Desk Deletion</h3>
-            <p className="text-xs text-slate-600">
-              Do you wish to continue? Deleting <b>{activeDeskMap[pendingDeleteDeskId]?.name}</b> will archive the desk and immediately remove all its slots from active roster views.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2">
-              <button onClick={() => setPendingDeleteDeskId(null)} className="px-4 py-2 rounded text-xs font-bold bg-slate-100 text-slate-700">No / Cancel</button>
-              <button onClick={confirmDeleteDesk} className="px-4 py-2 rounded text-xs font-bold bg-rose-600 text-white">Yes / Delete Desk</button>
+            <div className="flex items-center space-x-2 text-rose-700">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-black">Confirm Service Desk Archival</h3>
             </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to archive this service desk location? It will be moved to the Archived Desks list and its shifts will be hidden from active calendar views.
+            </p>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setPendingDeleteDeskId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteDesk} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
+                Archive Desk
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SIGN UP MODAL --- */}
+      {signUpModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">JP Roster Sign-Up Request</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Register for access to the Auckland JP Service Desk Platform</p>
+              </div>
+              <button onClick={() => setSignUpModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {signUpSuccessMsg ? (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-xl text-xs font-bold space-y-2 text-center animate-fade-in">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <p className="text-sm font-black text-emerald-950">Application Submitted!</p>
+                <p className="font-normal text-slate-600 leading-relaxed">
+                  Your registration details have been submitted. Status set to <b>PENDING</b> awaiting AJPA Registrar verification.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSignUpSubmit} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Full Legal Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={signUpForm.fullName}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-medium"
+                    placeholder="e.g. John Smith"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={signUpForm.warrantNumber}
+                      onChange={(e) => setSignUpForm(prev => ({ ...prev, warrantNumber: e.target.value }))}
+                      className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-mono"
+                      placeholder="e.g. JP-12345"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Mobile Phone</label>
+                    <input 
+                      type="tel" 
+                      required 
+                      value={signUpForm.phone}
+                      onChange={(e) => setSignUpForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
+                      placeholder="021 000 0000"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={signUpForm.email}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
+                    placeholder="john@example.co.nz"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Account Password</label>
+                  <input 
+                    type="password" 
+                    required 
+                    value={signUpForm.password}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
+                    placeholder="Create a password"
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2 pt-1">
+                  <input 
+                    type="checkbox" 
+                    id="signUpProv" 
+                    checked={signUpForm.isProvisional}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, isProvisional: e.target.checked }))}
+                    className="rounded text-amber-500 cursor-pointer w-4 h-4"
+                  />
+                  <label htmlFor="signUpProv" className="font-bold text-slate-800 cursor-pointer text-xs">
+                    I am a Provisional Justice of the Peace
+                  </label>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex justify-end space-x-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setSignUpModalOpen(false)} 
+                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2.5 rounded-lg text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 shadow cursor-pointer uppercase tracking-wider"
+                  >
+                    Submit Sign-Up
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- FORGOT PASSWORD MODAL --- */}
+      {forgotModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">Reset Your Password</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Enter your email to receive a password reset link</p>
+              </div>
+              <button onClick={() => setForgotModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {resetLinkSent ? (
+              <div className="bg-sky-50 border border-sky-200 text-sky-900 p-4 rounded-xl text-xs font-bold space-y-3 text-center animate-fade-in">
+                <Mail className="w-8 h-8 text-sky-600 mx-auto" />
+                <p className="text-sm font-black text-sky-950">Reset Email Sent!</p>
+                <p className="font-normal text-slate-600 leading-relaxed">
+                  A reset link was generated for <b>{resetEmail}</b>. Click below to simulate opening the reset email link.
+                </p>
+                <button 
+                  onClick={handleSimulateOpenResetLink}
+                  className="w-full py-2.5 bg-sky-700 hover:bg-sky-600 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider shadow cursor-pointer mt-2"
+                >
+                  Simulate Opening Email Reset Link
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSendResetLink} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Registered Email Address</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
+                    placeholder="e.g. rob@broadbridge.co.nz"
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex justify-end space-x-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setForgotModalOpen(false)} 
+                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2.5 rounded-lg text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-amber-400 shadow cursor-pointer"
+                  >
+                    Send Reset Link
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
