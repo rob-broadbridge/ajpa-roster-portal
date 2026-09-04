@@ -5,162 +5,170 @@ import {
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
   LogOut, Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
   Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info,
-  Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock
+  Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Settings, Database
 } from 'lucide-react';
 
 // --- MASTER REGIONS LIST ---
 const INITIAL_REGIONS = [
-  { id: 'reg-1', name: 'Central Auckland', code: 'AKL-C' },
-  { id: 'reg-2', name: 'Central East Auckland', code: 'AKL-CE' },
-  { id: 'reg-3', name: 'East Auckland', code: 'AKL-E' },
-  { id: 'reg-4', name: 'South Auckland', code: 'AKL-S' },
-  { id: 'reg-5', name: 'North Shore', code: 'AKL-N' },
-  { id: 'reg-6', name: 'West Auckland', code: 'AKL-W' }
+  { id: 'reg-1', name: 'Auckland East', code: 'AKL-E' }
 ];
 
-// --- INITIAL SERVICE DESKS ---
+// --- INITIAL USERS ---
+const INITIAL_USERS = [
+  { id: 'usr-1', fullName: 'Rob Broadbridge (R)', email: 'rob@broadbridge.co.nz', password: 'Abc123', phone: '274909378', warrantNumber: 'JP-99999', role: 'Registrar', isProvisional: false, status: 'Approved' },
+  { id: 'usr-2', fullName: 'Rob Broadbridge (A)', email: 'rob.broadbridge@gmail.com', password: 'Abc456', phone: '', warrantNumber: 'JP-88888', role: 'Admin', isProvisional: false, status: 'Approved' },
+  { id: 'usr-3', fullName: 'Rob Broadbbridge (JP)', email: 'jp@broadbridge.co.nz', password: 'Abc789', phone: '', warrantNumber: 'JP-25138', role: 'Member', isProvisional: false, status: 'Approved' }
+];
+
+// --- INITIAL SERVICE DESKS WITH EXPANDED ADMIN & SITE CONTACT FIELDS ---
 const INITIAL_SERVICE_DESKS = [
   {
     id: 'desk-remuera',
     code: 'RM',
-    name: 'Remuera Library Service Desk',
+    name: 'Remuera Library',
     address: '429 Remuera Road, Remuera, Auckland 1050',
-    region: 'Central East Auckland',
-    contactPerson: 'Library Duty Desk',
-    notes: 'Located in the quiet study zone on Level 1.',
-    status: 'Active'
-  },
-  {
-    id: 'desk-parnell',
-    code: 'PL',
-    name: 'Parnell Library Service Desk',
-    address: '545 Parnell Road, Parnell, Auckland 1052',
-    region: 'Central Auckland',
-    contactPerson: 'Floor Supervisor',
-    notes: 'Located near the community hub entrance.',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: 'The desk is set up in the library to the right of the front entrance. See library staff for signs. They have a pull up sign behind the desk.',
     status: 'Active'
   },
   {
     id: 'desk-glen-innes',
     code: 'GI',
-    name: 'Glen Innes Community Centre',
-    address: '98 Line Road, Glen Innes, Auckland 1072',
-    region: 'East Auckland',
-    contactPerson: 'Centre Coordinator',
-    notes: 'Main hall desk. High document volume on Saturdays.',
+    name: 'Glen Innes Library',
+    address: '108 Line Road, Glen Innes, Auckland 1072',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: 'Desk is set up to the right as you enter the library. Put sign in the foyer outside on the path at the start and bring it back in at the end of the shift.',
+    status: 'Active'
+  },
+  {
+    id: 'desk-st-heliers',
+    code: 'SH',
+    name: 'St Heliers Library',
+    address: '32 Saint Heliers Bay Road, St Heliers, Auckland 1071',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: 'Set up is in the room to the right as you come in the front door.',
+    status: 'Active'
+  },
+  {
+    id: 'desk-panmure',
+    code: 'PN',
+    name: 'Panmure Library',
+    address: '7/13 Pilkington Road, Panmure, Auckland 1072',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: 'Tables are set up in the centre of the library with chairs for people waiting.',
+    status: 'Active'
+  },
+  {
+    id: 'desk-parnell',
+    code: 'PL',
+    name: 'Parnell Community Centre',
+    address: 'Jubilee Building 545 Parnell Road, Parnell, Auckland 1052',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: '',
     status: 'Active'
   },
   {
     id: 'desk-newmarket',
     code: 'NM',
-    name: 'Newmarket Library Service Desk',
-    address: '33 Remuera Road, Newmarket, Auckland 1050',
-    region: 'Central Auckland',
-    contactPerson: 'Library Duty Officer',
-    notes: 'Ground level behind main information desk.',
+    name: 'Newmarket Westfield',
+    address: '277 Broadway, Newmarket, Auckland 1023',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: 'The desk is at the entrance to Westfield at the corner of Morrow Street and Broadway. See the staff at the information desk to register your car for free parking. Desk is down the walkway to the lifts near the information counter. A sign can be pulled out into the mall and returned at the end of the shift.',
     status: 'Active'
   },
   {
     id: 'desk-otahuhu',
     code: 'OH',
-    name: 'Otahuhu Community Hub',
-    address: '28 Toia Terrace, Otahuhu, Auckland 1062',
-    region: 'South Auckland',
-    contactPerson: 'Facility Coordinator',
-    notes: 'Main foyer desk near community room 2.',
+    name: 'Otahuhu Library',
+    address: '28/30 Mason Avenue, Ōtāhuhu, Auckland 1062',
+    region: 'Auckland East',
+    primaryAdminId: 'usr-1',
+    secondaryAdminId: 'usr-2',
+    siteContactName: '',
+    siteContactEmail: '',
+    contactPerson: '',
+    notes: 'The desk is in a room to the left as you come up the stairs from the entrance in the mall.',
     status: 'Active'
   }
 ];
 
 const INITIAL_SLOT_TEMPLATES = [
-  { id: 'slot-rm-1', deskId: 'desk-remuera', dayOfWeek: 'Tuesday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-rm-2', deskId: 'desk-remuera', dayOfWeek: 'Friday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-pl-1', deskId: 'desk-parnell', dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-pl-2', deskId: 'desk-parnell', dayOfWeek: 'Saturday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 3, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-gi-1', deskId: 'desk-glen-innes', dayOfWeek: 'Tuesday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-gi-2', deskId: 'desk-glen-innes', dayOfWeek: 'Saturday', startTime: '09:30', endTime: '11:30', minJps: 1, targetJps: 2, maxJps: 3, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-nm-1', deskId: 'desk-newmarket', dayOfWeek: 'Wednesday', startTime: '12:00', endTime: '14:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-nm-2', deskId: 'desk-newmarket', dayOfWeek: 'Saturday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' },
-  { id: 'slot-oh-1', deskId: 'desk-otahuhu', dayOfWeek: 'Thursday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 2, maxJps: 2, status: 'Active', effectiveFromDate: '2026-01-01' }
-];
-
-const INITIAL_USERS = [
-  { id: 'usr-1', fullName: 'Robert Broadbridge', email: 'robert@ajpa.org.nz', password: 'password123', phone: '021 123 4567', warrantNumber: 'JP-10928', role: 'Registrar', isProvisional: false, status: 'Approved' },
-  { id: 'usr-2', fullName: 'Sarah Jenkins', email: 'sarah.j@ajpa.org.nz', password: 'password123', phone: '027 888 9911', warrantNumber: 'JP-12401', role: 'Admin', isProvisional: false, status: 'Approved' },
-  { id: 'usr-3', fullName: 'David Chen', email: 'd.chen@ajpa.org.nz', password: 'password123', phone: '022 454 1122', warrantNumber: 'JP-14502', role: 'Member', isProvisional: true, status: 'Approved' }
+  { id: 'slot-gi-1', deskId: 'desk-glen-innes', dayOfWeek: 'Monday', startTime: '09:30', endTime: '11:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-gi-2', deskId: 'desk-glen-innes', dayOfWeek: 'Tuesday', startTime: '09:30', endTime: '11:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-gi-3', deskId: 'desk-glen-innes', dayOfWeek: 'Wednesday', startTime: '09:30', endTime: '11:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-gi-4', deskId: 'desk-glen-innes', dayOfWeek: 'Thursday', startTime: '09:30', endTime: '11:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-gi-5', deskId: 'desk-glen-innes', dayOfWeek: 'Friday', startTime: '09:30', endTime: '11:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-sh-1', deskId: 'desk-st-heliers', dayOfWeek: 'Thursday', startTime: '13:00', endTime: '15:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-sh-2', deskId: 'desk-st-heliers', dayOfWeek: 'Saturday', startTime: '13:00', endTime: '15:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-pn-1', deskId: 'desk-panmure', dayOfWeek: 'Monday', startTime: '13:30', endTime: '15:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-pn-2', deskId: 'desk-panmure', dayOfWeek: 'Wednesday', startTime: '17:00', endTime: '18:30', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-pn-3', deskId: 'desk-panmure', dayOfWeek: 'Saturday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-pn-4', deskId: 'desk-panmure', dayOfWeek: 'Sunday', startTime: '12:00', endTime: '14:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-oh-1', deskId: 'desk-otahuhu', dayOfWeek: 'Saturday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-rm-1', deskId: 'desk-remuera', dayOfWeek: 'Tuesday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-rm-2', deskId: 'desk-remuera', dayOfWeek: 'Friday', startTime: '12:00', endTime: '14:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-nm-1', deskId: 'desk-newmarket', dayOfWeek: 'Wednesday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' },
+  { id: 'slot-nm-2', deskId: 'desk-newmarket', dayOfWeek: 'Saturday', startTime: '10:00', endTime: '12:00', minJps: 1, targetJps: 1, maxJps: 2, status: 'Active', effectiveFromDate: '2026-09-01' }
 ];
 
 const INITIAL_ASSIGNMENTS = {
-  'desk-remuera_slot-rm-1_2026-09-01': ['usr-1', 'usr-3'],
-  'desk-newmarket_slot-nm-2_2026-09-26': ['usr-1']
+  'desk-glen-innes_slot-gi-4_2026-09-03': ['usr-3'],
+  'desk-remuera_slot-rm-2_2026-09-04': ['usr-3'],
+  'desk-newmarket_slot-nm-2_2026-09-05': ['usr-3']
 };
 
 const INITIAL_LOGGED_STATISTICS = [
   {
     id: 'stat-1',
-    jpId: 'usr-1',
-    jpName: 'Robert Broadbridge',
-    warrantNumber: 'JP-10928',
-    deskId: 'desk-remuera',
-    deskName: 'Remuera Library Service Desk',
-    deskCode: 'RM',
-    region: 'Central East Auckland',
-    date: '2026-09-01',
-    startTime: '10:00',
-    endTime: '12:00',
-    noOfJpDuties: 1,
-    noOfClients: 8,
-    noOfHoursWorked: 2.0,
-    certifiedCopies: 12,
-    statutoryDeclarations: 4,
-    signatureWitnessed: 3,
-    affidavits: 1,
-    other: 0,
-    notes: 'Busy morning session'
-  },
-  {
-    id: 'stat-2',
     jpId: 'usr-3',
-    jpName: 'David Chen',
-    warrantNumber: 'JP-14502',
-    deskId: 'desk-remuera',
-    deskName: 'Remuera Library Service Desk',
-    deskCode: 'RM',
-    region: 'Central East Auckland',
-    date: '2026-09-01',
-    startTime: '10:00',
-    endTime: '12:00',
+    jpName: 'Rob Broadbbridge (JP)',
+    warrantNumber: 'JP-25138',
+    deskId: 'desk-glen-innes',
+    deskName: 'Glen Innes Library',
+    deskCode: 'GI',
+    region: 'Auckland East',
+    date: '2026-09-03',
+    startTime: '09:30',
+    endTime: '11:30',
     noOfJpDuties: 1,
-    noOfClients: 5,
+    noOfClients: 21,
     noOfHoursWorked: 2.0,
-    certifiedCopies: 6,
-    statutoryDeclarations: 2,
+    certifiedCopies: 66,
+    statutoryDeclarations: 9,
     signatureWitnessed: 1,
     affidavits: 0,
     other: 0,
-    notes: 'Assisted senior JP'
-  },
-  {
-    id: 'stat-3',
-    jpId: 'usr-1',
-    jpName: 'Robert Broadbridge',
-    warrantNumber: 'JP-10928',
-    deskId: 'desk-parnell',
-    deskName: 'Parnell Library Service Desk',
-    deskCode: 'PL',
-    region: 'Central Auckland',
-    date: '2026-08-15',
-    startTime: '10:00',
-    endTime: '12:00',
-    noOfJpDuties: 1,
-    noOfClients: 6,
-    noOfHoursWorked: 2.0,
-    certifiedCopies: 9,
-    statutoryDeclarations: 3,
-    signatureWitnessed: 2,
-    affidavits: 1,
-    other: 0,
-    notes: 'August duty log'
+    notes: 'Morning shift at GI library'
   }
 ];
 
@@ -174,12 +182,10 @@ export default function App() {
   const [regions, setRegions] = useState(INITIAL_REGIONS);
   const [serviceDesks, setServiceDesks] = useState(INITIAL_SERVICE_DESKS);
   const [slotTemplates, setSlotTemplates] = useState(INITIAL_SLOT_TEMPLATES);
-  const [followedDesks, setFollowedDesks] = useState(['desk-remuera', 'desk-parnell', 'desk-glen-innes', 'desk-newmarket']);
+  const [followedDesks, setFollowedDesks] = useState(['desk-remuera', 'desk-glen-innes', 'desk-st-heliers', 'desk-panmure', 'desk-parnell', 'desk-newmarket', 'desk-otahuhu']);
 
   const [slotAssignments, setSlotAssignments] = useState(INITIAL_ASSIGNMENTS);
   const [cancelledSlotInstances, setCancelledSlotInstances] = useState([]);
-
-  // LOGGED STATISTICS STATE
   const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
 
   // AUTH SCREEN MODALS & FORMS
@@ -265,11 +271,54 @@ export default function App() {
   const [regionForm, setRegionForm] = useState({ name: '', code: '' });
   const [pendingDeleteRegionId, setPendingDeleteRegionId] = useState(null);
 
-  // Service Desk Modals
+  // REGISTRAR MASTER DOWNLOAD CONFIRMATION MODAL STATE
+  const [confirmDownloadModalOpen, setConfirmDownloadModalOpen] = useState(false);
+
+  // SLOT TEMPLATE MODAL, VALIDATION & ACTION CONFIRMATION STATES
+  const [slotModalOpen, setSlotModalOpen] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState(null);
+  const [slotForm, setSlotForm] = useState({
+    deskId: 'desk-remuera',
+    dayOfWeek: 'Tuesday',
+    startTime: '10:00',
+    endTime: '12:00',
+    minJps: 1,
+    targetJps: 1,
+    maxJps: 2,
+    status: 'Active',
+    effectiveFromDate: '2026-09-01'
+  });
+  const [slotValidationError, setSlotValidationError] = useState('');
+  const [pendingDeleteSlotId, setPendingDeleteSlotId] = useState(null);
+  const [slotActionConfirm, setSlotActionConfirm] = useState(null); // 'SAVE' | 'CANCEL' | 'DELETE'
+
+  // SERVICE DESK MODALS WITH EXPANDED ADMIN & SITE CONTACT FIELDS
   const [createDeskModalOpen, setCreateDeskModalOpen] = useState(false);
   const [editingDeskId, setEditingDeskId] = useState(null);
-  const [editDeskForm, setEditDeskForm] = useState({ code: '', name: '', address: '', region: 'Central Auckland', contactPerson: '', notes: '' });
-  const [newDeskForm, setNewDeskForm] = useState({ code: '', name: '', address: '', region: 'Central Auckland', contactPerson: '', notes: '' });
+  const [editDeskForm, setEditDeskForm] = useState({ 
+    code: '', 
+    name: '', 
+    address: '', 
+    region: 'Auckland East', 
+    primaryAdminId: '', 
+    secondaryAdminId: '', 
+    siteContactName: '', 
+    siteContactEmail: '', 
+    contactPerson: '', 
+    notes: '' 
+  });
+  const [newDeskForm, setNewDeskForm] = useState({ 
+    code: '', 
+    name: '', 
+    address: '', 
+    region: 'Auckland East', 
+    primaryAdminId: '', 
+    secondaryAdminId: '', 
+    siteContactName: '', 
+    siteContactEmail: '', 
+    contactPerson: '', 
+    notes: '' 
+  });
   const [pendingDeleteDeskId, setPendingDeleteDeskId] = useState(null);
 
   useEffect(() => {
@@ -285,6 +334,10 @@ export default function App() {
   const canManage = useMemo(() => {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
+
+  const eligibleAdminsList = useMemo(() => {
+    return users.filter(u => (u.role === 'Admin' || u.role === 'Registrar') && u.status === 'Approved');
+  }, [users]);
 
   const userMap = useMemo(() => {
     return users.reduce((acc, u) => {
@@ -307,6 +360,70 @@ export default function App() {
   const archivedDesksList = useMemo(() => {
     return serviceDesks.filter(d => d.status === 'Archived');
   }, [serviceDesks]);
+
+  // --- REGISTRAR: MASTER SYSTEM DATA CSV EXPORTER ENGINE ---
+  const handleExecuteFullDataDownload = () => {
+    setConfirmDownloadModalOpen(false);
+
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, '0');
+    const DD = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${YYYY}${MM}${DD}_${hh}${mm}${ss}`;
+
+    const triggerDownload = (fileName, csvContent) => {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    const convertToCsv = (arrayData, headers) => {
+      if (!arrayData || arrayData.length === 0) {
+        return headers.join(',') + '\n';
+      }
+      const rows = arrayData.map(item => {
+        return headers.map(header => {
+          const val = item[header] !== undefined && item[header] !== null ? item[header] : '';
+          return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(',');
+      });
+      return [headers.join(','), ...rows].join('\n');
+    };
+
+    // FILE 1: INITIAL_REGIONS
+    const file1Headers = ['id', 'name', 'code'];
+    triggerDownload(`${timestamp}_1.csv`, convertToCsv(regions, file1Headers));
+
+    // FILE 2: INITIAL_USERS
+    const file2Headers = ['id', 'fullName', 'email', 'password', 'phone', 'warrantNumber', 'role', 'isProvisional', 'status'];
+    triggerDownload(`${timestamp}_2.csv`, convertToCsv(users, file2Headers));
+
+    // FILE 3: INITIAL_SERVICE_DESKS
+    const file3Headers = ['id', 'code', 'name', 'address', 'region', 'primaryAdminId', 'secondaryAdminId', 'siteContactName', 'siteContactEmail', 'contactPerson', 'notes', 'status'];
+    triggerDownload(`${timestamp}_3.csv`, convertToCsv(serviceDesks, file3Headers));
+
+    // FILE 4: INITIAL_SLOT_TEMPLATES
+    const file4Headers = ['id', 'deskId', 'dayOfWeek', 'startTime', 'endTime', 'minJps', 'targetJps', 'maxJps', 'status', 'effectiveFromDate'];
+    triggerDownload(`${timestamp}_4.csv`, convertToCsv(slotTemplates, file4Headers));
+
+    // FILE 5: INITIAL_ASSIGNMENTS
+    const assignmentsArray = Object.entries(slotAssignments).map(([instanceKey, assignedJpIds]) => ({
+      instanceKey,
+      assignedJpIds: JSON.stringify(assignedJpIds)
+    }));
+    triggerDownload(`${timestamp}_5.csv`, convertToCsv(assignmentsArray, ['instanceKey', 'assignedJpIds']));
+
+    // FILE 6: INITIAL_LOGGED_STATISTICS
+    const file6Headers = ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes'];
+    triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, file6Headers));
+  };
 
   // --- AUTH HANDLERS ---
   const handleLoginSubmit = (e) => {
@@ -431,11 +548,129 @@ export default function App() {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Rejected' } : u));
   };
 
+  // --- CLIENT-SIDE DATA VALIDATION ENGINE FOR SLOT TEMPLATES ---
+  const validateSlotForm = (form) => {
+    const { startTime, endTime, minJps, targetJps, maxJps } = form;
+
+    if (!startTime || !endTime) {
+      return 'Both Start Time and End Time are required.';
+    }
+
+    if (startTime >= endTime) {
+      return 'Start Time must be strictly earlier than End Time.';
+    }
+
+    if (isNaN(minJps) || minJps < 1) {
+      return 'Minimum JPs must be at least 1.';
+    }
+
+    if (isNaN(targetJps) || isNaN(maxJps)) {
+      return 'Target JPs and Max JPs must be valid numeric values.';
+    }
+
+    if (minJps > targetJps) {
+      return `Minimum JPs (${minJps}) cannot exceed Target JPs (${targetJps}). Rule: Min JPs \u2264 Target JPs \u2264 Max JPs.`;
+    }
+
+    if (targetJps > maxJps) {
+      return `Target JPs (${targetJps}) cannot exceed Max JPs Capacity (${maxJps}). Rule: Min JPs \u2264 Target JPs \u2264 Max JPs.`;
+    }
+
+    return null;
+  };
+
+  const activeSlotValidationError = useMemo(() => {
+    return validateSlotForm(slotForm);
+  }, [slotForm]);
+
+  // --- SLOT MANAGEMENT HANDLERS & CONFIRMATION ENGINE ---
+  const handleOpenAddSlotModal = (targetDeskId = null) => {
+    setEditingSlotId(null);
+    setSlotValidationError('');
+    setSlotForm({
+      deskId: targetDeskId || activeDesksList[0]?.id || 'desk-remuera',
+      dayOfWeek: 'Tuesday',
+      startTime: '10:00',
+      endTime: '12:00',
+      minJps: 1,
+      targetJps: 1,
+      maxJps: 2,
+      status: 'Active',
+      effectiveFromDate: '2026-09-01'
+    });
+    setSlotModalOpen(true);
+  };
+
+  const handleOpenEditSlotModal = (slot) => {
+    setEditingSlotId(slot.id);
+    setSlotValidationError('');
+    setSlotForm({
+      deskId: slot.deskId,
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      minJps: slot.minJps,
+      targetJps: slot.targetJps,
+      maxJps: slot.maxJps,
+      status: slot.status,
+      effectiveFromDate: slot.effectiveFromDate || '2026-09-01'
+    });
+    setSlotModalOpen(true);
+  };
+
+  const handlePromptSaveSlot = (e) => {
+    e.preventDefault();
+    const errorMsg = validateSlotForm(slotForm);
+    if (errorMsg) {
+      setSlotValidationError(errorMsg);
+      return;
+    }
+    setSlotValidationError('');
+    setSlotActionConfirm('SAVE');
+  };
+
+  const handlePromptCancelSlot = () => {
+    setSlotActionConfirm('CANCEL');
+  };
+
+  const handlePromptDeleteSlot = () => {
+    setSlotActionConfirm('DELETE');
+  };
+
+  const handleConfirmSlotAction = () => {
+    if (slotActionConfirm === 'SAVE') {
+      if (editingSlotId) {
+        setSlotTemplates(prev => prev.map(s => s.id === editingSlotId ? { ...s, ...slotForm } : s));
+      } else {
+        const newSlot = {
+          id: `slot-${Date.now()}`,
+          ...slotForm
+        };
+        setSlotTemplates(prev => [...prev, newSlot]);
+      }
+      setSlotModalOpen(false);
+    } else if (slotActionConfirm === 'CANCEL') {
+      setSlotModalOpen(false);
+    } else if (slotActionConfirm === 'DELETE') {
+      if (editingSlotId) {
+        setSlotTemplates(prev => prev.filter(s => s.id !== editingSlotId));
+      }
+      setSlotModalOpen(false);
+    }
+    setSlotActionConfirm(null);
+    setSlotValidationError('');
+  };
+
+  const confirmDeleteSlot = () => {
+    setSlotTemplates(prev => prev.filter(s => s.id !== pendingDeleteSlotId));
+    setPendingDeleteSlotId(null);
+  };
+
   // --- STATISTICS FILTERING ENGINE ---
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
 
-    const today = new Date(2026, 8, 2); 
+    const today = new Date(2026, 8, 4); 
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth(); 
 
@@ -732,7 +967,7 @@ export default function App() {
       deskId: logStatsOccurrence.deskId,
       deskName: desk.name || 'Service Desk',
       deskCode: desk.code || 'JP',
-      region: desk.region || 'Central Auckland',
+      region: desk.region || 'Auckland East',
       date: logStatsOccurrence.date,
       startTime: logStatsOccurrence.startTime,
       endTime: logStatsOccurrence.endTime,
@@ -913,35 +1148,66 @@ END:VCALENDAR`;
   // --- SERVICE DESK HANDLERS ---
   const handleCreateDeskSubmit = (e) => {
     e.preventDefault();
+
+    if (newDeskForm.primaryAdminId && newDeskForm.primaryAdminId === newDeskForm.secondaryAdminId) {
+      alert('Primary Admin and Secondary Admin cannot be the same person.');
+      return;
+    }
+
     const newDesk = {
       id: `desk-${Date.now()}`,
       code: (newDeskForm.code || 'JP').toUpperCase().substring(0, 2),
       name: newDeskForm.name,
       address: newDeskForm.address,
-      region: newDeskForm.region || regions[0]?.name || 'Central Auckland',
+      region: newDeskForm.region || regions[0]?.name || 'Auckland East',
+      primaryAdminId: newDeskForm.primaryAdminId || '',
+      secondaryAdminId: newDeskForm.secondaryAdminId || '',
+      siteContactName: newDeskForm.siteContactName || '',
+      siteContactEmail: newDeskForm.siteContactEmail || '',
       contactPerson: newDeskForm.contactPerson || '',
       notes: newDeskForm.notes || '',
       status: 'Active'
     };
     setServiceDesks(prev => [...prev, newDesk]);
     setCreateDeskModalOpen(false);
-    setNewDeskForm({ code: '', name: '', address: '', region: regions[0]?.name || 'Central Auckland', contactPerson: '', notes: '' });
+    setNewDeskForm({ 
+      code: '', 
+      name: '', 
+      address: '', 
+      region: regions[0]?.name || 'Auckland East', 
+      primaryAdminId: '', 
+      secondaryAdminId: '', 
+      siteContactName: '', 
+      siteContactEmail: '', 
+      contactPerson: '', 
+      notes: '' 
+    });
   };
 
   const handleStartEditDesk = (desk) => {
     setEditingDeskId(desk.id);
     setEditDeskForm({
       code: desk.code || '',
-      name: desk.name,
-      address: desk.address,
-      region: desk.region || regions[0]?.name || 'Central Auckland',
-      contactPerson: desk.contactPerson,
-      notes: desk.notes
+      name: desk.name || '',
+      address: desk.address || '',
+      region: desk.region || regions[0]?.name || 'Auckland East',
+      primaryAdminId: desk.primaryAdminId || '',
+      secondaryAdminId: desk.secondaryAdminId || '',
+      siteContactName: desk.siteContactName || '',
+      siteContactEmail: desk.siteContactEmail || '',
+      contactPerson: desk.contactPerson || '',
+      notes: desk.notes || ''
     });
   };
 
   const handleSaveDeskDirectly = (e) => {
     e.preventDefault();
+
+    if (editDeskForm.primaryAdminId && editDeskForm.primaryAdminId === editDeskForm.secondaryAdminId) {
+      alert('Primary Admin and Secondary Admin cannot be the same person.');
+      return;
+    }
+
     setServiceDesks(prev => prev.map(d => (d.id === editingDeskId ? { ...d, ...editDeskForm } : d)));
     setEditingDeskId(null);
   };
@@ -1156,7 +1422,7 @@ END:VCALENDAR`;
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                         className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
-                        placeholder="e.g. robert@ajpa.org.nz"
+                        placeholder="e.g. rob@broadbridge.co.nz"
                       />
                     </div>
                   </div>
@@ -1496,36 +1762,91 @@ END:VCALENDAR`;
                           const isFollowed = followedDesks.includes(desk.id);
                           const isEditing = editingDeskId === desk.id;
 
+                          const primaryAdmin = userMap[desk.primaryAdminId];
+                          const secondaryAdmin = userMap[desk.secondaryAdminId];
+
+                          const deskSlotTemplates = slotTemplates.filter(s => s.deskId === desk.id);
+
                           return (
                             <div key={desk.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                               {isEditing ? (
-                                <form onSubmit={handleSaveDeskDirectly} className="space-y-4 bg-slate-50 p-4 rounded-xl border border-amber-300">
-                                  <h4 className="font-bold text-slate-900 text-sm">Editing Service Desk Details</h4>
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                <form onSubmit={handleSaveDeskDirectly} className="space-y-4 bg-slate-50 p-4 rounded-xl border border-amber-300 text-xs">
+                                  <h4 className="font-bold text-slate-900 text-sm">Editing Service Desk Maintenance Profile</h4>
+                                  
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <div>
-                                      <label className="block font-bold text-slate-700 mb-1">2-Letter Code</label>
-                                      <input type="text" maxLength={2} required value={editDeskForm.code} onChange={(e) => setEditDeskForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 uppercase font-extrabold text-amber-600" />
+                                      <label className="block font-bold text-slate-700 mb-1">2-Letter Desk Code</label>
+                                      <input type="text" maxLength={2} required value={editDeskForm.code} onChange={(e) => setEditDeskForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 uppercase font-extrabold text-amber-600 bg-white" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <label className="block font-bold text-slate-700 mb-1">Service Desk Name</label>
+                                      <input type="text" required value={editDeskForm.name} onChange={(e) => setEditDeskForm(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded p-2 font-bold bg-white" />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <label className="block font-bold text-slate-700 mb-1">Physical Address</label>
+                                      <input type="text" required value={editDeskForm.address} onChange={(e) => setEditDeskForm(prev => ({ ...prev, address: e.target.value }))} className="w-full border rounded p-2 bg-white" />
                                     </div>
                                     <div>
-                                      <label className="block font-bold text-slate-700 mb-1">Region (Master Dropdown)</label>
-                                      <select value={editDeskForm.region} onChange={(e) => setEditDeskForm(prev => ({ ...prev, region: e.target.value }))} className="w-full border rounded p-2 font-bold text-slate-900">
+                                      <label className="block font-bold text-slate-700 mb-1">Region</label>
+                                      <select value={editDeskForm.region} onChange={(e) => setEditDeskForm(prev => ({ ...prev, region: e.target.value }))} className="w-full border rounded p-2 font-bold text-slate-900 bg-white">
                                         {regions.map(r => (
                                           <option key={r.id} value={r.name}>{r.name} [{r.code}]</option>
                                         ))}
                                       </select>
                                     </div>
-                                    <div className="sm:col-span-1">
-                                      <label className="block font-bold text-slate-700 mb-1">Name</label>
-                                      <input type="text" required value={editDeskForm.name} onChange={(e) => setEditDeskForm(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded p-2" />
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/60 p-3 rounded-lg border border-amber-200">
+                                    <div>
+                                      <label className="block font-extrabold text-slate-800 mb-1">Primary Desk Admin</label>
+                                      <select 
+                                        value={editDeskForm.primaryAdminId} 
+                                        onChange={(e) => setEditDeskForm(prev => ({ ...prev, primaryAdminId: e.target.value }))} 
+                                        className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
+                                      >
+                                        <option value="">-- Select Primary Desk Admin --</option>
+                                        {eligibleAdminsList.map(u => (
+                                          <option key={u.id} value={u.id}>{u.fullName} ({u.role} - {u.warrantNumber})</option>
+                                        ))}
+                                      </select>
                                     </div>
-                                    <div className="sm:col-span-3">
-                                      <label className="block font-bold text-slate-700 mb-1">Address</label>
-                                      <input type="text" required value={editDeskForm.address} onChange={(e) => setEditDeskForm(prev => ({ ...prev, address: e.target.value }))} className="w-full border rounded p-2" />
+
+                                    <div>
+                                      <label className="block font-extrabold text-slate-800 mb-1">Secondary Desk Admin</label>
+                                      <select 
+                                        value={editDeskForm.secondaryAdminId} 
+                                        onChange={(e) => setEditDeskForm(prev => ({ ...prev, secondaryAdminId: e.target.value }))} 
+                                        className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
+                                      >
+                                        <option value="">-- Select Secondary Desk Admin --</option>
+                                        {eligibleAdminsList
+                                          .filter(u => u.id !== editDeskForm.primaryAdminId)
+                                          .map(u => (
+                                            <option key={u.id} value={u.id}>{u.fullName} ({u.role} - {u.warrantNumber})</option>
+                                          ))}
+                                      </select>
                                     </div>
                                   </div>
-                                  <div className="flex justify-end space-x-2">
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-sky-50/60 p-3 rounded-lg border border-sky-200">
+                                    <div>
+                                      <label className="block font-bold text-slate-700 mb-1">Site Contact Name</label>
+                                      <input type="text" value={editDeskForm.siteContactName} onChange={(e) => setEditDeskForm(prev => ({ ...prev, siteContactName: e.target.value }))} className="w-full border rounded p-2 bg-white" placeholder="Site Manager" />
+                                    </div>
+                                    <div>
+                                      <label className="block font-bold text-slate-700 mb-1">Site Contact Email</label>
+                                      <input type="email" value={editDeskForm.siteContactEmail} onChange={(e) => setEditDeskForm(prev => ({ ...prev, siteContactEmail: e.target.value }))} className="w-full border rounded p-2 bg-white" placeholder="site.manager@facility.co.nz" />
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="block font-bold text-slate-700 mb-1">Desk Notes & Operational Instructions</label>
+                                    <textarea rows={2} value={editDeskForm.notes} onChange={(e) => setEditDeskForm(prev => ({ ...prev, notes: e.target.value }))} className="w-full border rounded p-2 bg-white text-xs" placeholder="Specific guidelines or instructions for duty JPs..." />
+                                  </div>
+
+                                  <div className="flex justify-end space-x-2 pt-2 border-t border-slate-200">
                                     <button type="button" onClick={() => setEditingDeskId(null)} className="px-4 py-2 rounded text-xs font-bold bg-slate-200">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 rounded text-xs font-bold bg-emerald-600 text-white">Save Changes</button>
+                                    <button type="submit" className="px-4 py-2 rounded text-xs font-bold bg-emerald-600 text-white">Save Desk Profile</button>
                                   </div>
                                 </form>
                               ) : (
@@ -1549,9 +1870,18 @@ END:VCALENDAR`;
                                     <div className="flex flex-wrap items-center gap-2">
                                       {canManage && desk.status === 'Active' && (
                                         <>
+                                          <button 
+                                            type="button" 
+                                            onClick={() => handleOpenAddSlotModal(desk.id)} 
+                                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-600 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs"
+                                            title="Create Shift Slot for this Desk"
+                                          >
+                                            <Plus className="w-3.5 h-3.5" />
+                                            <span>Create Slot</span>
+                                          </button>
                                           <button onClick={() => handleStartEditDesk(desk)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer">
                                             <Edit2 className="w-3.5 h-3.5" />
-                                            <span>Edit Desk</span>
+                                            <span>Maintain Desk</span>
                                           </button>
                                           <button onClick={() => setPendingDeleteDeskId(desk.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer">
                                             <Trash2 className="w-3.5 h-3.5" />
@@ -1566,7 +1896,92 @@ END:VCALENDAR`;
                                     </div>
                                   </div>
 
-                                  <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100">{desk.notes}</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                    <div className="space-y-1">
+                                      <div className="font-extrabold text-slate-900 uppercase tracking-wider text-[10px] text-amber-700">Assigned Desk Governance</div>
+                                      <div className="flex items-center space-x-1.5">
+                                        <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                        <span className="font-bold text-slate-700">Primary Admin:</span>
+                                        <span className="font-extrabold text-slate-900">{primaryAdmin ? `${primaryAdmin.fullName} (${primaryAdmin.warrantNumber})` : 'Unassigned'}</span>
+                                      </div>
+                                      <div className="flex items-center space-x-1.5">
+                                        <Shield className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                        <span className="font-bold text-slate-700">Secondary Admin:</span>
+                                        <span className="font-extrabold text-slate-900">{secondaryAdmin ? `${secondaryAdmin.fullName} (${secondaryAdmin.warrantNumber})` : 'Unassigned'}</span>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1 md:border-l md:border-slate-200 md:pl-3">
+                                      <div className="font-extrabold text-slate-900 uppercase tracking-wider text-[10px] text-sky-700">Facility / Site Contact</div>
+                                      <div className="flex items-center space-x-1.5">
+                                        <Users className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                                        <span className="font-bold text-slate-700">Site Contact:</span>
+                                        <span className="font-semibold text-slate-900">{desk.siteContactName || desk.contactPerson || 'Not Specified'}</span>
+                                      </div>
+                                      <div className="flex items-center space-x-1.5">
+                                        <Mail className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                                        <span className="font-bold text-slate-700">Contact Email:</span>
+                                        <span className="font-semibold text-slate-900">{desk.siteContactEmail || 'N/A'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-xs text-slate-600 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                                    <span className="font-bold text-slate-800 block mb-0.5">Notes & Desk Instructions:</span>
+                                    <span>{desk.notes || 'No specific operational notes recorded for this desk.'}</span>
+                                  </div>
+
+                                  <div className="pt-3 border-t border-slate-200 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center space-x-1">
+                                        <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                        <span>Configured Recurring Shift Slots ({deskSlotTemplates.length})</span>
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-bold">Click tile to maintain slot</span>
+                                    </div>
+
+                                    {deskSlotTemplates.length === 0 ? (
+                                      <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center text-xs text-slate-400 italic">
+                                        No shift slots configured for this service desk.
+                                      </div>
+                                    ) : (
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {deskSlotTemplates.map(slot => {
+                                          return (
+                                            <div
+                                              key={slot.id}
+                                              onClick={() => handleOpenEditSlotModal(slot)}
+                                              className={`p-2.5 rounded-lg border text-xs cursor-pointer shadow-sm transition space-y-1.5 ${
+                                                slot.status === 'Active'
+                                                  ? 'bg-amber-50/90 border-amber-300 text-amber-900 hover:bg-amber-100'
+                                                  : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
+                                              }`}
+                                            >
+                                              <div className="font-extrabold flex justify-between items-center">
+                                                <span className="bg-slate-900 text-amber-400 px-1.5 py-0.5 rounded text-[10px] font-black">{desk.code || 'JP'}</span>
+                                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${slot.status === 'Active' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-200 text-slate-700 border-slate-300'}`}>
+                                                  {slot.status}
+                                                </span>
+                                              </div>
+
+                                              <div className="font-black text-xs text-slate-900">{slot.dayOfWeek}s</div>
+                                              <div className="text-[11px] font-semibold text-slate-700 flex items-center space-x-1">
+                                                <Clock className="w-3 h-3 text-slate-500 shrink-0" />
+                                                <span>{slot.startTime} - {slot.endTime}</span>
+                                              </div>
+
+                                              <div className="pt-1 border-t border-slate-200/60 text-[10px] font-bold text-slate-600 flex justify-between items-center">
+                                                <span>Capacity:</span>
+                                                <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-slate-900">
+                                                  {slot.minJps} / {slot.targetJps} / {slot.maxJps} JPs
+                                                </span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
                                 </>
                               )}
                             </div>
@@ -1613,7 +2028,6 @@ END:VCALENDAR`;
             {/* TAB 4: STATISTICS LOG TAB */}
             {activeTab === 'statistics' && (
               <div className="space-y-6">
-                {/* TOP FILTER BAR */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                   <div className="flex flex-wrap justify-between items-center gap-4">
                     <div>
@@ -1634,9 +2048,7 @@ END:VCALENDAR`;
                     </button>
                   </div>
 
-                  {/* FILTERS CONTAINER */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-2 border-t border-slate-100">
-                    {/* DATE PRESET FILTER */}
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
                       <label className="block font-extrabold text-slate-700">Date Range:</label>
                       <select 
@@ -1658,7 +2070,6 @@ END:VCALENDAR`;
                       </select>
                     </div>
 
-                    {/* REGION FILTER */}
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
                       <label className="block font-extrabold text-slate-700">Region:</label>
                       <select 
@@ -1673,7 +2084,6 @@ END:VCALENDAR`;
                       </select>
                     </div>
 
-                    {/* SERVICE DESK FILTER */}
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
                       <label className="block font-extrabold text-slate-700">Service Desk:</label>
                       <select 
@@ -1688,7 +2098,6 @@ END:VCALENDAR`;
                       </select>
                     </div>
 
-                    {/* JP MEMBER FILTER (ADMIN / REGISTRAR ONLY) */}
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1">
                       <label className="block font-extrabold text-slate-700">
                         JP Member {currentUser.role === 'Member' ? '(Self Restricted)' : ''}:
@@ -1714,7 +2123,6 @@ END:VCALENDAR`;
                   </div>
                 </div>
 
-                {/* STATISTICS DATA TABLE */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                     <h3 className="font-bold text-slate-900 text-base">
@@ -1790,22 +2198,37 @@ END:VCALENDAR`;
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">Registrar Governance Portal</h2>
-                    <p className="text-xs text-slate-500 mt-1">Maintain master lists for JP Members, Approve pending registrations, and manage Regions.</p>
+                    <p className="text-xs text-slate-500 mt-1">Maintain master lists for JP Members, Shift Slot Templates, Master Regions, or export full system CSV archives.</p>
                   </div>
 
-                  <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
-                    <button onClick={() => setRegistrarSubTab('members')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'members' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
-                      <Users className="w-3.5 h-3.5" />
-                      <span>JP Members ({users.length})</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button 
+                      onClick={() => setConfirmDownloadModalOpen(true)}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-extrabold shadow flex items-center space-x-1.5 transition cursor-pointer"
+                      title="Export all 6 application datasets into timestamped CSV files"
+                    >
+                      <Database className="w-4 h-4 text-emerald-300" />
+                      <span>Download Data (CSV Archive)</span>
                     </button>
-                    <button onClick={() => setRegistrarSubTab('regions')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'regions' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
-                      <Globe className="w-3.5 h-3.5" />
-                      <span>Regions ({regions.length})</span>
-                    </button>
+
+                    <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
+                      <button onClick={() => setRegistrarSubTab('members')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'members' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <Users className="w-3.5 h-3.5" />
+                        <span>JP Members ({users.length})</span>
+                      </button>
+                      <button onClick={() => setRegistrarSubTab('slots')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'slots' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Manage Slots ({slotTemplates.length})</span>
+                      </button>
+                      <button onClick={() => setRegistrarSubTab('regions')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'regions' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Regions ({regions.length})</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* SUBTAB 1: JP MEMBERS & PENDING REGISTRATION APPROVAL QUEUE */}
+                {/* SUBTAB 1: JP MEMBERS */}
                 {registrarSubTab === 'members' && (
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -1900,7 +2323,69 @@ END:VCALENDAR`;
                   </div>
                 )}
 
-                {/* SUBTAB 2: REGIONS MANAGEMENT */}
+                {/* SUBTAB 2: SLOT TEMPLATES MANAGEMENT */}
+                {registrarSubTab === 'slots' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base">Service Desk Shift Slot Templates</h3>
+                        <p className="text-xs text-slate-500">Create, edit, activate, or delete recurring weekly shift slots across all desks.</p>
+                      </div>
+                      <button onClick={() => handleOpenAddSlotModal()} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+                        <Plus className="w-4 h-4" />
+                        <span>Create New Shift Slot</span>
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-700 uppercase font-black tracking-wider border-b border-slate-200">
+                            <th className="p-3">Desk [Code]</th>
+                            <th className="p-3">Day of Week</th>
+                            <th className="p-3">Shift Hours</th>
+                            <th className="p-3 text-center">Min / Target / Max JPs</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {slotTemplates.map(slot => {
+                            const desk = activeDeskMap[slot.deskId] || {};
+                            return (
+                              <tr key={slot.id} className="hover:bg-slate-50 transition">
+                                <td className="p-3 font-bold text-slate-900">
+                                  <span className="bg-slate-900 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-black mr-1">{desk.code || 'JP'}</span>
+                                  <span>{desk.name || slot.deskId}</span>
+                                </td>
+                                <td className="p-3 font-bold text-slate-900">{slot.dayOfWeek}</td>
+                                <td className="p-3 font-mono text-slate-700">{slot.startTime} - {slot.endTime}</td>
+                                <td className="p-3 text-center font-bold text-slate-800">
+                                  {slot.minJps} / <span className="text-amber-600 font-extrabold">{slot.targetJps}</span> / {slot.maxJps}
+                                </td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${slot.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>
+                                    {slot.status}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-right space-x-1">
+                                  <button onClick={() => handleOpenEditSlotModal(slot)} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 cursor-pointer" title="Edit Shift Slot">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => setPendingDeleteSlotId(slot.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded text-rose-700 cursor-pointer" title="Delete Shift Slot">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUBTAB 3: REGIONS MANAGEMENT */}
                 {registrarSubTab === 'regions' && (
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                     <div className="flex justify-between items-center">
@@ -1979,6 +2464,287 @@ END:VCALENDAR`;
           </>
         )}
       </div>
+
+      {/* --- MASTER SYSTEM DATA CSV EXPORT CONFIRMATION MODAL --- */}
+      {confirmDownloadModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center space-x-3 text-slate-900 border-b border-slate-100 pb-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Confirm Master Data Download</h3>
+                <p className="text-[11px] text-slate-500">6 System CSV Archives</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to download all existing application data? This will generate <b>6 timestamped CSV files</b> corresponding to all core datasets:
+            </p>
+
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] font-mono space-y-1 text-slate-700">
+              <div className="flex justify-between"><span>1. INITIAL_REGIONS</span><span className="font-bold text-emerald-700">[Suffix _1.csv]</span></div>
+              <div className="flex justify-between"><span>2. INITIAL_USERS</span><span className="font-bold text-emerald-700">[Suffix _2.csv]</span></div>
+              <div className="flex justify-between"><span>3. INITIAL_SERVICE_DESKS</span><span className="font-bold text-emerald-700">[Suffix _3.csv]</span></div>
+              <div className="flex justify-between"><span>4. INITIAL_SLOT_TEMPLATES</span><span className="font-bold text-emerald-700">[Suffix _4.csv]</span></div>
+              <div className="flex justify-between"><span>5. INITIAL_ASSIGNMENTS</span><span className="font-bold text-emerald-700">[Suffix _5.csv]</span></div>
+              <div className="flex justify-between"><span>6. INITIAL_LOGGED_STATISTICS</span><span className="font-bold text-emerald-700">[Suffix _6.csv]</span></div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button 
+                type="button"
+                onClick={() => setConfirmDownloadModalOpen(false)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={handleExecuteFullDataDownload} 
+                className="px-5 py-2 rounded-lg text-xs font-black bg-emerald-700 hover:bg-emerald-600 text-white shadow-md transition cursor-pointer flex items-center space-x-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Proceed with Download</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD / EDIT SHIFT SLOT TEMPLATE MODAL WITH CLIENT-SIDE VALIDATION & WARNINGS --- */}
+      {slotModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">
+                {editingSlotId ? 'Edit Shift Slot Template' : 'Create New Shift Slot Template'}
+              </h3>
+              <button onClick={handlePromptCancelSlot} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {(slotValidationError || activeSlotValidationError) && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs font-bold flex items-start space-x-2 animate-pulse">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-extrabold uppercase tracking-wider block text-[10px] text-rose-900">Data Validation Warning</span>
+                  <span>{slotValidationError || activeSlotValidationError}</span>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handlePromptSaveSlot} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Target Service Desk</label>
+                <select 
+                  value={slotForm.deskId} 
+                  onChange={(e) => setSlotForm(prev => ({ ...prev, deskId: e.target.value }))} 
+                  className="w-full border rounded p-2 font-bold text-slate-900 bg-white"
+                >
+                  {activeDesksList.map(d => (
+                    <option key={d.id} value={d.id}>[{d.code}] {d.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Day of Week</label>
+                  <select 
+                    value={slotForm.dayOfWeek} 
+                    onChange={(e) => setSlotForm(prev => ({ ...prev, dayOfWeek: e.target.value }))} 
+                    className="w-full border rounded p-2 font-bold bg-white"
+                  >
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Start Time</label>
+                  <input 
+                    type="time" 
+                    required 
+                    value={slotForm.startTime} 
+                    onChange={(e) => setSlotForm(prev => ({ ...prev, startTime: e.target.value }))} 
+                    className={`w-full border rounded p-2 font-bold bg-white ${
+                      slotForm.startTime && slotForm.endTime && slotForm.startTime >= slotForm.endTime ? 'border-rose-500 bg-rose-50' : ''
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">End Time</label>
+                  <input 
+                    type="time" 
+                    required 
+                    value={slotForm.endTime} 
+                    onChange={(e) => setSlotForm(prev => ({ ...prev, endTime: e.target.value }))} 
+                    className={`w-full border rounded p-2 font-bold bg-white ${
+                      slotForm.startTime && slotForm.endTime && slotForm.startTime >= slotForm.endTime ? 'border-rose-500 bg-rose-50' : ''
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-slate-800 uppercase tracking-wider text-[10px]">
+                    JP Capacity Limits & Rules
+                  </span>
+                  <span className="font-bold text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                    Rule: Min JPs ≤ Target JPs ≤ Max JPs
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Min JPs Required</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="10" 
+                      required 
+                      value={slotForm.minJps} 
+                      onChange={(e) => setSlotForm(prev => ({ ...prev, minJps: parseInt(e.target.value, 10) || 1 }))} 
+                      className={`w-full border rounded p-2 font-bold bg-white ${
+                        slotForm.minJps > slotForm.targetJps ? 'border-rose-500 bg-rose-50 text-rose-900' : ''
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Target JPs</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="10" 
+                      required 
+                      value={slotForm.targetJps} 
+                      onChange={(e) => setSlotForm(prev => ({ ...prev, targetJps: parseInt(e.target.value, 10) || 1 }))} 
+                      className={`w-full border rounded p-2 font-bold bg-white ${
+                        slotForm.minJps > slotForm.targetJps || slotForm.targetJps > slotForm.maxJps ? 'border-rose-500 bg-rose-50 text-rose-900' : ''
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Max JPs Capacity</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="10" 
+                      required 
+                      value={slotForm.maxJps} 
+                      onChange={(e) => setSlotForm(prev => ({ ...prev, maxJps: parseInt(e.target.value, 10) || 1 }))} 
+                      className={`w-full border rounded p-2 font-bold bg-white ${
+                        slotForm.targetJps > slotForm.maxJps ? 'border-rose-500 bg-rose-50 text-rose-900' : ''
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Effective From Date</label>
+                  <input 
+                    type="date" 
+                    required 
+                    value={slotForm.effectiveFromDate} 
+                    onChange={(e) => setSlotForm(prev => ({ ...prev, effectiveFromDate: e.target.value }))} 
+                    className="w-full border rounded p-2 font-bold bg-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Slot Status</label>
+                  <select 
+                    value={slotForm.status} 
+                    onChange={(e) => setSlotForm(prev => ({ ...prev, status: e.target.value }))} 
+                    className="w-full border rounded p-2 font-bold text-slate-900 bg-white"
+                  >
+                    <option value="Active">Active (Rostered)</option>
+                    <option value="Inactive">Inactive (Suspended)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                {editingSlotId ? (
+                  <button 
+                    type="button" 
+                    onClick={handlePromptDeleteSlot} 
+                    className="px-4 py-2 rounded-lg font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer flex items-center space-x-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Slot</span>
+                  </button>
+                ) : <div />}
+
+                <div className="flex space-x-2">
+                  <button 
+                    type="button" 
+                    onClick={handlePromptCancelSlot} 
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={!!activeSlotValidationError}
+                    className={`px-5 py-2 rounded-lg font-bold shadow transition cursor-pointer ${
+                      activeSlotValidationError 
+                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60' 
+                        : 'bg-slate-900 hover:bg-slate-800 text-amber-400'
+                    }`}
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CONFIRMATION DIALOG FOR SLOT MAINTENANCE BUTTON ACTIONS --- */}
+      {slotActionConfirm && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center space-x-2 text-slate-900">
+              <AlertTriangle className={`w-6 h-6 shrink-0 ${slotActionConfirm === 'DELETE' ? 'text-rose-600' : 'text-amber-500'}`} />
+              <h3 className="text-lg font-black">
+                {slotActionConfirm === 'SAVE' && 'Confirm Save Changes'}
+                {slotActionConfirm === 'CANCEL' && 'Confirm Cancel Editing'}
+                {slotActionConfirm === 'DELETE' && 'Confirm Slot Deletion'}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {slotActionConfirm === 'SAVE' && 'Are you sure you want to save changes to this shift slot template? This will update all future occurrences on the 12-week calendar.'}
+              {slotActionConfirm === 'CANCEL' && 'Are you sure you want to cancel? Any unsaved edits will be discarded.'}
+              {slotActionConfirm === 'DELETE' && 'Are you sure you want to permanently delete this shift slot template? Active calendar shifts generated from this slot will be removed.'}
+            </p>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button 
+                onClick={() => setSlotActionConfirm(null)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Go Back
+              </button>
+              <button 
+                onClick={handleConfirmSlotAction} 
+                className={`px-4 py-2 rounded-lg text-xs font-black shadow cursor-pointer ${
+                  slotActionConfirm === 'DELETE' ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-900 hover:bg-slate-800 text-amber-400'
+                }`}
+              >
+                {slotActionConfirm === 'SAVE' && 'Yes, Save Changes'}
+                {slotActionConfirm === 'CANCEL' && 'Yes, Discard Changes'}
+                {slotActionConfirm === 'DELETE' && 'Yes, Delete Slot'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- EDITING EXISTING STATISTIC RECORD MODAL --- */}
       {editingStatRecord && (
@@ -2150,7 +2916,119 @@ END:VCALENDAR`;
         </div>
       )}
 
-      {/* --- CONFIRMATION MODAL FOR DELETIING STAT ENTRY --- */}
+      {/* --- CREATE SERVICE DESK MODAL --- */}
+      {createDeskModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-900">Create New Physical Service Desk</h3>
+            <form onSubmit={handleCreateDeskSubmit} className="space-y-3 text-xs">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">2-Letter Code</label>
+                  <input type="text" maxLength={2} required value={newDeskForm.code} onChange={(e) => setNewDeskForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 font-extrabold uppercase text-amber-600" placeholder="e.g. SH" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Service Desk Name</label>
+                  <input type="text" required value={newDeskForm.name} onChange={(e) => setNewDeskForm(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded p-2" placeholder="e.g. St Heliers Bay Library" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Physical Address</label>
+                  <input type="text" required value={newDeskForm.address} onChange={(e) => setNewDeskForm(prev => ({ ...prev, address: e.target.value }))} className="w-full border rounded p-2" placeholder="Street address..." />
+                </div>
+                <div className="col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Region (Master Dropdown)</label>
+                  <select value={newDeskForm.region} onChange={(e) => setNewDeskForm(prev => ({ ...prev, region: e.target.value }))} className="w-full border rounded p-2 font-bold text-slate-900">
+                    {regions.map(r => (
+                      <option key={r.id} value={r.name}>{r.name} [{r.code}]</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-amber-50/60 p-3 rounded-lg border border-amber-200">
+                <div>
+                  <label className="block font-extrabold text-slate-800 mb-1">Primary Desk Admin</label>
+                  <select 
+                    value={newDeskForm.primaryAdminId} 
+                    onChange={(e) => setNewDeskForm(prev => ({ ...prev, primaryAdminId: e.target.value }))} 
+                    className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
+                  >
+                    <option value="">-- Select Primary Admin --</option>
+                    {eligibleAdminsList.map(u => (
+                      <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-extrabold text-slate-800 mb-1">Secondary Desk Admin</label>
+                  <select 
+                    value={newDeskForm.secondaryAdminId} 
+                    onChange={(e) => setNewDeskForm(prev => ({ ...prev, secondaryAdminId: e.target.value }))} 
+                    className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
+                  >
+                    <option value="">-- Select Secondary Admin --</option>
+                    {eligibleAdminsList
+                      .filter(u => u.id !== newDeskForm.primaryAdminId)
+                      .map(u => (
+                        <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-sky-50/60 p-3 rounded-lg border border-sky-200">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Site Contact Name</label>
+                  <input type="text" value={newDeskForm.siteContactName} onChange={(e) => setNewDeskForm(prev => ({ ...prev, siteContactName: e.target.value }))} className="w-full border rounded p-2 bg-white" placeholder="e.g. Facility Manager" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Site Contact Email</label>
+                  <input type="email" value={newDeskForm.siteContactEmail} onChange={(e) => setNewDeskForm(prev => ({ ...prev, siteContactEmail: e.target.value }))} className="w-full border rounded p-2 bg-white" placeholder="manager@site.co.nz" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Desk Notes & Instructions</label>
+                <textarea rows={2} value={newDeskForm.notes} onChange={(e) => setNewDeskForm(prev => ({ ...prev, notes: e.target.value }))} className="w-full border rounded p-2 text-xs" placeholder="Operational notes..." />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setCreateDeskModalOpen(false)} className="px-4 py-2 rounded font-bold bg-slate-100 text-slate-700">Cancel</button>
+                <button type="submit" className="px-4 py-2 rounded font-bold bg-slate-900 text-amber-400">Create Desk</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- CONFIRMATION MODAL FOR DELETING SHIFT SLOT TEMPLATE --- */}
+      {pendingDeleteSlotId && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex items-center space-x-2 text-rose-700">
+              <AlertTriangle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-black">Confirm Shift Slot Deletion</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete this shift slot template? This will remove its recurring shift occurrences from the 12-week calendar view.
+            </p>
+            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setPendingDeleteSlotId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                Cancel
+              </button>
+              <button onClick={confirmDeleteSlot} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
+                Delete Shift Slot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- CONFIRMATION MODAL FOR DELETING STAT ENTRY --- */}
       {confirmDeleteStatId && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
@@ -2378,7 +3256,7 @@ END:VCALENDAR`;
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-medium"
-                    placeholder="e.g. robert@ajpa.org.nz"
+                    placeholder="e.g. rob@broadbridge.co.nz"
                   />
                 </div>
 
@@ -2445,7 +3323,6 @@ END:VCALENDAR`;
               </div>
             </div>
 
-            {/* REGISTERED JP MEMBERS LIST */}
             <div className="space-y-2">
               <h4 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center justify-between">
                 <span>Registered JP Members</span>
@@ -2459,7 +3336,7 @@ END:VCALENDAR`;
                   <div className="text-xs text-slate-400 italic py-2 text-center">No JPs registered for this shift yet</div>
                 ) : (
                   detailedSlotModal.assignedJpIds.map(jpId => {
-                    const member = userMap[jpId] || { fullName: 'Registered JP', warrantNumber: 'JP-MEMBER', email: 'jp@ajpa.org.nz' };
+                    const member = userMap[jpId] || { fullName: 'Registered JP', warrantNumber: 'JP-MEMBER', email: 'jp@broadbridge.co.nz' };
                     return (
                       <div key={jpId} className="p-2 bg-white rounded-lg border border-slate-200 flex justify-between items-center text-xs">
                         <div>
@@ -2476,7 +3353,6 @@ END:VCALENDAR`;
               </div>
             </div>
 
-            {/* MODAL ACTION BUTTONS */}
             <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
               {detailedSlotModal.assignedJpIds.includes(currentUser.id) ? (
                 <>
@@ -2716,7 +3592,7 @@ END:VCALENDAR`;
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Phone Number</label>
-                  <input type="text" required value={userForm.phone} onChange={(e) => setUserForm(prev => ({ ...prev, phone: e.target.value }))} className="w-full border rounded p-2" />
+                  <input type="text" value={userForm.phone} onChange={(e) => setUserForm(prev => ({ ...prev, phone: e.target.value }))} className="w-full border rounded p-2" />
                 </div>
               </div>
 
@@ -2765,49 +3641,6 @@ END:VCALENDAR`;
               <div className="flex justify-end space-x-2 pt-3">
                 <button type="button" onClick={() => setRegionModalOpen(false)} className="px-4 py-2 rounded font-bold bg-slate-100 text-slate-700">Cancel</button>
                 <button type="submit" className="px-4 py-2 rounded font-bold bg-slate-900 text-amber-400">Save Region</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* --- CREATE SERVICE DESK MODAL --- */}
-      {createDeskModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">Create New Physical Service Desk</h3>
-            <form onSubmit={handleCreateDeskSubmit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">2-Letter Code</label>
-                  <input type="text" maxLength={2} required value={newDeskForm.code} onChange={(e) => setNewDeskForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 font-extrabold uppercase text-amber-600" placeholder="e.g. SH" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">Service Desk Name</label>
-                  <input type="text" required value={newDeskForm.name} onChange={(e) => setNewDeskForm(prev => ({ ...prev, name: e.target.value }))} className="w-full border rounded p-2" placeholder="e.g. St Heliers Bay Library" />
-                </div>
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Physical Address</label>
-                <input type="text" required value={newDeskForm.address} onChange={(e) => setNewDeskForm(prev => ({ ...prev, address: e.target.value }))} className="w-full border rounded p-2" placeholder="Street address..." />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Region (Master Dropdown)</label>
-                  <select value={newDeskForm.region} onChange={(e) => setNewDeskForm(prev => ({ ...prev, region: e.target.value }))} className="w-full border rounded p-2 font-bold text-slate-900">
-                    {regions.map(r => (
-                      <option key={r.id} value={r.name}>{r.name} [{r.code}]</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Contact Person</label>
-                  <input type="text" value={newDeskForm.contactPerson} onChange={(e) => setNewDeskForm(prev => ({ ...prev, contactPerson: e.target.value }))} className="w-full border rounded p-2" />
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2 pt-3">
-                <button type="button" onClick={() => setCreateDeskModalOpen(false)} className="px-4 py-2 rounded font-bold bg-slate-100 text-slate-700">Cancel</button>
-                <button type="submit" className="px-4 py-2 rounded font-bold bg-slate-900 text-amber-400">Create Desk</button>
               </div>
             </form>
           </div>
