@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
   LogOut, Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
-  Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info,
+  Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info, HelpCircle, Star,
   Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Settings, Database
 } from 'lucide-react';
 
@@ -177,6 +177,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('calendar');
+  const [showUnauthHelp, setShowUnauthHelp] = useState(false);
 
   const [users, setUsers] = useState(INITIAL_USERS);
   const [regions, setRegions] = useState(INITIAL_REGIONS);
@@ -193,10 +194,10 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Register Modal State
-  const [registerModalOpen, setRegisterModalOpen] = useState(false);
-  const [registerForm, setRegisterForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
-  const [registerSuccessMsg, setRegisterSuccessMsg] = useState(false);
+  // Sign Up Modal State
+  const [signUpModalOpen, setSignUpModalOpen] = useState(false);
+  const [signUpForm, setSignUpForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
+  const [signUpSuccessMsg, setSignUpSuccessMsg] = useState(false);
 
   // Forgot Password & Reset Modal State
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
@@ -443,7 +444,7 @@ export default function App() {
     }
 
     if (foundUser.status === 'Pending') {
-      setLoginError('Your registration is currently PENDING approval by an AJPA Registrar.');
+      setLoginError('Your sign-up application is currently PENDING approval by an AJPA Registrar.');
       return;
     }
 
@@ -456,6 +457,7 @@ export default function App() {
     setIsAuthenticated(true);
     setLoginEmail('');
     setLoginPassword('');
+    setActiveTab('calendar');
   };
 
   const handleQuickDemoLogin = (role) => {
@@ -464,41 +466,42 @@ export default function App() {
       setCurrentUser(demoUser);
       setIsAuthenticated(true);
       setLoginError('');
+      setActiveTab('calendar');
     }
   };
 
-  const handleRegisterSubmit = (e) => {
+  const handleSignUpSubmit = (e) => {
     e.preventDefault();
     
-    if (users.some(u => u.email.toLowerCase() === registerForm.email.trim().toLowerCase())) {
+    if (users.some(u => u.email.toLowerCase() === signUpForm.email.trim().toLowerCase())) {
       alert('An account with this email address already exists.');
       return;
     }
 
     const newUser = {
       id: `usr-${Date.now()}`,
-      fullName: registerForm.fullName,
-      email: registerForm.email.trim(),
-      phone: registerForm.phone,
-      warrantNumber: registerForm.warrantNumber,
-      password: registerForm.password || 'password123',
+      fullName: signUpForm.fullName,
+      email: signUpForm.email.trim(),
+      phone: signUpForm.phone,
+      warrantNumber: signUpForm.warrantNumber,
+      password: signUpForm.password || 'password123',
       role: 'Member',
-      isProvisional: registerForm.isProvisional,
+      isProvisional: signUpForm.isProvisional,
       status: 'Pending'
     };
 
     setUsers(prev => [...prev, newUser]);
-    setRegisterSuccessMsg(true);
+    setSignUpSuccessMsg(true);
 
     setEmailAlert({
       title: 'Automated Email Alert Sent to Registrars',
-      message: `New JP Registration received for ${newUser.fullName} (${newUser.warrantNumber}). Status set to PENDING awaiting Registrar Portal approval.`
+      message: `New JP Sign-up received for ${newUser.fullName} (${newUser.warrantNumber}). Status set to PENDING awaiting Registrar Portal approval.`
     });
 
     setTimeout(() => {
-      setRegisterSuccessMsg(false);
-      setRegisterModalOpen(false);
-      setRegisterForm({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
+      setSignUpSuccessMsg(false);
+      setSignUpModalOpen(false);
+      setSignUpForm({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
     }, 2500);
   };
 
@@ -1286,8 +1289,9 @@ END:VCALENDAR`;
                 onClick={() => {
                   setIsAuthenticated(false);
                   setCurrentUser(null);
+                  setShowUnauthHelp(false);
                 }} 
-                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 hover:text-white" 
+                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 hover:text-white cursor-pointer" 
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -1347,165 +1351,223 @@ END:VCALENDAR`;
 
                 <button 
                   type="submit" 
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-bold text-sm shadow transition"
+                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-bold text-sm shadow transition cursor-pointer"
                 >
                   Update Password & Return to Login
                 </button>
               </form>
             </div>
           ) : (
-            /* STANDARD LANDING / LOGIN SCREEN */
-            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-              <div className="md:col-span-7 space-y-5">
-                <span className="bg-amber-100 text-amber-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                  Official Association Portal
-                </span>
-                <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
-                  Auckland JP Service Desk Roster & Governance Platform
-                </h2>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Welcome to the official roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view 12-week rolling service desk calendars, export device schedules, and log desk statistics.
-                </p>
-
-                <div className="pt-2 grid grid-cols-2 gap-4 text-xs font-bold text-slate-700">
-                  <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
-                    <Calendar className="w-5 h-5 text-amber-600 shrink-0" />
-                    <span>12-Week Rolling Calendar</span>
-                  </div>
-                  <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
-                    <MapPin className="w-5 h-5 text-sky-600 shrink-0" />
-                    <span>Regional Desk Roster</span>
-                  </div>
-                </div>
-
-                {/* DEMO QUICK ACCESS ROLES */}
-                <div className="bg-slate-200/70 p-4 rounded-xl border border-slate-300/80 space-y-2">
-                  <span className="text-[11px] font-black uppercase text-slate-600 tracking-wider block">
-                    Demo Fast Access (Click to test roles):
-                  </span>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <button onClick={() => handleQuickDemoLogin('Registrar')} className="px-3 py-1.5 bg-purple-900 text-white rounded-lg font-bold hover:bg-purple-800 transition">
-                      Login as Registrar
-                    </button>
-                    <button onClick={() => handleQuickDemoLogin('Admin')} className="px-3 py-1.5 bg-sky-800 text-white rounded-lg font-bold hover:bg-sky-700 transition">
-                      Login as Desk Admin
-                    </button>
-                    <button onClick={() => handleQuickDemoLogin('Member')} className="px-3 py-1.5 bg-slate-900 text-amber-400 rounded-lg font-bold hover:bg-slate-800 transition">
-                      Login as JP Member
-                    </button>
-                  </div>
-                </div>
+            /* STANDARD LANDING / LOGIN SCREEN OR HELP TAB WHEN UNAUTHENTICATED */
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {/* TOP NAVIGATION FOR UNAUTHENTICATED USERS TO SWITCH TO HELP */}
+              <div className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 flex flex-wrap gap-2 justify-end">
+                <button 
+                  onClick={() => setShowUnauthHelp(!showUnauthHelp)} 
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    showUnauthHelp ? 'bg-amber-500 text-slate-950 shadow' : 'bg-slate-900 text-amber-400 hover:bg-slate-800'
+                  }`}
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span>{showUnauthHelp ? 'Return to Sign In' : 'Platform Help & Sign-Up Guide'}</span>
+                </button>
               </div>
 
-              {/* LOGIN CARD */}
-              <div className="md:col-span-5 bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-xl font-black text-slate-900">Sign In to Your Account</h3>
-                  <p className="text-xs text-slate-500 mt-1">Enter your registered email address and password</p>
-                </div>
-
-                {loginError && (
-                  <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs font-bold flex items-center space-x-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>{loginError}</span>
+              {showUnauthHelp ? (
+                /* HELP VIEW FOR UNAUTHENTICATED USERS */
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
+                  <div className="border-b border-slate-200 pb-4">
+                    <span className="bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-1 rounded uppercase tracking-wider">Help & Guidelines</span>
+                    <h2 className="text-2xl font-black text-slate-900 mt-2">Getting Started with the AJPA Service Desk Portal</h2>
+                    <p className="text-xs text-slate-500 mt-1">Instructions for New JPs and Public Visitors</p>
                   </div>
-                )}
 
-                <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Email Address</label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input 
-                        type="email" 
-                        required 
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
-                        placeholder="e.g. rob@broadbridge.co.nz"
-                      />
+                  <div className="space-y-4 text-xs text-slate-700">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                        <UserPlus className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>1. How to Sign Up for a Portal Account</span>
+                      </h3>
+                      <ol className="list-decimal pl-5 space-y-1.5 leading-relaxed font-medium">
+                        <li>Click the <b>"Click here to Sign up"</b> button located at the bottom of the Sign In card on the main page.</li>
+                        <li>Fill in your full legal name, warrant number (e.g. <code className="bg-white px-1 border rounded">JP-25138</code>), mobile phone, and active email address.</li>
+                        <li>Check the <b>Provisional JP</b> box if you are currently undertaking provisional service.</li>
+                        <li>Submit the form. Your account status will immediately be marked as <b>PENDING</b>, and an automated alert will be sent to the AJPA Registrars for verification.</li>
+                        <li>Once an AJPA Registrar approves your warrant details, you will receive confirmation and can log in with your email and password.</li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h3 className="font-extrabold text-sm text-slate-900 flex items-center space-x-2">
+                        <Key className="w-4 h-4 text-sky-600 shrink-0" />
+                        <span>2. Resetting Your Password</span>
+                      </h3>
+                      <p className="leading-relaxed">
+                        If you forget your password, click <b>"Forgot password?"</b> on the Sign In form, enter your registered email address, and follow the link sent to your inbox to set a new password.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* MAIN LOGIN / LANDING SCREEN */
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                  <div className="md:col-span-7 space-y-5">
+                    <span className="bg-amber-100 text-amber-900 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                      Official Association Portal
+                    </span>
+                    <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+                      Auckland JP Service Desk Roster & Governance Platform
+                    </h2>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Welcome to the official roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view 12-week rolling service desk calendars, export device schedules, and log desk statistics.
+                    </p>
+
+                    <div className="pt-2 grid grid-cols-2 gap-4 text-xs font-bold text-slate-700">
+                      <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
+                        <Calendar className="w-5 h-5 text-amber-600 shrink-0" />
+                        <span>12-Week Rolling Calendar</span>
+                      </div>
+                      <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
+                        <MapPin className="w-5 h-5 text-sky-600 shrink-0" />
+                        <span>Regional Desk Roster</span>
+                      </div>
+                    </div>
+
+                    {/* DEMO QUICK ACCESS ROLES */}
+                    <div className="bg-slate-200/70 p-4 rounded-xl border border-slate-300/80 space-y-2">
+                      <span className="text-[11px] font-black uppercase text-slate-600 tracking-wider block">
+                        Demo Fast Access (Click to test roles):
+                      </span>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <button onClick={() => handleQuickDemoLogin('Registrar')} className="px-3 py-1.5 bg-purple-900 text-white rounded-lg font-bold hover:bg-purple-800 transition cursor-pointer">
+                          Login as Registrar
+                        </button>
+                        <button onClick={() => handleQuickDemoLogin('Admin')} className="px-3 py-1.5 bg-sky-800 text-white rounded-lg font-bold hover:bg-sky-700 transition cursor-pointer">
+                          Login as Desk Admin
+                        </button>
+                        <button onClick={() => handleQuickDemoLogin('Member')} className="px-3 py-1.5 bg-slate-900 text-amber-400 rounded-lg font-bold hover:bg-slate-800 transition cursor-pointer">
+                          Login as JP Member
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block font-bold text-slate-700">Password</label>
+                  {/* LOGIN CARD */}
+                  <div className="md:col-span-5 bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5">
+                    <div className="border-b border-slate-100 pb-4">
+                      <h3 className="text-xl font-black text-slate-900">Sign In to Your Account</h3>
+                      <p className="text-xs text-slate-500 mt-1">Enter your registered email address and password</p>
+                    </div>
+
+                    {loginError && (
+                      <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs font-bold flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{loginError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Email Address</label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                          <input 
+                            type="email" 
+                            required 
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
+                            placeholder="e.g. rob@broadbridge.co.nz"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block font-bold text-slate-700">Password</label>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              setForgotModalOpen(true);
+                              setResetLinkSent(false);
+                              setResetEmail('');
+                            }}
+                            className="text-[11px] text-sky-700 hover:text-sky-800 font-bold underline cursor-pointer"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                          <input 
+                            type="password" 
+                            required 
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
+                            placeholder="••••••••"
+                          />
+                        </div>
+                      </div>
+
                       <button 
-                        type="button" 
-                        onClick={() => {
-                          setForgotModalOpen(true);
-                          setResetLinkSent(false);
-                          setResetEmail('');
-                        }}
-                        className="text-[11px] text-sky-700 hover:text-sky-800 font-bold underline cursor-pointer"
+                        type="submit" 
+                        className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-extrabold text-sm shadow transition cursor-pointer"
                       >
-                        Forgot password?
+                        Sign In
+                      </button>
+                    </form>
+
+                    <div className="pt-4 border-t border-slate-100 text-center space-y-2">
+                      <span className="text-xs text-slate-500 block">Not signed up on the AJPA Roster yet?</span>
+                      <button 
+                        onClick={() => setSignUpModalOpen(true)}
+                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider shadow transition cursor-pointer"
+                      >
+                        Click here to Sign up
                       </button>
                     </div>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input 
-                        type="password" 
-                        required 
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full border border-slate-300 rounded-lg pl-9 p-2.5 text-sm font-medium"
-                        placeholder="••••••••"
-                      />
-                    </div>
                   </div>
-
-                  <button 
-                    type="submit" 
-                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-extrabold text-sm shadow transition cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                </form>
-
-                <div className="pt-4 border-t border-slate-100 text-center space-y-2">
-                  <span className="text-xs text-slate-500 block">Not registered on the AJPA Roster yet?</span>
-                  <button 
-                    onClick={() => setRegisterModalOpen(true)}
-                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider shadow transition cursor-pointer"
-                  >
-                    Click here to Register
-                  </button>
                 </div>
-              </div>
+              )}
             </div>
           )
         ) : (
           /* --- AUTHENTICATED PORTAL VIEW --- */
           <>
-            {/* NAVIGATION TABS WITH STATISTICS TAB */}
+            {/* NAVIGATION TABS WITH HELP TAB */}
             <div className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 mb-6 flex flex-wrap gap-2">
-              <button onClick={() => setActiveTab('calendar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'calendar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <button onClick={() => setActiveTab('calendar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'calendar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <Calendar className="w-4 h-4" />
                 <span>Calendar (12 Wks)</span>
               </button>
 
-              <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <MapPin className="w-4 h-4" />
                 <span>Service Desks</span>
               </button>
 
-              <button onClick={() => setActiveTab('my-shifts')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'my-shifts' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <button onClick={() => setActiveTab('my-shifts')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'my-shifts' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <UserCheck className="w-4 h-4" />
                 <span>My Shifts</span>
               </button>
 
-              <button onClick={() => setActiveTab('statistics')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'statistics' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+              <button onClick={() => setActiveTab('statistics')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'statistics' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <BarChart2 className="w-4 h-4" />
                 <span>Statistics</span>
               </button>
 
               {(currentUser.role === 'Registrar' || currentUser.role === 'Admin') && (
-                <button onClick={() => setActiveTab('registrar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition ${activeTab === 'registrar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+                <button onClick={() => setActiveTab('registrar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'registrar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                   <Award className="w-4 h-4" />
                   <span>Registrar Portal</span>
                 </button>
               )}
+
+              <button onClick={() => setActiveTab('help')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'help' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-slate-900 text-amber-400 hover:bg-slate-800'}`}>
+                <HelpCircle className="w-4 h-4" />
+                <span>Help</span>
+              </button>
             </div>
 
             {/* TAB 1: CALENDAR VIEW */}
@@ -1689,10 +1751,10 @@ END:VCALENDAR`;
 
                     <div className="flex items-center space-x-3">
                       <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
-                        <button onClick={() => setDeskViewFilter('Active')} className={`px-3 py-1.5 rounded-md ${deskViewFilter === 'Active' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <button onClick={() => setDeskViewFilter('Active')} className={`px-3 py-1.5 rounded-md cursor-pointer ${deskViewFilter === 'Active' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
                           Active Desks ({activeDesksList.length})
                         </button>
-                        <button onClick={() => setDeskViewFilter('Archived')} className={`px-3 py-1.5 rounded-md ${deskViewFilter === 'Archived' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <button onClick={() => setDeskViewFilter('Archived')} className={`px-3 py-1.5 rounded-md cursor-pointer ${deskViewFilter === 'Archived' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
                           Archived Desks ({archivedDesksList.length})
                         </button>
                       </div>
@@ -2233,7 +2295,7 @@ END:VCALENDAR`;
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-slate-900 text-base">Association Members & Registration Queue</h3>
+                        <h3 className="font-bold text-slate-900 text-base">Association Members & Sign-up Queue</h3>
                         <p className="text-xs text-slate-500">Approve pending applications or maintain active profiles.</p>
                       </div>
                       <button onClick={handleOpenAddUserModal} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
@@ -2459,6 +2521,199 @@ END:VCALENDAR`;
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* TAB 6: USER SENSITIVE HELP TAB */}
+            {activeTab === 'help' && currentUser && (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+                <div className="border-b border-slate-200 pb-4 flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="bg-amber-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded uppercase tracking-wider">
+                        Role Guidelines: {currentUser.role}
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-extrabold text-slate-900 mt-1">Portal User Guidelines & Step-by-Step Instructions</h2>
+                  </div>
+                  <div className="text-xs text-slate-500 font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                    Logged in as: <span className="text-slate-900 font-black">{currentUser.fullName}</span> ({currentUser.warrantNumber})
+                  </div>
+                </div>
+
+                <div className="space-y-6 text-xs text-slate-700">
+                  {/* --- JP MEMBER HELP SECTION (AVAILABLE TO ALL LOGGED IN ROLES) --- */}
+                  <div className="space-y-4">
+                    <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wide border-b border-amber-200 pb-1 text-amber-800">
+                      JP Member Core Instructions
+                    </h3>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                        <UserPlus className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>1. Account Sign-Up & Login</span>
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 font-medium leading-relaxed">
+                        <li>New members click <b>"Click here to Sign up"</b> on the login screen to register warrant details.</li>
+                        <li>Accounts start as <b>Pending</b> until an AJPA Registrar verifies credentials. Once approved, log in with your email and password.</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                        <Filter className="w-4 h-4 text-sky-600 shrink-0" />
+                        <span>2. Navigation & Calendar Filters</span>
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 font-medium leading-relaxed">
+                        <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window starting August 31, 2026.</li>
+                        <li><b>Region Filter:</b> Filter visible shifts by geographical region (e.g., Auckland East).</li>
+                        <li><b>Desk Filter:</b> Switch between <i>"My Followed Desks Only"</i> and specific service desk locations.</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                        <Star className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>3. How to Follow Service Desks</span>
+                      </h4>
+                      <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                        <li>Navigate to the <b>Service Desks</b> tab.</li>
+                        <li>Locate your preferred desk tile (e.g. <i>Remuera Library</i>).</li>
+                        <li>Click the <b>"+ Follow"</b> button. It will change to <b>"★ Following"</b>.</li>
+                        <li>Your 12-Week Calendar will now show upcoming shifts for these followed desks.</li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                        <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>4. How to Register for & Withdraw from a Shift Slot</span>
+                      </h4>
+                      <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                        <li>Open the <b>Calendar (12 Wks)</b> tab or click any shift tile.</li>
+                        <li>Click <b>"Register"</b> on an open slot tile. If space is available under maximum capacity, your registration is saved immediately.</li>
+                        <li>To cancel, click <b>"Withdraw"</b> on the same shift tile to release the slot for other JPs.</li>
+                        <li>Click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                      <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                        <BarChart2 className="w-4 h-4 text-purple-600 shrink-0" />
+                        <span>5. How to Add & Maintain Shift Statistics</span>
+                      </h4>
+                      <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                        <li>After completing a duty shift, click <b>"Log Stats"</b> on the shift tile or in the <b>My Shifts</b> tab.</li>
+                        <li>Enter clients served, hours worked, and document counts (Certified Copies, Statutory Declarations, Witnessed Signatures, Affidavits, Other).</li>
+                        <li>Click <b>"Save Statistics Log"</b>.</li>
+                        <li>To edit or delete an existing log, go to the <b>Statistics</b> tab, click on any row in the table, update the values, and click <b>"Save Changes"</b> or <b>"Delete Entry"</b>.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  {/* --- DESK ADMIN HELP SECTION --- */}
+                  {(currentUser.role === 'Admin' || currentUser.role === 'Registrar') && (
+                    <div className="space-y-4 pt-4 border-t border-slate-200">
+                      <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wide border-b border-sky-200 pb-1 text-sky-800 flex items-center space-x-2">
+                        <Shield className="w-4 h-4 text-sky-600" />
+                        <span>Desk Admin Guidelines</span>
+                      </h3>
+
+                      <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Building2 className="w-4 h-4 text-sky-700 shrink-0" />
+                          <span>1. How to Add & Maintain Service Desks</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>In the <b>Service Desks</b> tab, click <b>"Create Service Desk"</b> to add a new physical location.</li>
+                          <li>Fill in desk code (2 letters), name, address, region, primary/secondary desk admins, and facility site contact details.</li>
+                          <li>Click <b>"Maintain Desk"</b> on any desk card to update governance fields or operational instructions.</li>
+                          <li>Click <b>"Delete Desk"</b> to archive a desk location and suspend its active calendar shifts.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Clock className="w-4 h-4 text-sky-700 shrink-0" />
+                          <span>2. How to Add & Maintain Recurring Shift Slots</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Click <b>"Create Slot"</b> on any service desk card or navigate to <b>Registrar Portal &rarr; Manage Slots</b>.</li>
+                          <li>Select day of week, start time, end time, and capacity limits (<i>Min JPs ≤ Target JPs ≤ Max JPs</i>).</li>
+                          <li>To edit or remove a slot, click the slot tile under the desk or click <b>Edit/Delete</b> in the Manage Slots subtab.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Download className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span>3. How to Download Desk Statistics</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Navigate to the <b>Statistics</b> tab.</li>
+                          <li>Use the filters (Date Range, Region, Desk, JP Member) to customize your dataset.</li>
+                          <li>Click <b>"Download Filtered CSV"</b> at the top right to download a spreadsheet report.</li>
+                        </ol>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- REGISTRAR HELP SECTION --- */}
+                  {currentUser.role === 'Registrar' && (
+                    <div className="space-y-4 pt-4 border-t border-slate-200">
+                      <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wide border-b border-purple-200 pb-1 text-purple-900 flex items-center space-x-2">
+                        <Award className="w-4 h-4 text-purple-700" />
+                        <span>Registrar Governance Guidelines</span>
+                      </h3>
+
+                      <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Globe className="w-4 h-4 text-purple-700 shrink-0" />
+                          <span>1. How to Add & Maintain Master Regions</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Navigate to <b>Registrar Portal &rarr; Regions</b>.</li>
+                          <li>Click <b>"Add New Region"</b>, type the region name and short code (e.g., <code className="bg-white px-1 border rounded">AKL-E</code>), and click Save.</li>
+                          <li>Service desks can then be assigned to this region from the Service Desks tab.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Users className="w-4 h-4 text-purple-700 shrink-0" />
+                          <span>2. How to Approve Sign-Ups & Maintain JP Members</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Navigate to <b>Registrar Portal &rarr; JP Members</b>.</li>
+                          <li>Review new member registrations in the <b>Pending Approval</b> queue.</li>
+                          <li>Click <b>"Approve"</b> to activate their account or <b>"Reject"</b> to deny access.</li>
+                          <li>Click the edit icon next to any member to update warrant numbers, system roles (Member, Admin, Registrar), or provisional status.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Database className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span>3. How to Download Master System Data Archives</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Go to <b>Registrar Portal</b> and click <b>"Download Data (CSV Archive)"</b>.</li>
+                          <li>Confirm the action in the prompt modal window.</li>
+                          <li>The system will automatically generate and download <b>6 separate timestamped CSV files</b> containing all system datasets:
+                            <ul className="list-disc pl-5 mt-1 text-[11px] font-mono text-slate-600">
+                              <li>Regions (_1.csv)</li>
+                              <li>Users (_2.csv)</li>
+                              <li>Service Desks (_3.csv)</li>
+                              <li>Slot Templates (_4.csv)</li>
+                              <li>Slot Assignments (_5.csv)</li>
+                              <li>Logged Statistics (_6.csv)</li>
+                            </ul>
+                          </li>
+                        </ol>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </>
@@ -3085,7 +3340,7 @@ END:VCALENDAR`;
             <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
               <button 
                 onClick={() => setCustomDateModalOpen(false)}
-                className="px-4 py-2 bg-slate-900 text-amber-400 font-bold rounded text-xs"
+                className="px-4 py-2 bg-slate-900 text-amber-400 font-bold rounded text-xs cursor-pointer"
               >
                 Apply Custom Range
               </button>
@@ -3094,35 +3349,35 @@ END:VCALENDAR`;
         </div>
       )}
 
-      {/* --- REGISTER NEW JP MEMBER POPUP MODAL --- */}
-      {registerModalOpen && (
+      {/* --- SIGN UP NEW JP MEMBER POPUP MODAL --- */}
+      {signUpModalOpen && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Registration</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">Register as a JP Member</h3>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Account Creation</span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">Sign up as a JP Member</h3>
               </div>
-              <button onClick={() => setRegisterModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+              <button onClick={() => setSignUpModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {registerSuccessMsg ? (
+            {signUpSuccessMsg ? (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-xl text-xs space-y-2 text-center">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <h4 className="font-extrabold text-sm">Registration Submitted!</h4>
+                <h4 className="font-extrabold text-sm">Sign-up Submitted!</h4>
                 <p>Your details have been logged with status <b>PENDING</b>. An email notification has been dispatched to all Registrars to review and activate your account.</p>
               </div>
             ) : (
-              <form onSubmit={handleRegisterSubmit} className="space-y-3 text-xs">
+              <form onSubmit={handleSignUpSubmit} className="space-y-3 text-xs">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Full Name</label>
                   <input 
                     type="text" 
                     required 
-                    value={registerForm.fullName}
-                    onChange={(e) => setRegisterForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    value={signUpForm.fullName}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, fullName: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2 font-medium"
                     placeholder="e.g. Margaret Smith"
                   />
@@ -3134,8 +3389,8 @@ END:VCALENDAR`;
                     <input 
                       type="text" 
                       required 
-                      value={registerForm.warrantNumber}
-                      onChange={(e) => setRegisterForm(prev => ({ ...prev, warrantNumber: e.target.value }))}
+                      value={signUpForm.warrantNumber}
+                      onChange={(e) => setSignUpForm(prev => ({ ...prev, warrantNumber: e.target.value }))}
                       className="w-full border border-slate-300 rounded-lg p-2 font-mono font-bold"
                       placeholder="JP-XXXXX"
                     />
@@ -3145,8 +3400,8 @@ END:VCALENDAR`;
                     <input 
                       type="text" 
                       required 
-                      value={registerForm.phone}
-                      onChange={(e) => setRegisterForm(prev => ({ ...prev, phone: e.target.value }))}
+                      value={signUpForm.phone}
+                      onChange={(e) => setSignUpForm(prev => ({ ...prev, phone: e.target.value }))}
                       className="w-full border border-slate-300 rounded-lg p-2 font-medium"
                       placeholder="021 000 0000"
                     />
@@ -3158,8 +3413,8 @@ END:VCALENDAR`;
                   <input 
                     type="email" 
                     required 
-                    value={registerForm.email}
-                    onChange={(e) => setRegisterForm(prev => ({ ...prev, email: e.target.value }))}
+                    value={signUpForm.email}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, email: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2 font-medium"
                     placeholder="e.g. margaret@ajpa.org.nz"
                   />
@@ -3170,8 +3425,8 @@ END:VCALENDAR`;
                   <input 
                     type="password" 
                     required 
-                    value={registerForm.password}
-                    onChange={(e) => setRegisterForm(prev => ({ ...prev, password: e.target.value }))}
+                    value={signUpForm.password}
+                    onChange={(e) => setSignUpForm(prev => ({ ...prev, password: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg p-2 font-medium"
                     placeholder="Minimum 6 characters"
                   />
@@ -3181,8 +3436,8 @@ END:VCALENDAR`;
                   <label className="flex items-center space-x-2 font-bold text-slate-700 cursor-pointer">
                     <input 
                       type="checkbox" 
-                      checked={registerForm.isProvisional}
-                      onChange={(e) => setRegisterForm(prev => ({ ...prev, isProvisional: e.target.checked }))}
+                      checked={signUpForm.isProvisional}
+                      onChange={(e) => setSignUpForm(prev => ({ ...prev, isProvisional: e.target.checked }))}
                       className="rounded border-slate-300 text-amber-500 focus:ring-amber-400"
                     />
                     <span>Check if you are a Provisional JP</span>
@@ -3190,14 +3445,14 @@ END:VCALENDAR`;
                 </div>
 
                 <p className="text-[10px] text-slate-400 italic">
-                  Note: Upon submission, your registration is set to Pending until verified by an AJPA Registrar.
+                  Note: Upon submission, your account is set to Pending until verified by an AJPA Registrar.
                 </p>
 
                 <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
                   <button 
                     type="button" 
-                    onClick={() => setRegisterModalOpen(false)}
-                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700"
+                    onClick={() => setSignUpModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -3205,7 +3460,7 @@ END:VCALENDAR`;
                     type="submit" 
                     className="px-5 py-2 rounded-lg font-bold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow cursor-pointer"
                   >
-                    Submit Registration
+                    Submit Sign-up
                   </button>
                 </div>
               </form>
@@ -3241,7 +3496,7 @@ END:VCALENDAR`;
                     onClick={handleSimulateOpenResetLink}
                     className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded text-[11px] cursor-pointer"
                   >
-                    Open Reset Link &rarr;
+                    Open Reset Link &rrArr;
                   </button>
                 </div>
               </div>
@@ -3264,7 +3519,7 @@ END:VCALENDAR`;
                   <button 
                     type="button" 
                     onClick={() => setForgotModalOpen(false)}
-                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700"
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 text-slate-700 cursor-pointer"
                   >
                     Cancel
                   </button>
