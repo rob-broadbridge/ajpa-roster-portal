@@ -190,8 +190,20 @@ export default function App() {
   const [followedDesks, setFollowedDesks] = useState(['desk-remuera', 'desk-glen-innes', 'desk-st-heliers', 'desk-panmure', 'desk-parnell', 'desk-newmarket', 'desk-otahuhu']);
 
   const [slotAssignments, setSlotAssignments] = useState(INITIAL_ASSIGNMENTS);
+  const [recurringRules, setRecurringRules] = useState([]); // Persistent bulk registration/withdrawal rules for auto-rollover
   const [cancelledSlotInstances, setCancelledSlotInstances] = useState([]);
   const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
+
+  // REGISTRATION & WITHDRAWAL MODAL STATES
+  const [registerModalOcc, setRegisterModalOcc] = useState(null);
+  const [registerOption, setRegisterOption] = useState('SINGLE'); // 'SINGLE', 'NEXT_N', 'UNTIL_DATE', 'ALL_FUTURE'
+  const [registerCountN, setRegisterCountN] = useState(4);
+  const [registerUntilDate, setRegisterUntilDate] = useState('2026-12-31');
+
+  const [withdrawModalOcc, setWithdrawModalOcc] = useState(null);
+  const [withdrawOption, setWithdrawOption] = useState('SINGLE'); // 'SINGLE', 'NEXT_N', 'UNTIL_DATE', 'ALL_FUTURE'
+  const [withdrawCountN, setWithdrawCountN] = useState(4);
+  const [withdrawUntilDate, setWithdrawUntilDate] = useState('2026-12-31');
 
   // AUTH SCREEN MODALS & FORMS
   const [loginEmail, setLoginEmail] = useState('');
@@ -225,6 +237,13 @@ export default function App() {
   const [selectedDeskRegions, setSelectedDeskRegions] = useState(INITIAL_REGIONS.map(r => r.name));
   const [calendarDeskFilter, setCalendarDeskFilter] = useState('FOLLOWED');
   const [calendarRegionFilter, setCalendarRegionFilter] = useState('ALL');
+  
+  // 12-WEEK CALENDAR TIME OF DAY FILTER
+  const [calendarTimeOfDayFilter, setCalendarTimeOfDayFilter] = useState({
+    morning: true,
+    afternoon: true,
+    evening: true
+  });
 
   // MY SHIFTS TAB FILTERS
   const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_5WEEKS');
@@ -892,12 +911,11 @@ export default function App() {
     return grouped;
   }, [deskViewFilter, activeDesksList, archivedDesksList, selectedDeskRegions, regions]);
 
-  // CALENDAR ROLLOVER AT MIDNIGHT SUNDAY NIGHT (Monday 00:00:00 starts Week 1)
+  // CALENDAR ROLLOVER AT MIDNIGHT SUNDAY NIGHT
   const currentWeek1Monday = useMemo(() => {
     const now = new Date(2026, 8, 5); // Current simulation date: Saturday, September 5, 2026
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const dayOfWeek = now.getDay();
     
-    // Calculate days since the last Monday (if Sunday, 6 days back)
     const daysSinceMonday = (dayOfWeek + 6) % 7;
     const currentWeekMonday = new Date(now);
     currentWeekMonday.setDate(now.getDate() - daysSinceMonday);
@@ -945,12 +963,11 @@ export default function App() {
     return weeks;
   }, [currentWeek1Monday]);
 
-  // GENERATE EXTENDED OCCURRENCES ACROSS ALL TIME RANGES FOR MY SHIFTS INTERROGATION
+  // GENERATE EXTENDED OCCURRENCES ACROSS ALL TIME RANGES
   const generatedOccurrences = useMemo(() => {
     const instances = [];
     const dayNameMap = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 0: 'Sunday' };
 
-    // Generate across a broad 1-year window (-3 months to +9 months around current week)
     const rangeStart = new Date(currentWeek1Monday);
     rangeStart.setDate(rangeStart.getDate() - 90);
 
@@ -974,7 +991,45 @@ export default function App() {
           const instanceKey = `${template.deskId}_${template.id}_${isoDate}`;
 
           if (!cancelledSlotInstances.includes(instanceKey)) {
-            const assignedJpIds = slotAssignments[instanceKey] || [];
+            let assignedJpIds = [...(slotAssignments[instanceKey] || [])];
+
+            // AUTO-ROLLOVER RECURRING RULES ENGINE
+            if (currentUser) {
+              const matchingRules = recurringRules.filter(r => r.userId === currentUser.id && r.slotId === template.id);
+              for (const rule of matchingRules) {
+                let matches = false;
+                if (rule.type === 'ALL_FUTURE' && isoDate >= rule.startDate) {
+                  matches = true;
+                } else if (rule.type === 'UNTIL_DATE' && isoDate >= rule.startDate && isoDate <= rule.untilDate) {
+                  matches = true;
+                } else if (rule.type === 'NEXT_N' && isoDate >= rule.startDate) {
+                  // Filter future occurrence dates for this slotTemplate
+                  const slotOccurrences = [];
+                  for (let tempD = new Date(rule.startDate); tempD <= rangeEnd; tempD.setDate(tempD.getDate() + 1)) {
+                    if (dayNameMap[tempD.getDay()] === template.dayOfWeek) {
+                      const y = tempD.getFullYear();
+                      const m = String(tempD.getMonth() + 1).padStart(2, '0');
+                      const da = String(tempD.getDate()).padStart(2, '0');
+                      slotOccurrences.push(`${y}-${m}-${da}`);
+                    }
+                  }
+                  const targetDates = slotOccurrences.slice(0, rule.countN);
+                  if (targetDates.includes(isoDate)) {
+                    matches = true;
+                  }
+                }
+
+                if (matches) {
+                  if (rule.action === 'REGISTER' && !assignedJpIds.includes(currentUser.id)) {
+                    if (assignedJpIds.length < template.maxJps) {
+                      assignedJpIds.push(currentUser.id);
+                    }
+                  } else if (rule.action === 'WITHDRAW' && assignedJpIds.includes(currentUser.id)) {
+                    assignedJpIds = assignedJpIds.filter(id => id !== currentUser.id);
+                  }
+                }
+              }
+            }
 
             instances.push({
               instanceKey,
@@ -997,11 +1052,11 @@ export default function App() {
     }
 
     return instances;
-  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap]);
+  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap, currentUser, recurringRules]);
 
   // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
   const myShiftsFilterDescriptor = useMemo(() => {
-    const today = new Date(2026, 8, 5); // Sim Saturday 5 Sep 2026
+    const today = new Date(2026, 8, 5);
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
@@ -1014,9 +1069,9 @@ export default function App() {
 
     if (myShiftsPreset === 'DEFAULT_5WEEKS') {
       const start = new Date(currentWeek1Monday);
-      start.setDate(start.getDate() - 7); // Rolling week prior to Week 1
+      start.setDate(start.getDate() - 7);
       const end = new Date(currentWeek1Monday);
-      end.setDate(end.getDate() + (28 + 6)); // End of Week 4
+      end.setDate(end.getDate() + (28 + 6));
       return {
         label: `Showing my shifts for 5-week window: Prior Week + Calendar Weeks 1-4 (${formatDateStr(start)} to ${formatDateStr(end)})`,
         startDateStr: start.toISOString().split('T')[0],
@@ -1146,35 +1201,120 @@ export default function App() {
     setTimeout(() => setStatsSuccessToast(false), 4000);
   };
 
-  const handleDirectRegister = (occurrence, e) => {
+  // OPEN REGISTRATION MODAL
+  const handleOpenRegisterModal = (occ, e) => {
     if (e) e.stopPropagation();
+    setRegisterModalOcc(occ);
+    setRegisterOption('SINGLE');
+    setRegisterCountN(4);
+    setRegisterUntilDate(occ.date);
+  };
 
-    const assignedCount = occurrence.assignedJpIds.length;
-    const isAlreadyRegistered = occurrence.assignedJpIds.includes(currentUser.id);
+  // EXECUTE REGISTRATION LOGIC
+  const handleExecuteRegister = () => {
+    if (!registerModalOcc || !currentUser) return;
 
-    if (isAlreadyRegistered) {
-      setSlotAssignments(prev => {
-        const current = prev[occurrence.instanceKey] || [];
-        return {
-          ...prev,
-          [occurrence.instanceKey]: current.filter(id => id !== currentUser.id)
-        };
-      });
-      return;
-    }
+    const slotOccurrences = generatedOccurrences
+      .filter(o => o.slotId === registerModalOcc.slotId && o.date >= registerModalOcc.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-    if (assignedCount >= occurrence.maxJps) {
-      alert(`The maximum capacity of ${occurrence.maxJps} JPs for this shift has been reached.`);
-      return;
+    let targetOccurrences = [];
+
+    if (registerOption === 'SINGLE') {
+      targetOccurrences = [registerModalOcc];
+    } else if (registerOption === 'NEXT_N') {
+      targetOccurrences = slotOccurrences.slice(0, Math.max(1, parseInt(registerCountN, 10) || 1));
+    } else if (registerOption === 'UNTIL_DATE') {
+      targetOccurrences = slotOccurrences.filter(o => o.date <= registerUntilDate);
+    } else if (registerOption === 'ALL_FUTURE') {
+      targetOccurrences = slotOccurrences;
     }
 
     setSlotAssignments(prev => {
-      const current = prev[occurrence.instanceKey] || [];
-      return {
-        ...prev,
-        [occurrence.instanceKey]: [...current, currentUser.id]
-      };
+      const updated = { ...prev };
+      targetOccurrences.forEach(occ => {
+        const currentAssigned = updated[occ.instanceKey] || [];
+        if (!currentAssigned.includes(currentUser.id) && currentAssigned.length < occ.maxJps) {
+          updated[occ.instanceKey] = [...currentAssigned, currentUser.id];
+        }
+      });
+      return updated;
     });
+
+    if (registerOption !== 'SINGLE') {
+      const newRule = {
+        id: `rule-${Date.now()}`,
+        userId: currentUser.id,
+        slotId: registerModalOcc.slotId,
+        action: 'REGISTER',
+        type: registerOption,
+        startDate: registerModalOcc.date,
+        countN: parseInt(registerCountN, 10) || 1,
+        untilDate: registerUntilDate
+      };
+      setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === registerModalOcc.slotId && r.action === 'REGISTER')), newRule]);
+    }
+
+    setRegisterModalOcc(null);
+  };
+
+  // OPEN WITHDRAWAL MODAL
+  const handleOpenWithdrawModal = (occ, e) => {
+    if (e) e.stopPropagation();
+    setWithdrawModalOcc(occ);
+    setWithdrawOption('SINGLE');
+    setWithdrawCountN(4);
+    setWithdrawUntilDate(occ.date);
+  };
+
+  // EXECUTE WITHDRAWAL LOGIC
+  const handleExecuteWithdraw = () => {
+    if (!withdrawModalOcc || !currentUser) return;
+
+    const slotOccurrences = generatedOccurrences
+      .filter(o => o.slotId === withdrawModalOcc.slotId && o.date >= withdrawModalOcc.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    let targetOccurrences = [];
+
+    if (withdrawOption === 'SINGLE') {
+      targetOccurrences = [withdrawModalOcc];
+    } else if (withdrawOption === 'NEXT_N') {
+      targetOccurrences = slotOccurrences.slice(0, Math.max(1, parseInt(withdrawCountN, 10) || 1));
+    } else if (withdrawOption === 'UNTIL_DATE') {
+      targetOccurrences = slotOccurrences.filter(o => o.date <= withdrawUntilDate);
+    } else if (withdrawOption === 'ALL_FUTURE') {
+      targetOccurrences = slotOccurrences;
+    }
+
+    setSlotAssignments(prev => {
+      const updated = { ...prev };
+      targetOccurrences.forEach(occ => {
+        const currentAssigned = updated[occ.instanceKey] || [];
+        if (currentAssigned.includes(currentUser.id)) {
+          updated[occ.instanceKey] = currentAssigned.filter(id => id !== currentUser.id);
+        }
+      });
+      return updated;
+    });
+
+    if (withdrawOption !== 'SINGLE') {
+      const newRule = {
+        id: `rule-${Date.now()}`,
+        userId: currentUser.id,
+        slotId: withdrawModalOcc.slotId,
+        action: 'WITHDRAW',
+        type: withdrawOption,
+        startDate: withdrawModalOcc.date,
+        countN: parseInt(withdrawCountN, 10) || 1,
+        untilDate: withdrawUntilDate
+      };
+      setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'WITHDRAW')), newRule]);
+    } else {
+      setRecurringRules(prev => prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'REGISTER')));
+    }
+
+    setWithdrawModalOcc(null);
   };
 
   const generateIcsFile = (occurrence, e) => {
@@ -1765,7 +1905,7 @@ END:VCALENDAR`;
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">12-Week Rolling Calendar</h2>
                     <p className="text-xs text-slate-500 mt-1">
-                      {currentUser.role === 'Member' ? 'Showing shift slots strictly for your Followed Service Desks.' : 'Filter calendar view by desk selection and master region.'}
+                      {currentUser.role === 'Member' ? 'Showing shift slots strictly for your Followed Service Desks.' : 'Filter calendar view by region, desk selection, and shift time of day.'}
                     </p>
                   </div>
 
@@ -1801,6 +1941,42 @@ END:VCALENDAR`;
                         ))}
                       </select>
                     </div>
+
+                    {/* TIME OF DAY FILTER CHECKBOXES */}
+                    <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded border border-slate-300">
+                      <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                      <span className="font-bold text-slate-700">Shift Time:</span>
+                      
+                      <label className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={calendarTimeOfDayFilter.morning} 
+                          onChange={(e) => setCalendarTimeOfDayFilter(prev => ({ ...prev, morning: e.target.checked }))}
+                          className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
+                        />
+                        <span>Morning</span>
+                      </label>
+
+                      <label className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={calendarTimeOfDayFilter.afternoon} 
+                          onChange={(e) => setCalendarTimeOfDayFilter(prev => ({ ...prev, afternoon: e.target.checked }))}
+                          className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
+                        />
+                        <span>Afternoon</span>
+                      </label>
+
+                      <label className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={calendarTimeOfDayFilter.evening} 
+                          onChange={(e) => setCalendarTimeOfDayFilter(prev => ({ ...prev, evening: e.target.checked }))}
+                          className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
+                        />
+                        <span>Evening</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -1826,6 +2002,18 @@ END:VCALENDAR`;
                             if (calendarDeskFilter === 'FOLLOWED' && !followedDesks.includes(occ.deskId)) return false;
                             if (calendarDeskFilter !== 'ALL' && calendarDeskFilter !== 'FOLLOWED' && occ.deskId !== calendarDeskFilter) return false;
                             
+                            const [startH] = occ.startTime.split(':').map(Number);
+                            let timePeriod = 'morning';
+                            if (startH >= 17) {
+                              timePeriod = 'evening';
+                            } else if (startH >= 12) {
+                              timePeriod = 'afternoon';
+                            }
+
+                            if (!calendarTimeOfDayFilter[timePeriod]) {
+                              return false;
+                            }
+
                             return occ.date === dayObj.isoDate;
                           });
 
@@ -1892,7 +2080,7 @@ END:VCALENDAR`;
 
                                             <button 
                                               type="button" 
-                                              onClick={(e) => handleDirectRegister(occ, e)} 
+                                              onClick={(e) => handleOpenWithdrawModal(occ, e)} 
                                               className="w-full py-1 px-2 rounded font-black text-[10px] uppercase shadow-sm transition flex items-center justify-center space-x-1 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
                                             >
                                               <UserCheck className="w-3 h-3" />
@@ -1902,7 +2090,7 @@ END:VCALENDAR`;
                                         ) : (
                                           <button 
                                             type="button" 
-                                            onClick={(e) => handleDirectRegister(occ, e)} 
+                                            onClick={(e) => handleOpenRegisterModal(occ, e)} 
                                             className="w-full py-1 px-2 rounded font-black text-[10px] uppercase shadow-sm transition flex items-center justify-center space-x-1 bg-slate-900 hover:bg-slate-800 text-amber-400 cursor-pointer"
                                           >
                                             <UserCheck className="w-3 h-3" />
@@ -2799,6 +2987,15 @@ END:VCALENDAR`;
                         <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window automatically rolling over after midnight Sunday night.</li>
                         <li><b>Region Filter:</b> Filter visible shifts by geographical region (e.g., Auckland East).</li>
                         <li><b>Desk Filter:</b> Switch between <i>"My Followed Desks Only"</i> and specific service desk locations.</li>
+                        <li>
+                          <b>Shift Time of Day Filter:</b> Use the checkboxes at the top of the calendar to filter visible shifts by time of day:
+                          <ul className="list-circle pl-5 mt-1 space-y-0.5 text-slate-600">
+                            <li><b>Morning:</b> Shifts starting between Midnight (00:00) and Midday (11:59).</li>
+                            <li><b>Afternoon:</b> Shifts starting between Midday (12:00) and 4:59 PM (16:59).</li>
+                            <li><b>Evening:</b> Shifts starting between 5:00 PM (17:00) and Midnight (23:59).</li>
+                            <li><i>Note: All three checkboxes are checked by default so all shifts display when you first open the calendar.</i></li>
+                          </ul>
+                        </li>
                       </ul>
                     </div>
 
@@ -2818,11 +3015,33 @@ END:VCALENDAR`;
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                       <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
                         <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>4. How to Register for & Interrogate Shifts</span>
+                        <span>4. How to Register for & Withdraw from Shifts</span>
                       </h4>
                       <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
-                        <li>Open the <b>Calendar (12 Wks)</b> tab or click any shift tile to register/withdraw.</li>
-                        <li>Go to the <b>My Shifts</b> tab to filter and interrogate your shifts across past, current, or future dates (This Month, Last Month, Next Month, or Custom Date Range).</li>
+                        <li>
+                          <b>Register Options:</b> Clicking <b>Register</b> on a shift opens a popup window with four options:
+                          <ul className="list-circle pl-5 mt-1 space-y-0.5 text-slate-600">
+                            <li><b>1. Just this slot:</b> Registers you only for the selected shift slot instance.</li>
+                            <li><b>2. Next n slots:</b> Registers you for <i>n</i> consecutive occurrences starting from this slot.</li>
+                            <li><b>3. Slots until and including dd/mm/yyyy:</b> Registers you for all recurring occurrences up to and including the selected date.</li>
+                            <li><b>4. All future slots:</b> Registers you for all future recurring occurrences.</li>
+                          </ul>
+                        </li>
+                        <li>
+                          <b>Withdraw Options:</b> Clicking <b>Withdraw</b> on a registered shift opens a popup window with four matching options:
+                          <ul className="list-circle pl-5 mt-1 space-y-0.5 text-slate-600">
+                            <li><b>1. Just this slot:</b> Withdraws your registration for this single slot instance.</li>
+                            <li><b>2. Next n slots:</b> Withdraws your registration for <i>n</i> consecutive occurrences starting from this slot.</li>
+                            <li><b>3. All slots up until and including dd/mm/yyyy:</b> Withdraws your registration for all occurrences up to and including the selected date.</li>
+                            <li><b>4. All future slots registered:</b> Withdraws your registration from all future recurring occurrences.</li>
+                          </ul>
+                        </li>
+                        <li>
+                          <b>Automatic Rollover:</b> When the 12-week calendar rolls over, any multi-slot registrations or withdrawals (Next n, Until Date, All Future) will automatically maintain your registration status for all new upcoming slots.
+                        </li>
+                        <li>
+                          <b>My Shifts Interrogation:</b> Use the <b>My Shifts</b> tab to filter and view your registered shifts across any past, current, or future timeframe using the <b>Date Option</b> dropdown.
+                        </li>
                         <li>Click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
                       </ol>
                     </div>
@@ -2938,6 +3157,236 @@ END:VCALENDAR`;
           </>
         )}
       </div>
+
+      {/* --- SHIFT REGISTRATION OPTIONS MODAL --- */}
+      {registerModalOcc && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <span className="bg-slate-900 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded uppercase mr-2">
+                  {activeDeskMap[registerModalOcc.deskId]?.code || 'JP'}
+                </span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Registration Options</span>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-1">{activeDeskMap[registerModalOcc.deskId]?.name}</h3>
+                <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                  📅 {registerModalOcc.fullDayName}, {registerModalOcc.formattedDate} ({registerModalOcc.startTime} - {registerModalOcc.endTime})
+                </p>
+              </div>
+              <button onClick={() => setRegisterModalOcc(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <label className="block font-bold text-slate-800">Select Registration Scope:</label>
+
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="regOpt" 
+                    value="SINGLE" 
+                    checked={registerOption === 'SINGLE'} 
+                    onChange={() => setRegisterOption('SINGLE')} 
+                    className="text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                  <span className="font-bold text-slate-800">1. Just this slot</span>
+                </label>
+
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="regOpt" 
+                    value="NEXT_N" 
+                    checked={registerOption === 'NEXT_N'} 
+                    onChange={() => setRegisterOption('NEXT_N')} 
+                    className="text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="font-bold text-slate-800">2. Next</span>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="52"
+                      value={registerCountN} 
+                      onChange={(e) => setRegisterCountN(e.target.value)} 
+                      onClick={() => setRegisterOption('NEXT_N')}
+                      className="w-16 border rounded p-1 text-center font-bold bg-white"
+                    />
+                    <span className="font-bold text-slate-800">slots</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="regOpt" 
+                    value="UNTIL_DATE" 
+                    checked={registerOption === 'UNTIL_DATE'} 
+                    onChange={() => setRegisterOption('UNTIL_DATE')} 
+                    className="text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="font-bold text-slate-800">3. Slots until and including</span>
+                    <input 
+                      type="date" 
+                      value={registerUntilDate} 
+                      onChange={(e) => setRegisterUntilDate(e.target.value)} 
+                      onClick={() => setRegisterOption('UNTIL_DATE')}
+                      className="border rounded p-1 font-bold bg-white text-xs"
+                    />
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="regOpt" 
+                    value="ALL_FUTURE" 
+                    checked={registerOption === 'ALL_FUTURE'} 
+                    onChange={() => setRegisterOption('ALL_FUTURE')} 
+                    className="text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                  <span className="font-bold text-slate-800">4. All future slots</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button 
+                type="button" 
+                onClick={() => setRegisterModalOcc(null)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handleExecuteRegister} 
+                className="px-5 py-2 rounded-lg text-xs font-extrabold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow cursor-pointer"
+              >
+                Confirm Registration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SHIFT WITHDRAWAL OPTIONS MODAL --- */}
+      {withdrawModalOcc && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <span className="bg-slate-900 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded uppercase mr-2">
+                  {activeDeskMap[withdrawModalOcc.deskId]?.code || 'JP'}
+                </span>
+                <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">Withdrawal Options</span>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-1">{activeDeskMap[withdrawModalOcc.deskId]?.name}</h3>
+                <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                  📅 {withdrawModalOcc.fullDayName}, {withdrawModalOcc.formattedDate} ({withdrawModalOcc.startTime} - {withdrawModalOcc.endTime})
+                </p>
+              </div>
+              <button onClick={() => setWithdrawModalOcc(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <label className="block font-bold text-slate-800">Select Withdrawal Scope:</label>
+
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="withOpt" 
+                    value="SINGLE" 
+                    checked={withdrawOption === 'SINGLE'} 
+                    onChange={() => setWithdrawOption('SINGLE')} 
+                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <span className="font-bold text-slate-800">1. Just this slot</span>
+                </label>
+
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="withOpt" 
+                    value="NEXT_N" 
+                    checked={withdrawOption === 'NEXT_N'} 
+                    onChange={() => setWithdrawOption('NEXT_N')} 
+                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="font-bold text-slate-800">2. Next</span>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="52"
+                      value={withdrawCountN} 
+                      onChange={(e) => setWithdrawCountN(e.target.value)} 
+                      onClick={() => setWithdrawOption('NEXT_N')}
+                      className="w-16 border rounded p-1 text-center font-bold bg-white"
+                    />
+                    <span className="font-bold text-slate-800">slots</span>
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="withOpt" 
+                    value="UNTIL_DATE" 
+                    checked={withdrawOption === 'UNTIL_DATE'} 
+                    onChange={() => setWithdrawOption('UNTIL_DATE')} 
+                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <div className="flex items-center space-x-2 flex-1">
+                    <span className="font-bold text-slate-800">3. All slots up until and including</span>
+                    <input 
+                      type="date" 
+                      value={withdrawUntilDate} 
+                      onChange={(e) => setWithdrawUntilDate(e.target.value)} 
+                      onClick={() => setWithdrawOption('UNTIL_DATE')}
+                      className="border rounded p-1 font-bold bg-white text-xs"
+                    />
+                  </div>
+                </label>
+
+                <label className="flex items-center space-x-2.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                  <input 
+                    type="radio" 
+                    name="withOpt" 
+                    value="ALL_FUTURE" 
+                    checked={withdrawOption === 'ALL_FUTURE'} 
+                    onChange={() => setWithdrawOption('ALL_FUTURE')} 
+                    className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                  />
+                  <span className="font-bold text-slate-800">4. All future slots registered</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button 
+                type="button" 
+                onClick={() => setWithdrawModalOcc(null)} 
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                onClick={handleExecuteWithdraw} 
+                className="px-5 py-2 rounded-lg text-xs font-extrabold bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer"
+              >
+                Confirm Withdrawal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- MY SHIFTS CUSTOM DATE RANGE MODAL WINDOW --- */}
       {myShiftsCustomModalOpen && (
