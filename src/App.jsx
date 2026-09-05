@@ -145,7 +145,10 @@ const INITIAL_SLOT_TEMPLATES = [
 const INITIAL_ASSIGNMENTS = {
   'desk-glen-innes_slot-gi-4_2026-09-03': ['usr-3'],
   'desk-remuera_slot-rm-2_2026-09-04': ['usr-3'],
-  'desk-newmarket_slot-nm-2_2026-09-05': ['usr-3']
+  'desk-newmarket_slot-nm-2_2026-09-05': ['usr-3'],
+  'desk-glen-innes_slot-gi-4_2026-09-10': ['usr-3'],
+  'desk-remuera_slot-rm-2_2026-09-11': ['usr-3'],
+  'desk-newmarket_slot-nm-2_2026-09-12': ['usr-3']
 };
 
 const INITIAL_LOGGED_STATISTICS = [
@@ -222,6 +225,12 @@ export default function App() {
   const [selectedDeskRegions, setSelectedDeskRegions] = useState(INITIAL_REGIONS.map(r => r.name));
   const [calendarDeskFilter, setCalendarDeskFilter] = useState('FOLLOWED');
   const [calendarRegionFilter, setCalendarRegionFilter] = useState('ALL');
+
+  // MY SHIFTS TAB FILTERS
+  const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_5WEEKS');
+  const [myShiftsCustomModalOpen, setMyShiftsCustomModalOpen] = useState(false);
+  const [myShiftsCustomFrom, setMyShiftsCustomFrom] = useState('2026-08-31');
+  const [myShiftsCustomTo, setMyShiftsCustomTo] = useState('2026-10-04');
 
   // STATISTICS TAB FILTERS
   const [statsRegionFilter, setStatsRegionFilter] = useState('ALL');
@@ -718,7 +727,7 @@ export default function App() {
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
 
-    const today = new Date(2026, 8, 4); 
+    const today = new Date(2026, 8, 5); 
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth(); 
 
@@ -883,10 +892,24 @@ export default function App() {
     return grouped;
   }, [deskViewFilter, activeDesksList, archivedDesksList, selectedDeskRegions, regions]);
 
+  // CALENDAR ROLLOVER AT MIDNIGHT SUNDAY NIGHT (Monday 00:00:00 starts Week 1)
+  const currentWeek1Monday = useMemo(() => {
+    const now = new Date(2026, 8, 5); // Current simulation date: Saturday, September 5, 2026
+    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    
+    // Calculate days since the last Monday (if Sunday, 6 days back)
+    const daysSinceMonday = (dayOfWeek + 6) % 7;
+    const currentWeekMonday = new Date(now);
+    currentWeekMonday.setDate(now.getDate() - daysSinceMonday);
+    currentWeekMonday.setHours(0, 0, 0, 0);
+
+    return currentWeekMonday;
+  }, []);
+
   const rolling12Weeks = useMemo(() => {
     const weeks = [];
     const dayNameMap = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 0: 'Sunday' };
-    const baseMonday = new Date(2026, 7, 31); 
+    const baseMonday = new Date(currentWeek1Monday);
 
     for (let w = 0; w < 12; w++) {
       const weekStart = new Date(baseMonday);
@@ -920,46 +943,138 @@ export default function App() {
       });
     }
     return weeks;
-  }, []);
+  }, [currentWeek1Monday]);
 
+  // GENERATE EXTENDED OCCURRENCES ACROSS ALL TIME RANGES FOR MY SHIFTS INTERROGATION
   const generatedOccurrences = useMemo(() => {
     const instances = [];
+    const dayNameMap = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 0: 'Sunday' };
 
-    rolling12Weeks.forEach(week => {
-      week.days.forEach(day => {
-        slotTemplates.forEach(template => {
-          const parentDesk = activeDeskMap[template.deskId];
-          if (!parentDesk || parentDesk.status !== 'Active') return;
+    // Generate across a broad 1-year window (-3 months to +9 months around current week)
+    const rangeStart = new Date(currentWeek1Monday);
+    rangeStart.setDate(rangeStart.getDate() - 90);
 
-          if (template.status === 'Active' && template.dayOfWeek === day.fullDayName) {
-            const instanceKey = `${template.deskId}_${template.id}_${day.isoDate}`;
+    const rangeEnd = new Date(currentWeek1Monday);
+    rangeEnd.setDate(rangeEnd.getDate() + 270);
 
-            if (!cancelledSlotInstances.includes(instanceKey)) {
-              const assignedJpIds = slotAssignments[instanceKey] || [];
+    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const isoDate = `${year}-${month}-${day}`;
+      const fullDayName = dayNameMap[d.getDay()];
+      const dayName = fullDayName.substring(0, 3);
+      const formattedDate = `${day}-${month}-${year}`;
 
-              instances.push({
-                instanceKey,
-                slotId: template.id,
-                deskId: template.deskId,
-                date: day.isoDate,
-                formattedDate: day.formattedDate,
-                dayName: day.dayName,
-                fullDayName: day.fullDayName,
-                startTime: template.startTime,
-                endTime: template.endTime,
-                minJps: template.minJps,
-                targetJps: template.targetJps,
-                maxJps: template.maxJps,
-                assignedJpIds
-              });
-            }
+      slotTemplates.forEach(template => {
+        const parentDesk = activeDeskMap[template.deskId];
+        if (!parentDesk || parentDesk.status !== 'Active') return;
+
+        if (template.status === 'Active' && template.dayOfWeek === fullDayName) {
+          const instanceKey = `${template.deskId}_${template.id}_${isoDate}`;
+
+          if (!cancelledSlotInstances.includes(instanceKey)) {
+            const assignedJpIds = slotAssignments[instanceKey] || [];
+
+            instances.push({
+              instanceKey,
+              slotId: template.id,
+              deskId: template.deskId,
+              date: isoDate,
+              formattedDate,
+              dayName,
+              fullDayName,
+              startTime: template.startTime,
+              endTime: template.endTime,
+              minJps: template.minJps,
+              targetJps: template.targetJps,
+              maxJps: template.maxJps,
+              assignedJpIds
+            });
           }
-        });
+        }
       });
-    });
+    }
 
     return instances;
-  }, [rolling12Weeks, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap]);
+  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap]);
+
+  // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
+  const myShiftsFilterDescriptor = useMemo(() => {
+    const today = new Date(2026, 8, 5); // Sim Saturday 5 Sep 2026
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
+    const formatDateStr = (d) => {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}-${mm}-${yyyy}`;
+    };
+
+    if (myShiftsPreset === 'DEFAULT_5WEEKS') {
+      const start = new Date(currentWeek1Monday);
+      start.setDate(start.getDate() - 7); // Rolling week prior to Week 1
+      const end = new Date(currentWeek1Monday);
+      end.setDate(end.getDate() + (28 + 6)); // End of Week 4
+      return {
+        label: `Showing my shifts for 5-week window: Prior Week + Calendar Weeks 1-4 (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: start.toISOString().split('T')[0],
+        endDateStr: end.toISOString().split('T')[0]
+      };
+    } 
+    else if (myShiftsPreset === 'THIS_MONTH') {
+      const start = new Date(currentYear, currentMonth, 1);
+      const end = new Date(currentYear, currentMonth + 1, 0);
+      return {
+        label: `Showing my shifts for This Month (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: start.toISOString().split('T')[0],
+        endDateStr: end.toISOString().split('T')[0]
+      };
+    } 
+    else if (myShiftsPreset === 'LAST_MONTH') {
+      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const start = new Date(prevYear, prevMonth, 1);
+      const end = new Date(prevYear, prevMonth + 1, 0);
+      return {
+        label: `Showing my shifts for Last Month (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: start.toISOString().split('T')[0],
+        endDateStr: end.toISOString().split('T')[0]
+      };
+    } 
+    else if (myShiftsPreset === 'NEXT_MONTH') {
+      const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+      const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+      const start = new Date(nextYear, nextMonth, 1);
+      const end = new Date(nextYear, nextMonth + 1, 0);
+      return {
+        label: `Showing my shifts for Next Month (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: start.toISOString().split('T')[0],
+        endDateStr: end.toISOString().split('T')[0]
+      };
+    } 
+    else if (myShiftsPreset === 'CUSTOM') {
+      const start = new Date(myShiftsCustomFrom);
+      const end = new Date(myShiftsCustomTo);
+      return {
+        label: `Showing my shifts for Custom Date Range (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: myShiftsCustomFrom,
+        endDateStr: myShiftsCustomTo
+      };
+    }
+
+    return { label: 'Showing registered shifts', startDateStr: '1970-01-01', endDateStr: '2099-12-31' };
+  }, [myShiftsPreset, currentWeek1Monday, myShiftsCustomFrom, myShiftsCustomTo]);
+
+  const myShiftsFilteredList = useMemo(() => {
+    if (!currentUser) return [];
+
+    return generatedOccurrences.filter(occ => {
+      if (!occ.assignedJpIds.includes(currentUser.id)) return false;
+      return occ.date >= myShiftsFilterDescriptor.startDateStr && occ.date <= myShiftsFilterDescriptor.endDateStr;
+    }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [generatedOccurrences, currentUser, myShiftsFilterDescriptor]);
 
   const handleOpenLogStatsModal = (occ, e) => {
     if (e) e.stopPropagation();
@@ -2126,37 +2241,80 @@ END:VCALENDAR`;
 
             {/* TAB 3: MY SHIFTS */}
             {activeTab === 'my-shifts' && (
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                <h2 className="text-xl font-bold text-slate-900">My Registered Roster Shifts</h2>
-                {generatedOccurrences.filter(o => o.assignedJpIds.includes(currentUser.id)).length === 0 ? (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
+                <div className="flex flex-wrap justify-between items-center gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">My Registered Roster Shifts</h2>
+                    <p className="text-xs text-slate-500 mt-1">Interrogate your registered duty shifts across any past or future date ranges.</p>
+                  </div>
+
+                  <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-lg border border-slate-300 text-xs font-bold">
+                    <Filter className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="text-slate-700">Date Option:</span>
+                    <select 
+                      value={myShiftsPreset}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setMyShiftsPreset(val);
+                        if (val === 'CUSTOM') {
+                          setMyShiftsCustomModalOpen(true);
+                        }
+                      }}
+                      className="bg-white border border-slate-300 rounded px-2 py-1 font-bold text-slate-900 cursor-pointer shadow-xs"
+                    >
+                      <option value="DEFAULT_5WEEKS">Prior Week + Calendar Wks 1-4 (Default)</option>
+                      <option value="THIS_MONTH">This Month</option>
+                      <option value="LAST_MONTH">Last Month</option>
+                      <option value="NEXT_MONTH">Next Month</option>
+                      <option value="CUSTOM">Custom Date Range...</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* DESCRIPTOR HEADER BANNER */}
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-3.5 rounded-r-xl flex items-center justify-between text-xs text-slate-800 shadow-xs">
+                  <div className="flex items-center space-x-2 font-bold">
+                    <Calendar className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span>{myShiftsFilterDescriptor.label}</span>
+                  </div>
+                  <span className="bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider shrink-0 ml-2">
+                    {myShiftsFilteredList.length} {myShiftsFilteredList.length === 1 ? 'Shift' : 'Shifts'}
+                  </span>
+                </div>
+
+                {myShiftsFilteredList.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
-                    You have not registered for any shifts yet.
+                    You have no registered shifts matching the selected date range option.
                   </div>
                 ) : (
-                  generatedOccurrences.filter(o => o.assignedJpIds.includes(currentUser.id)).map(occ => {
-                    const desk = activeDeskMap[occ.deskId] || {};
-                    return (
-                      <div key={occ.instanceKey} onClick={() => setDetailedSlotModal(occ)} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-slate-100 transition">
-                        <div>
-                          <h3 className="font-bold text-slate-900 flex items-center space-x-2">
-                            <span className="bg-slate-900 text-amber-400 text-xs px-2 py-0.5 rounded font-black">{desk.code || 'JP'}</span>
-                            <span>{desk.name}</span>
-                          </h3>
-                          <p className="text-xs text-slate-500 mt-1">{occ.formattedDate} • {occ.startTime} - {occ.endTime}</p>
+                  <div className="space-y-3">
+                    {myShiftsFilteredList.map(occ => {
+                      const desk = activeDeskMap[occ.deskId] || {};
+                      return (
+                        <div key={occ.instanceKey} onClick={() => setDetailedSlotModal(occ)} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-slate-100 transition shadow-xs">
+                          <div>
+                            <h3 className="font-bold text-slate-900 flex items-center space-x-2">
+                              <span className="bg-slate-900 text-amber-400 text-xs px-2 py-0.5 rounded font-black">{desk.code || 'JP'}</span>
+                              <span>{desk.name}</span>
+                            </h3>
+                            <p className="text-xs text-slate-600 font-semibold mt-1">
+                              📅 {occ.fullDayName}, {occ.formattedDate} • ⏰ {occ.startTime} - {occ.endTime}
+                            </p>
+                          </div>
+                          <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={(e) => handleOpenLogStatsModal(occ, e)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
+                              <BarChart2 className="w-3.5 h-3.5" />
+                              <span>Log Stats</span>
+                            </button>
+                            <button onClick={(e) => generateIcsFile(occ, e)} className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
+                              <CalendarPlus className="w-3.5 h-3.5" />
+                              <span>Add to Cal</span>
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={(e) => handleOpenLogStatsModal(occ, e)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer">
-                            <BarChart2 className="w-3.5 h-3.5" />
-                            <span>Log Stats</span>
-                          </button>
-                          <button onClick={(e) => generateIcsFile(occ, e)} className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer">
-                            <CalendarPlus className="w-3.5 h-3.5" />
-                            <span>Add to Cal</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
@@ -2638,7 +2796,7 @@ END:VCALENDAR`;
                         <span>2. Navigation & Calendar Filters</span>
                       </h4>
                       <ul className="list-disc pl-5 space-y-1 font-medium leading-relaxed">
-                        <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window starting August 31, 2026.</li>
+                        <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window automatically rolling over after midnight Sunday night.</li>
                         <li><b>Region Filter:</b> Filter visible shifts by geographical region (e.g., Auckland East).</li>
                         <li><b>Desk Filter:</b> Switch between <i>"My Followed Desks Only"</i> and specific service desk locations.</li>
                       </ul>
@@ -2660,12 +2818,11 @@ END:VCALENDAR`;
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                       <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
                         <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>4. How to Register for & Withdraw from a Shift Slot</span>
+                        <span>4. How to Register for & Interrogate Shifts</span>
                       </h4>
                       <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
-                        <li>Open the <b>Calendar (12 Wks)</b> tab or click any shift tile.</li>
-                        <li>Click <b>"Register"</b> on an open slot tile. If space is available under maximum capacity, your registration is saved immediately.</li>
-                        <li>To cancel, click <b>"Withdraw"</b> on the same shift tile to release the slot for other JPs.</li>
+                        <li>Open the <b>Calendar (12 Wks)</b> tab or click any shift tile to register/withdraw.</li>
+                        <li>Go to the <b>My Shifts</b> tab to filter and interrogate your shifts across past, current, or future dates (This Month, Last Month, Next Month, or Custom Date Range).</li>
                         <li>Click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
                       </ol>
                     </div>
@@ -2781,6 +2938,47 @@ END:VCALENDAR`;
           </>
         )}
       </div>
+
+      {/* --- MY SHIFTS CUSTOM DATE RANGE MODAL WINDOW --- */}
+      {myShiftsCustomModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Interrogate My Shifts (Custom Date Range)</h3>
+              <button onClick={() => setMyShiftsCustomModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">From Date</label>
+                <input 
+                  type="date" 
+                  value={myShiftsCustomFrom} 
+                  onChange={(e) => setMyShiftsCustomFrom(e.target.value)} 
+                  className="w-full border rounded p-2 font-bold bg-white" 
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">To Date</label>
+                <input 
+                  type="date" 
+                  value={myShiftsCustomTo} 
+                  onChange={(e) => setMyShiftsCustomTo(e.target.value)} 
+                  className="w-full border rounded p-2 font-bold bg-white" 
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button onClick={() => setMyShiftsCustomModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-amber-400 cursor-pointer">
+                Apply Custom Range
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- MASTER SYSTEM DATA CSV EXPORT CONFIRMATION MODAL --- */}
       {confirmDownloadModalOpen && (
