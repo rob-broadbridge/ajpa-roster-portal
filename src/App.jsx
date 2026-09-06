@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, 
@@ -370,6 +371,43 @@ export default function App() {
   });
   const [pendingDeleteDeskId, setPendingDeleteDeskId] = useState(null);
 
+  // Stage 1: load the existing UI state from Supabase after authenticated login.
+  // The mapping keeps the current component working while later stages replace
+  // its in-memory write handlers with database mutations.
+  const loadSupabaseRoster = async (profile) => {
+    const [regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult] = await Promise.all([
+      supabase.from('regions').select('*').order('name'),
+      supabase.from('service_desks').select('*, regions(name)').order('name'),
+      supabase.from('duty_slots').select('*').eq('status', 'Active'),
+      supabase.from('desk_follows').select('desk_id').eq('profile_id', profile.id),
+      supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
+      supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false })
+    ]);
+    const failure = [regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult].find(result => result.error);
+    if (failure) throw failure.error;
+
+    const mappedRegions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code }));
+    const mappedDesks = desksResult.data.map(desk => ({
+      id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '',
+      primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id,
+      siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email,
+      contactPerson: desk.contact_person, notes: desk.notes, status: desk.status
+    }));
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const mappedSlots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
+    const slotMap = Object.fromEntries(mappedSlots.map(slot => [slot.id, slot]));
+    const mappedAssignments = assignmentsResult.data.reduce((all, assignment) => {
+      const slot = slotMap[assignment.slot_id];
+      if (!slot) return all;
+      const key = `${slot.deskId}_${slot.id}_${assignment.duty_date}`;
+      all[key] = [...(all[key] || []), assignment.profile_id];
+      return all;
+    }, {});
+    setRegions(mappedRegions); setServiceDesks(mappedDesks); setSlotTemplates(mappedSlots);
+    setFollowedDesks(followsResult.data.map(follow => follow.desk_id)); setSlotAssignments(mappedAssignments);
+    setLoggedStatistics(statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes })));
+  };
+
   useEffect(() => {
     if (currentUser?.role === 'Member') {
       setCalendarDeskFilter('FOLLOWED');
@@ -492,32 +530,16 @@ export default function App() {
     triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'slotId', 'occurrenceKey', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes']));
   };
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginError('');
 
-    const foundUser = users.find(u => u.email.toLowerCase() === loginEmail.trim().toLowerCase());
-
-    if (!foundUser) {
-      setLoginError('No account found with this email address.');
-      return;
-    }
-
-    if (foundUser.password !== loginPassword) {
-      setLoginError('Invalid password. Please check your credentials and try again.');
-      return;
-    }
-
-    if (foundUser.status === 'Pending') {
-      setLoginError('Your sign-up application is currently PENDING approval by an AJPA Registrar.');
-      return;
-    }
-
-    if (foundUser.status === 'Rejected') {
-      setLoginError('Your account application was not approved. Please contact the Registrar.');
-      return;
-    }
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
+    if (error) { setLoginError(error.message); return; }
+    const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+    if (profileError || profile.status !== 'Approved') { await supabase.auth.signOut(); setLoginError('Your account is not approved. Please contact the Registrar.'); return; }
+    const foundUser = { id: profile.id, fullName: profile.full_name, email: profile.email, phone: profile.phone, warrantNumber: profile.warrant_number, role: profile.role, isProvisional: profile.is_provisional, status: profile.status };
+    try { await loadSupabaseRoster(foundUser); } catch (loadError) { await supabase.auth.signOut(); setLoginError(`Unable to load roster data: ${loadError.message}`); return; }
     setCurrentUser(foundUser);
     setIsAuthenticated(true);
     setLoginEmail('');
