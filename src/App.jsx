@@ -161,6 +161,10 @@ const INITIAL_LOGGED_STATISTICS = [
     deskName: 'Glen Innes Library',
     deskCode: 'GI',
     region: 'Auckland East',
+    // These two fields make the statistics record unambiguous when a desk has
+    // more than one duty on the same day.
+    slotId: 'slot-gi-4',
+    occurrenceKey: 'desk-glen-innes_slot-gi-4_2026-09-03',
     date: '2026-09-03',
     startTime: '09:30',
     endTime: '11:30',
@@ -243,6 +247,17 @@ export default function App() {
     morning: true,
     afternoon: true,
     evening: true
+  });
+  // Day filter is especially useful on portrait phones: members can focus on
+  // their preferred duty days without changing their followed desks.
+  const [calendarDayFilter, setCalendarDayFilter] = useState({
+    Monday: true,
+    Tuesday: true,
+    Wednesday: true,
+    Thursday: true,
+    Friday: true,
+    Saturday: true,
+    Sunday: true
   });
 
   // MY SHIFTS TAB FILTERS
@@ -474,7 +489,7 @@ export default function App() {
       assignedJpIds: JSON.stringify(assignedJpIds)
     }));
     triggerDownload(`${timestamp}_5.csv`, convertToCsv(assignmentsArray, ['instanceKey', 'assignedJpIds']));
-    triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes']));
+    triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'slotId', 'occurrenceKey', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes']));
   };
 
   const handleLoginSubmit = (e) => {
@@ -811,7 +826,7 @@ export default function App() {
 
     const headers = [
       'Log ID', 'Date', 'Start Time', 'End Time', 'Region', 
-      'Service Desk', 'Desk Code', 'JP Name', 'Warrant Number', 
+      'Service Desk', 'Desk Code', 'Slot ID', 'Occurrence Key', 'JP Name', 'Warrant Number', 
       'JP Duties', 'Clients Served', 'Hours Worked', 
       'Certified Copies', 'Statutory Declarations', 'Signatures Witnessed', 
       'Affidavits', 'Other Duties', 'Notes'
@@ -819,7 +834,7 @@ export default function App() {
 
     const rows = filteredStatisticsList.map(s => [
       `"${s.id}"`, `"${s.date}"`, `"${s.startTime}"`, `"${s.endTime}"`, `"${s.region}"`,
-      `"${s.deskName}"`, `"${s.deskCode}"`, `"${s.jpName}"`, `"${s.warrantNumber}"`,
+      `"${s.deskName}"`, `"${s.deskCode}"`, `"${s.slotId || ''}"`, `"${s.occurrenceKey || ''}"`, `"${s.jpName}"`, `"${s.warrantNumber}"`,
       s.noOfJpDuties, s.noOfClients, s.noOfHoursWorked,
       s.certifiedCopies, s.statutoryDeclarations, s.signatureWitnessed,
       s.affidavits, s.other, `"${(s.notes || '').replace(/"/g, '""')}"`
@@ -1181,6 +1196,8 @@ export default function App() {
       deskName: desk.name || 'Service Desk',
       deskCode: desk.code || 'JP',
       region: desk.region || 'Auckland East',
+      slotId: logStatsOccurrence.slotId,
+      occurrenceKey: logStatsOccurrence.instanceKey,
       date: logStatsOccurrence.date,
       startTime: logStatsOccurrence.startTime,
       endTime: logStatsOccurrence.endTime,
@@ -1977,6 +1994,29 @@ END:VCALENDAR`;
                         <span>Evening</span>
                       </label>
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded border border-slate-300">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="font-bold text-slate-700 mr-1">Days:</span>
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                        <label key={day} className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={calendarDayFilter[day]}
+                            onChange={(e) => setCalendarDayFilter(prev => ({ ...prev, [day]: e.target.checked }))}
+                            className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
+                          />
+                          <span>{day.slice(0, 3)}</span>
+                        </label>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setCalendarDayFilter({ Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: true, Sunday: true })}
+                        className="ml-1 text-sky-700 hover:text-sky-900 underline font-bold"
+                      >
+                        All days
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1992,6 +2032,8 @@ END:VCALENDAR`;
 
                       <div className="grid gap-3 grid-cols-1 md:grid-cols-7">
                         {week.days.map(dayObj => {
+                          if (!calendarDayFilter[dayObj.fullDayName]) return null;
+
                           const dayOccurrences = generatedOccurrences.filter(occ => {
                             const parentDesk = activeDeskMap[occ.deskId] || {};
 
