@@ -375,16 +375,17 @@ export default function App() {
   // The mapping keeps the current component working while later stages replace
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
-    const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult] = await Promise.all([
+    const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult] = await Promise.all([
       supabase.from('profiles').select('*').order('full_name'),
       supabase.from('regions').select('*').order('name'),
       supabase.from('service_desks').select('*, regions(name)').order('name'),
       supabase.from('duty_slots').select('*').eq('status', 'Active'),
       supabase.from('desk_follows').select('desk_id').eq('profile_id', profile.id),
       supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
+      supabase.from('recurring_rules').select('*'),
       supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false })
     ]);
-    const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult].find(result => result.error);
+    const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult].find(result => result.error);
     if (failure) throw failure.error;
 
     const mappedUsers = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status }));
@@ -407,6 +408,7 @@ export default function App() {
     }, {});
     setUsers(mappedUsers); setRegions(mappedRegions); setServiceDesks(mappedDesks); setSlotTemplates(mappedSlots);
     setFollowedDesks(followsResult.data.map(follow => follow.desk_id)); setSlotAssignments(mappedAssignments);
+    setRecurringRules(rulesResult.data.map(rule => ({ id: rule.id, userId: rule.profile_id, slotId: rule.slot_id, action: rule.action, type: rule.rule_type, startDate: rule.start_date, untilDate: rule.until_date, countN: rule.count_n })));
     setLoggedStatistics(statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes })));
   };
 
@@ -763,23 +765,23 @@ export default function App() {
     setSlotActionConfirm('DELETE');
   };
 
-  const handleConfirmSlotAction = () => {
+  const handleConfirmSlotAction = async () => {
     if (slotActionConfirm === 'SAVE') {
-      if (editingSlotId) {
-        setSlotTemplates(prev => prev.map(s => s.id === editingSlotId ? { ...s, ...slotForm } : s));
-      } else {
-        const newSlot = {
-          id: `slot-${Date.now()}`,
-          ...slotForm
-        };
-        setSlotTemplates(prev => [...prev, newSlot]);
-      }
+      const payload = { desk_id: slotForm.deskId, day_of_week: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(slotForm.dayOfWeek), start_time: slotForm.startTime, end_time: slotForm.endTime, min_jps: Number(slotForm.minJps), target_jps: Number(slotForm.targetJps), max_jps: Number(slotForm.maxJps), status: slotForm.status, effective_from: slotForm.effectiveFromDate };
+      const result = editingSlotId ? await supabase.from('duty_slots').update(payload).eq('id', editingSlotId) : await supabase.from('duty_slots').insert(payload);
+      if (result.error) { alert(`Unable to save duty slot: ${result.error.message}`); return; }
+      await loadSupabaseRoster(currentUser);
       setSlotModalOpen(false);
+      setSlotActionConfirm(null);
+      setSlotValidationError('');
+      return;
     } else if (slotActionConfirm === 'CANCEL') {
       setSlotModalOpen(false);
     } else if (slotActionConfirm === 'DELETE') {
       if (editingSlotId) {
-        setSlotTemplates(prev => prev.filter(s => s.id !== editingSlotId));
+        const { error } = await supabase.from('duty_slots').update({ status: 'Archived' }).eq('id', editingSlotId);
+        if (error) { alert(`Unable to archive duty slot: ${error.message}`); return; }
+        await loadSupabaseRoster(currentUser);
       }
       setSlotModalOpen(false);
     }
@@ -787,8 +789,10 @@ export default function App() {
     setSlotValidationError('');
   };
 
-  const confirmDeleteSlot = () => {
-    setSlotTemplates(prev => prev.filter(s => s.id !== pendingDeleteSlotId));
+  const confirmDeleteSlot = async () => {
+    const { error } = await supabase.from('duty_slots').update({ status: 'Archived' }).eq('id', pendingDeleteSlotId);
+    if (error) { alert(`Unable to archive duty slot: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
     setPendingDeleteSlotId(null);
   };
 
@@ -1316,15 +1320,39 @@ export default function App() {
     });
 
     if (registerOption !== 'SINGLE') {
-      const newRule = {
-        id: `rule-${Date.now()}`,
-        userId: currentUser.id,
-        slotId: registerModalOcc.slotId,
+      const { error: removeRuleError } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('profile_id', currentUser.id)
+        .eq('slot_id', registerModalOcc.slotId)
+        .eq('action', 'REGISTER');
+      if (removeRuleError) { alert(`Registration saved, but the recurring rule could not be updated: ${removeRuleError.message}`); return; }
+
+      const rulePayload = {
+        profile_id: currentUser.id,
+        slot_id: registerModalOcc.slotId,
         action: 'REGISTER',
-        type: registerOption,
-        startDate: registerModalOcc.date,
-        countN: parseInt(registerCountN, 10) || 1,
-        untilDate: registerUntilDate
+        rule_type: registerOption,
+        start_date: registerModalOcc.date,
+        until_date: registerOption === 'UNTIL_DATE' ? registerUntilDate : null,
+        count_n: registerOption === 'NEXT_N' ? (parseInt(registerCountN, 10) || 1) : null
+      };
+      const { data: savedRule, error: saveRuleError } = await supabase
+        .from('recurring_rules')
+        .insert(rulePayload)
+        .select()
+        .single();
+      if (saveRuleError) { alert(`Registration saved, but the recurring rule could not be saved: ${saveRuleError.message}`); return; }
+
+      const newRule = {
+        id: savedRule.id,
+        userId: savedRule.profile_id,
+        slotId: savedRule.slot_id,
+        action: savedRule.action,
+        type: savedRule.rule_type,
+        startDate: savedRule.start_date,
+        countN: savedRule.count_n,
+        untilDate: savedRule.until_date
       };
       setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === registerModalOcc.slotId && r.action === 'REGISTER')), newRule]);
     }
@@ -1377,15 +1405,39 @@ export default function App() {
     });
 
     if (withdrawOption !== 'SINGLE') {
-      const newRule = {
-        id: `rule-${Date.now()}`,
-        userId: currentUser.id,
-        slotId: withdrawModalOcc.slotId,
+      const { error: removeRuleError } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('profile_id', currentUser.id)
+        .eq('slot_id', withdrawModalOcc.slotId)
+        .eq('action', 'WITHDRAW');
+      if (removeRuleError) { alert(`Withdrawal saved, but the recurring rule could not be updated: ${removeRuleError.message}`); return; }
+
+      const rulePayload = {
+        profile_id: currentUser.id,
+        slot_id: withdrawModalOcc.slotId,
         action: 'WITHDRAW',
-        type: withdrawOption,
-        startDate: withdrawModalOcc.date,
-        countN: parseInt(withdrawCountN, 10) || 1,
-        untilDate: withdrawUntilDate
+        rule_type: withdrawOption,
+        start_date: withdrawModalOcc.date,
+        until_date: withdrawOption === 'UNTIL_DATE' ? withdrawUntilDate : null,
+        count_n: withdrawOption === 'NEXT_N' ? (parseInt(withdrawCountN, 10) || 1) : null
+      };
+      const { data: savedRule, error: saveRuleError } = await supabase
+        .from('recurring_rules')
+        .insert(rulePayload)
+        .select()
+        .single();
+      if (saveRuleError) { alert(`Withdrawal saved, but the recurring rule could not be saved: ${saveRuleError.message}`); return; }
+
+      const newRule = {
+        id: savedRule.id,
+        userId: savedRule.profile_id,
+        slotId: savedRule.slot_id,
+        action: savedRule.action,
+        type: savedRule.rule_type,
+        startDate: savedRule.start_date,
+        countN: savedRule.count_n,
+        untilDate: savedRule.until_date
       };
       setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'WITHDRAW')), newRule]);
     } else {
