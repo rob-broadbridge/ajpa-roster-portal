@@ -966,7 +966,9 @@ export default function App() {
 
   // CALENDAR ROLLOVER AT MIDNIGHT SUNDAY NIGHT
   const currentWeek1Monday = useMemo(() => {
-    const now = new Date(2026, 8, 5); // Current simulation date: Saturday, September 5, 2026
+    // Use the date on the member's device rather than the former demo date.
+    // Week 1 always begins on the Monday of the current local week.
+    const now = new Date();
     const dayOfWeek = now.getDay();
     
     const daysSinceMonday = (dayOfWeek + 6) % 7;
