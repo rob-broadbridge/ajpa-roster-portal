@@ -1441,6 +1441,19 @@ export default function App() {
       };
       setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'WITHDRAW')), newRule]);
     } else {
+      // A one-off withdrawal overrides any saved repeating registration for
+      // this slot. Without removing it from Supabase, the rule would add the
+      // member back into the calendar on the next device or page load.
+      const { error: removeRegistrationRuleError } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('profile_id', currentUser.id)
+        .eq('slot_id', withdrawModalOcc.slotId)
+        .eq('action', 'REGISTER');
+      if (removeRegistrationRuleError) {
+        alert(`Withdrawal saved, but the repeating registration could not be cleared: ${removeRegistrationRuleError.message}`);
+        return;
+      }
       setRecurringRules(prev => prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'REGISTER')));
     }
 
