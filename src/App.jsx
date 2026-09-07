@@ -408,6 +408,17 @@ export default function App() {
     setLoggedStatistics(statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes })));
   };
 
+  const handleToggleFollowDesk = async (deskId) => {
+    if (!currentUser) return;
+    const isFollowed = followedDesks.includes(deskId);
+    const query = isFollowed
+      ? supabase.from('desk_follows').delete().eq('profile_id', currentUser.id).eq('desk_id', deskId)
+      : supabase.from('desk_follows').insert({ profile_id: currentUser.id, desk_id: deskId });
+    const { error } = await query;
+    if (error) { alert(`Unable to update followed desks: ${error.message}`); return; }
+    setFollowedDesks(previous => isFollowed ? previous.filter(id => id !== deskId) : [...previous, deskId]);
+  };
+
   useEffect(() => {
     if (currentUser?.role === 'Member') {
       setCalendarDeskFilter('FOLLOWED');
@@ -1203,7 +1214,7 @@ export default function App() {
     }
   };
 
-  const handleSaveStatsSubmit = (e) => {
+  const handleSaveStatsSubmit = async (e) => {
     e.preventDefault();
     if (!logStatsOccurrence || !currentUser) return;
 
@@ -1234,7 +1245,26 @@ export default function App() {
       notes: statsForm.notes
     };
 
-    setLoggedStatistics(prev => [newStatEntry, ...prev]);
+    const { data: savedStat, error } = await supabase.from('duty_statistics').insert({
+      slot_id: logStatsOccurrence.slotId,
+      duty_date: logStatsOccurrence.date,
+      profile_id: currentUser.id,
+      desk_name_snapshot: newStatEntry.deskName,
+      desk_code_snapshot: newStatEntry.deskCode,
+      start_time_snapshot: newStatEntry.startTime,
+      end_time_snapshot: newStatEntry.endTime,
+      no_of_jp_duties: newStatEntry.noOfJpDuties,
+      no_of_clients: newStatEntry.noOfClients,
+      no_of_hours_worked: newStatEntry.noOfHoursWorked,
+      certified_copies: newStatEntry.certifiedCopies,
+      statutory_declarations: newStatEntry.statutoryDeclarations,
+      signatures_witnessed: newStatEntry.signatureWitnessed,
+      affidavits: newStatEntry.affidavits,
+      other_duties: newStatEntry.other,
+      notes: newStatEntry.notes
+    }).select().single();
+    if (error) { alert(`Unable to save statistics: ${error.message}`); return; }
+    setLoggedStatistics(prev => [{ ...newStatEntry, id: savedStat.id, slotId: logStatsOccurrence.slotId, occurrenceKey: logStatsOccurrence.instanceKey }, ...prev]);
     setLogStatsOccurrence(null);
     setStatsSuccessToast(true);
     setTimeout(() => setStatsSuccessToast(false), 4000);
@@ -1250,7 +1280,7 @@ export default function App() {
   };
 
   // EXECUTE REGISTRATION LOGIC
-  const handleExecuteRegister = () => {
+  const handleExecuteRegister = async () => {
     if (!registerModalOcc || !currentUser) return;
 
     const slotOccurrences = generatedOccurrences
@@ -1268,6 +1298,10 @@ export default function App() {
     } else if (registerOption === 'ALL_FUTURE') {
       targetOccurrences = slotOccurrences;
     }
+
+    const registrationResults = await Promise.all(targetOccurrences.map(occ => supabase.rpc('register_for_duty', { p_slot_id: occ.slotId, p_duty_date: occ.date })));
+    const failedRegistration = registrationResults.find(result => result.error);
+    if (failedRegistration) { alert(`Unable to register: ${failedRegistration.error.message}`); return; }
 
     setSlotAssignments(prev => {
       const updated = { ...prev };
@@ -1307,7 +1341,7 @@ export default function App() {
   };
 
   // EXECUTE WITHDRAWAL LOGIC
-  const handleExecuteWithdraw = () => {
+  const handleExecuteWithdraw = async () => {
     if (!withdrawModalOcc || !currentUser) return;
 
     const slotOccurrences = generatedOccurrences
@@ -1325,6 +1359,10 @@ export default function App() {
     } else if (withdrawOption === 'ALL_FUTURE') {
       targetOccurrences = slotOccurrences;
     }
+
+    const withdrawalResults = await Promise.all(targetOccurrences.map(occ => supabase.from('duty_assignments').delete().eq('slot_id', occ.slotId).eq('duty_date', occ.date).eq('profile_id', currentUser.id)));
+    const failedWithdrawal = withdrawalResults.find(result => result.error);
+    if (failedWithdrawal) { alert(`Unable to withdraw: ${failedWithdrawal.error.message}`); return; }
 
     setSlotAssignments(prev => {
       const updated = { ...prev };
@@ -2387,7 +2425,7 @@ END:VCALENDAR`;
                                         </>
                                       )}
 
-                                      <button onClick={() => setFollowedDesks(prev => isFollowed ? prev.filter(id => id !== desk.id) : [...prev, desk.id])} className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer ${isFollowed ? 'bg-amber-500 text-slate-950 border-amber-500' : 'bg-slate-50 text-slate-700 border-slate-300'}`}>
+                                      <button onClick={() => handleToggleFollowDesk(desk.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer ${isFollowed ? 'bg-amber-500 text-slate-950 border-amber-500' : 'bg-slate-50 text-slate-700 border-slate-300'}`}>
                                         {isFollowed ? '★ Following' : '+ Follow'}
                                       </button>
                                     </div>
