@@ -375,7 +375,8 @@ export default function App() {
   // The mapping keeps the current component working while later stages replace
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
-    const [regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult] = await Promise.all([
+    const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult] = await Promise.all([
+      supabase.from('profiles').select('*').order('full_name'),
       supabase.from('regions').select('*').order('name'),
       supabase.from('service_desks').select('*, regions(name)').order('name'),
       supabase.from('duty_slots').select('*').eq('status', 'Active'),
@@ -383,9 +384,10 @@ export default function App() {
       supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
       supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false })
     ]);
-    const failure = [regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult].find(result => result.error);
+    const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult].find(result => result.error);
     if (failure) throw failure.error;
 
+    const mappedUsers = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status }));
     const mappedRegions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code }));
     const mappedDesks = desksResult.data.map(desk => ({
       id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '',
@@ -403,7 +405,7 @@ export default function App() {
       all[key] = [...(all[key] || []), assignment.profile_id];
       return all;
     }, {});
-    setRegions(mappedRegions); setServiceDesks(mappedDesks); setSlotTemplates(mappedSlots);
+    setUsers(mappedUsers); setRegions(mappedRegions); setServiceDesks(mappedDesks); setSlotTemplates(mappedSlots);
     setFollowedDesks(followsResult.data.map(follow => follow.desk_id)); setSlotAssignments(mappedAssignments);
     setLoggedStatistics(statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes })));
   };
@@ -594,32 +596,27 @@ export default function App() {
     setRegistrarSubTab('members');
   };
 
-  const handleSignUpSubmit = (e) => {
+  const handleSignUpSubmit = async (e) => {
     e.preventDefault();
-    
-    if (users.some(u => u.email.toLowerCase() === signUpForm.email.trim().toLowerCase())) {
-      alert('An account with this email address already exists.');
-      return;
-    }
-
-    const newUser = {
-      id: `usr-${Date.now()}`,
-      fullName: signUpForm.fullName,
+    const { error } = await supabase.auth.signUp({
       email: signUpForm.email.trim(),
-      phone: signUpForm.phone,
-      warrantNumber: signUpForm.warrantNumber,
-      password: signUpForm.password || 'password123',
-      role: 'Member',
-      isProvisional: signUpForm.isProvisional,
-      status: 'Pending'
-    };
-
-    setUsers(prev => [...prev, newUser]);
+      password: signUpForm.password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: {
+          full_name: signUpForm.fullName,
+          phone: signUpForm.phone,
+          warrant_number: signUpForm.warrantNumber,
+          is_provisional: signUpForm.isProvisional
+        }
+      }
+    });
+    if (error) { alert(`Unable to submit sign-up request: ${error.message}`); return; }
     setSignUpSuccessMsg(true);
 
     setEmailAlert({
       title: 'Automated Email Alert Sent to Registrars',
-      message: `New JP Sign-up received for ${newUser.fullName} (${newUser.warrantNumber}). Status set to PENDING awaiting Registrar Portal approval.`
+      message: `New JP Sign-up received for ${signUpForm.fullName} (${signUpForm.warrantNumber}). Status set to PENDING awaiting Registrar Portal approval.`
     });
 
     setTimeout(() => {
@@ -667,11 +664,15 @@ export default function App() {
     setResetEmail('');
   };
 
-  const handleApprovePendingUser = (userId) => {
+  const handleApprovePendingUser = async (userId) => {
+    const { error } = await supabase.from('profiles').update({ status: 'Approved' }).eq('id', userId);
+    if (error) { alert(`Unable to approve member: ${error.message}`); return; }
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Approved' } : u));
   };
 
-  const handleRejectPendingUser = (userId) => {
+  const handleRejectPendingUser = async (userId) => {
+    const { error } = await supabase.from('profiles').update({ status: 'Rejected' }).eq('id', userId);
+    if (error) { alert(`Unable to reject member: ${error.message}`); return; }
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Rejected' } : u));
   };
 
@@ -1457,16 +1458,15 @@ END:VCALENDAR`;
     setUserModalOpen(true);
   };
 
-  const handleSaveUserSubmit = (e) => {
+  const handleSaveUserSubmit = async (e) => {
     e.preventDefault();
     if (editingUserId) {
+      const { error } = await supabase.from('profiles').update({ full_name: userForm.fullName, phone: userForm.phone, warrant_number: userForm.warrantNumber, role: userForm.role, is_provisional: userForm.isProvisional, status: userForm.status }).eq('id', editingUserId);
+      if (error) { alert(`Unable to save member: ${error.message}`); return; }
       setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm } : u));
     } else {
-      const newUser = {
-        id: `usr-${Date.now()}`,
-        ...userForm
-      };
-      setUsers(prev => [...prev, newUser]);
+      alert('Create new accounts through the Supabase sign-up process. They will appear here as Pending for approval.');
+      return;
     }
     setUserModalOpen(false);
   };
@@ -1488,20 +1488,20 @@ END:VCALENDAR`;
     setRegionModalOpen(true);
   };
 
-  const handleSaveRegionSubmit = (e) => {
+  const handleSaveRegionSubmit = async (e) => {
     e.preventDefault();
     if (editingRegionId) {
       const oldRegion = regions.find(r => r.id === editingRegionId);
+      const { error } = await supabase.from('regions').update({ name: regionForm.name, code: regionForm.code }).eq('id', editingRegionId);
+      if (error) { alert(`Unable to save region: ${error.message}`); return; }
       setRegions(prev => prev.map(r => r.id === editingRegionId ? { ...r, ...regionForm } : r));
       
       if (oldRegion && oldRegion.name !== regionForm.name) {
         setServiceDesks(prev => prev.map(d => d.region === oldRegion.name ? { ...d, region: regionForm.name } : d));
       }
     } else {
-      const newReg = {
-        id: `reg-${Date.now()}`,
-        ...regionForm
-      };
+      const { data: newReg, error } = await supabase.from('regions').insert({ name: regionForm.name, code: regionForm.code }).select().single();
+      if (error) { alert(`Unable to add region: ${error.message}`); return; }
       setRegions(prev => [...prev, newReg]);
       setSelectedDeskRegions(prev => [...prev, newReg.name]);
     }
@@ -1517,7 +1517,7 @@ END:VCALENDAR`;
     setPendingDeleteRegionId(null);
   };
 
-  const handleCreateDeskSubmit = (e) => {
+  const handleCreateDeskSubmit = async (e) => {
     e.preventDefault();
 
     if (newDeskForm.primaryAdminId && newDeskForm.primaryAdminId === newDeskForm.secondaryAdminId) {
@@ -1525,21 +1525,10 @@ END:VCALENDAR`;
       return;
     }
 
-    const newDesk = {
-      id: `desk-${Date.now()}`,
-      code: (newDeskForm.code || 'JP').toUpperCase().substring(0, 2),
-      name: newDeskForm.name,
-      address: newDeskForm.address,
-      region: newDeskForm.region || regions[0]?.name || 'Auckland East',
-      primaryAdminId: newDeskForm.primaryAdminId || '',
-      secondaryAdminId: newDeskForm.secondaryAdminId || '',
-      siteContactName: newDeskForm.siteContactName || '',
-      siteContactEmail: newDeskForm.siteContactEmail || '',
-      contactPerson: newDeskForm.contactPerson || '',
-      notes: newDeskForm.notes || '',
-      status: 'Active'
-    };
-    setServiceDesks(prev => [...prev, newDesk]);
+    const region = regions.find(item => item.name === newDeskForm.region) || regions[0];
+    const { error } = await supabase.from('service_desks').insert({ code: newDeskForm.code.toUpperCase(), name: newDeskForm.name, address: newDeskForm.address, region_id: region.id, primary_admin_id: newDeskForm.primaryAdminId || null, secondary_admin_id: newDeskForm.secondaryAdminId || null, site_contact_name: newDeskForm.siteContactName || '', site_contact_email: newDeskForm.siteContactEmail || '', contact_person: newDeskForm.contactPerson || '', notes: newDeskForm.notes || '' });
+    if (error) { alert(`Unable to create service desk: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
     setCreateDeskModalOpen(false);
     setNewDeskForm({ 
       code: '', 
@@ -1571,7 +1560,7 @@ END:VCALENDAR`;
     });
   };
 
-  const handleSaveDeskDirectly = (e) => {
+  const handleSaveDeskDirectly = async (e) => {
     e.preventDefault();
 
     if (editDeskForm.primaryAdminId && editDeskForm.primaryAdminId === editDeskForm.secondaryAdminId) {
@@ -1579,12 +1568,17 @@ END:VCALENDAR`;
       return;
     }
 
-    setServiceDesks(prev => prev.map(d => (d.id === editingDeskId ? { ...d, ...editDeskForm } : d)));
+    const region = regions.find(item => item.name === editDeskForm.region) || regions[0];
+    const { error } = await supabase.from('service_desks').update({ code: editDeskForm.code.toUpperCase(), name: editDeskForm.name, address: editDeskForm.address, region_id: region.id, primary_admin_id: editDeskForm.primaryAdminId || null, secondary_admin_id: editDeskForm.secondaryAdminId || null, site_contact_name: editDeskForm.siteContactName || '', site_contact_email: editDeskForm.siteContactEmail || '', contact_person: editDeskForm.contactPerson || '', notes: editDeskForm.notes || '' }).eq('id', editingDeskId);
+    if (error) { alert(`Unable to save service desk: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
     setEditingDeskId(null);
   };
 
-  const confirmDeleteDesk = () => {
-    setServiceDesks(prev => prev.map(d => (d.id === pendingDeleteDeskId ? { ...d, status: 'Archived' } : d)));
+  const confirmDeleteDesk = async () => {
+    const { error } = await supabase.from('service_desks').update({ status: 'Archived' }).eq('id', pendingDeleteDeskId);
+    if (error) { alert(`Unable to archive service desk: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
     setPendingDeleteDeskId(null);
     if (editingDeskId === pendingDeleteDeskId) setEditingDeskId(null);
   };
