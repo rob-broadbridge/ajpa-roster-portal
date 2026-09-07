@@ -382,7 +382,7 @@ export default function App() {
       supabase.from('duty_slots').select('*').eq('status', 'Active'),
       supabase.from('desk_follows').select('desk_id').eq('profile_id', profile.id),
       supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
-      supabase.from('recurring_rules').select('*'),
+      supabase.from('recurring_rules').select('*').order('created_at'),
       supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false })
     ]);
     const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult].find(result => result.error);
@@ -1389,7 +1389,13 @@ export default function App() {
       targetOccurrences = slotOccurrences;
     }
 
-    const withdrawalResults = await Promise.all(targetOccurrences.map(occ => supabase.from('duty_assignments').delete().eq('slot_id', occ.slotId).eq('duty_date', occ.date).eq('profile_id', currentUser.id)));
+    const withdrawalResults = await Promise.all(targetOccurrences.map(occ => supabase
+      .from('duty_assignments')
+      .delete()
+      .eq('slot_id', occ.slotId)
+      .eq('duty_date', occ.date)
+      .eq('profile_id', currentUser.id)
+      .select('slot_id, duty_date, profile_id')));
     const failedWithdrawal = withdrawalResults.find(result => result.error);
     if (failedWithdrawal) { alert(`Unable to withdraw: ${failedWithdrawal.error.message}`); return; }
 
@@ -1441,22 +1447,41 @@ export default function App() {
       };
       setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'WITHDRAW')), newRule]);
     } else {
-      // A one-off withdrawal overrides any saved repeating registration for
-      // this slot. Without removing it from Supabase, the rule would add the
-      // member back into the calendar on the next device or page load.
-      const { error: removeRegistrationRuleError } = await supabase
+      // Record a one-occurrence withdrawal in Supabase. This overrides a
+      // repeating registration on every device without changing the other
+      // dates covered by that registration.
+      const { error: removeOneOffRuleError } = await supabase
         .from('recurring_rules')
         .delete()
         .eq('profile_id', currentUser.id)
         .eq('slot_id', withdrawModalOcc.slotId)
-        .eq('action', 'REGISTER');
-      if (removeRegistrationRuleError) {
-        alert(`Withdrawal saved, but the repeating registration could not be cleared: ${removeRegistrationRuleError.message}`);
+        .eq('action', 'WITHDRAW')
+        .eq('rule_type', 'NEXT_N')
+        .eq('start_date', withdrawModalOcc.date)
+        .eq('count_n', 1);
+      if (removeOneOffRuleError) {
+        alert(`Unable to update the one-off withdrawal: ${removeOneOffRuleError.message}`);
         return;
       }
-      setRecurringRules(prev => prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'REGISTER')));
+
+      const { error: saveOneOffRuleError } = await supabase
+        .from('recurring_rules')
+        .insert({
+          profile_id: currentUser.id,
+          slot_id: withdrawModalOcc.slotId,
+          action: 'WITHDRAW',
+          rule_type: 'NEXT_N',
+          start_date: withdrawModalOcc.date,
+          count_n: 1,
+          until_date: null
+        });
+      if (saveOneOffRuleError) {
+        alert(`Withdrawal saved, but the one-off withdrawal could not be recorded: ${saveOneOffRuleError.message}`);
+        return;
+      }
     }
 
+    await loadSupabaseRoster(currentUser);
     setWithdrawModalOcc(null);
   };
 
