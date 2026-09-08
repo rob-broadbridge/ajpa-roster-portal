@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
+import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, 
@@ -249,22 +251,10 @@ export default function App() {
   const [calendarRegionFilter, setCalendarRegionFilter] = useState('ALL');
   
   // 12-WEEK CALENDAR TIME OF DAY FILTER
-  const [calendarTimeOfDayFilter, setCalendarTimeOfDayFilter] = useState({
-    morning: true,
-    afternoon: true,
-    evening: true
-  });
+  const [calendarTimeOfDayFilter, setCalendarTimeOfDayFilter] = useState({ ...DEFAULT_TIME_OF_DAY_FILTER });
   // Day filter is especially useful on portrait phones: members can focus on
   // their preferred duty days without changing their followed desks.
-  const [calendarDayFilter, setCalendarDayFilter] = useState({
-    Monday: true,
-    Tuesday: true,
-    Wednesday: true,
-    Thursday: true,
-    Friday: true,
-    Saturday: true,
-    Sunday: true
-  });
+  const [calendarDayFilter, setCalendarDayFilter] = useState({ ...DEFAULT_DAY_FILTER });
 
   // MY SHIFTS TAB FILTERS
   const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_5WEEKS');
@@ -423,8 +413,8 @@ export default function App() {
     // the same browser.
     setCalendarDeskFilter(profile.role === 'Member' ? 'FOLLOWED' : 'ALL');
     setCalendarRegionFilter('ALL');
-    setCalendarTimeOfDayFilter({ morning: true, afternoon: true, evening: true });
-    setCalendarDayFilter({ Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: true, Sunday: true });
+    setCalendarTimeOfDayFilter({ ...DEFAULT_TIME_OF_DAY_FILTER });
+    setCalendarDayFilter({ ...DEFAULT_DAY_FILTER });
     setMyShiftsPreset('DEFAULT_5WEEKS');
     setStatsRegionFilter('ALL');
     setStatsDeskFilter('ALL');
@@ -1098,10 +1088,7 @@ export default function App() {
 
     const scheduleWeeklyRollover = () => {
       const now = new Date();
-      const nextMonday = new Date(now);
-      const daysUntilNextMonday = ((8 - now.getDay()) % 7) || 7;
-      nextMonday.setDate(now.getDate() + daysUntilNextMonday);
-      nextMonday.setHours(0, 0, 0, 0);
+      const nextMonday = getNextMondayMidnight(now);
 
       rolloverTimer = window.setTimeout(() => {
         setCalendarNow(new Date());
@@ -1117,15 +1104,7 @@ export default function App() {
   const currentWeek1Monday = useMemo(() => {
     // Use the date on the member's device rather than the former demo date.
     // Week 1 always begins on the Monday of the current local week.
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    
-    const daysSinceMonday = (dayOfWeek + 6) % 7;
-    const currentWeekMonday = new Date(now);
-    currentWeekMonday.setDate(now.getDate() - daysSinceMonday);
-    currentWeekMonday.setHours(0, 0, 0, 0);
-
-    return currentWeekMonday;
+    return getWeekStartMonday();
   }, [calendarNow]);
 
   const rolling12Weeks = useMemo(() => {
@@ -2304,7 +2283,7 @@ END:VCALENDAR`;
                       ))}
                       <button
                         type="button"
-                        onClick={() => setCalendarDayFilter({ Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: true, Sunday: true })}
+                        onClick={() => setCalendarDayFilter({ ...DEFAULT_DAY_FILTER })}
                         className="ml-1 text-sky-700 hover:text-sky-900 underline font-bold"
                       >
                         All days
