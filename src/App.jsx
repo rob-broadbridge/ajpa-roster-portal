@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
+import { fetchRosterData } from './services/rosterService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
 import { 
@@ -372,42 +373,10 @@ export default function App() {
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
     setPreferencesReadyForProfile(null);
-    const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, preferencesResult] = await Promise.all([
-      supabase.from('profiles').select('*').order('full_name'),
-      supabase.from('regions').select('*').order('name'),
-      supabase.from('service_desks').select('*, regions(name)').order('name'),
-      supabase.from('duty_slots').select('*').eq('status', 'Active'),
-      supabase.from('desk_follows').select('desk_id').eq('profile_id', profile.id),
-      supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
-      supabase.from('recurring_rules').select('*').order('created_at'),
-      supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false }),
-      supabase.from('user_preferences').select('*').eq('profile_id', profile.id).maybeSingle()
-    ]);
-    const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult].find(result => result.error);
-    if (failure) throw failure.error;
-
-    const mappedUsers = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status }));
-    const mappedRegions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code }));
-    const mappedDesks = desksResult.data.map(desk => ({
-      id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '',
-      primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id,
-      siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email,
-      contactPerson: desk.contact_person, notes: desk.notes, status: desk.status
-    }));
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const mappedSlots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
-    const slotMap = Object.fromEntries(mappedSlots.map(slot => [slot.id, slot]));
-    const mappedAssignments = assignmentsResult.data.reduce((all, assignment) => {
-      const slot = slotMap[assignment.slot_id];
-      if (!slot) return all;
-      const key = `${slot.deskId}_${slot.id}_${assignment.duty_date}`;
-      all[key] = [...(all[key] || []), assignment.profile_id];
-      return all;
-    }, {});
-    setUsers(mappedUsers); setRegions(mappedRegions); setServiceDesks(mappedDesks); setSlotTemplates(mappedSlots);
-    setFollowedDesks(followsResult.data.map(follow => follow.desk_id)); setSlotAssignments(mappedAssignments);
-    setRecurringRules(rulesResult.data.map(rule => ({ id: rule.id, userId: rule.profile_id, slotId: rule.slot_id, action: rule.action, type: rule.rule_type, startDate: rule.start_date, untilDate: rule.until_date, countN: rule.count_n })));
-    setLoggedStatistics(statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes })));
+    const roster = await fetchRosterData(profile.id);
+    setUsers(roster.users); setRegions(roster.regions); setServiceDesks(roster.desks); setSlotTemplates(roster.slots);
+    setFollowedDesks(roster.followedDesks); setSlotAssignments(roster.assignments);
+    setRecurringRules(roster.rules); setLoggedStatistics(roster.statistics);
 
     // Reset to the familiar defaults first. The saved values below then take
     // precedence where they exist, including when another account signs in on
@@ -422,13 +391,13 @@ export default function App() {
     setStatsJpFilter(profile.role === 'Member' ? profile.id : 'ALL');
     setStatsDatePreset('CURRENT_AND_PREVIOUS');
 
-    if (preferencesResult.error) {
+    if (roster.preferencesError) {
       // Do not prevent sign-in if Stage 4A has not yet been run in Supabase.
-      console.warn('User preferences were not loaded:', preferencesResult.error.message);
-    } else if (preferencesResult.data) {
-      const calendar = preferencesResult.data.calendar_filters || {};
-      const myShifts = preferencesResult.data.my_shifts_filters || {};
-      const statistics = preferencesResult.data.statistics_filters || {};
+      console.warn('User preferences were not loaded:', roster.preferencesError.message);
+    } else if (roster.preferences) {
+      const calendar = roster.preferences.calendar_filters || {};
+      const myShifts = roster.preferences.my_shifts_filters || {};
+      const statistics = roster.preferences.statistics_filters || {};
       if (typeof calendar.desk === 'string') setCalendarDeskFilter(calendar.desk);
       if (typeof calendar.region === 'string') setCalendarRegionFilter(calendar.region);
       if (calendar.time_of_day && typeof calendar.time_of_day === 'object') setCalendarTimeOfDayFilter(previous => ({ ...previous, ...calendar.time_of_day }));
