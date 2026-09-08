@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
 import { fetchRosterData } from './services/rosterService';
+import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
 import { 
@@ -459,8 +460,8 @@ export default function App() {
     if (!currentUser || preferencesReadyForProfile !== currentUser.id) return undefined;
 
     const saveTimer = window.setTimeout(async () => {
-      const { error } = await supabase.from('user_preferences').upsert({
-        profile_id: currentUser.id,
+      try {
+        await saveUserPreferences(currentUser.id, {
         calendar_filters: {
           desk: calendarDeskFilter,
           region: calendarRegionFilter,
@@ -479,11 +480,11 @@ export default function App() {
           date_preset: statsDatePreset,
           custom_from: customFromDate,
           custom_to: customToDate
-        },
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'profile_id' });
-
-      if (error) console.warn('User preferences were not saved:', error.message);
+        }
+        });
+      } catch (preferencesSaveError) {
+        console.warn('User preferences were not saved:', preferencesSaveError.message);
+      }
     }, 400);
 
     return () => window.clearTimeout(saveTimer);
