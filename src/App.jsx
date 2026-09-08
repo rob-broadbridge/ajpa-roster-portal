@@ -187,6 +187,8 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('calendar');
   const [showUnauthHelp, setShowUnauthHelp] = useState(false);
+  const [calendarNow, setCalendarNow] = useState(() => new Date());
+  const [preferencesReadyForProfile, setPreferencesReadyForProfile] = useState(null);
 
   const [users, setUsers] = useState(INITIAL_USERS);
   const [regions, setRegions] = useState(INITIAL_REGIONS);
@@ -375,7 +377,8 @@ export default function App() {
   // The mapping keeps the current component working while later stages replace
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
-    const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult] = await Promise.all([
+    setPreferencesReadyForProfile(null);
+    const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, preferencesResult] = await Promise.all([
       supabase.from('profiles').select('*').order('full_name'),
       supabase.from('regions').select('*').order('name'),
       supabase.from('service_desks').select('*, regions(name)').order('name'),
@@ -383,7 +386,8 @@ export default function App() {
       supabase.from('desk_follows').select('desk_id').eq('profile_id', profile.id),
       supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
       supabase.from('recurring_rules').select('*').order('created_at'),
-      supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false })
+      supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false }),
+      supabase.from('user_preferences').select('*').eq('profile_id', profile.id).maybeSingle()
     ]);
     const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult].find(result => result.error);
     if (failure) throw failure.error;
@@ -410,6 +414,42 @@ export default function App() {
     setFollowedDesks(followsResult.data.map(follow => follow.desk_id)); setSlotAssignments(mappedAssignments);
     setRecurringRules(rulesResult.data.map(rule => ({ id: rule.id, userId: rule.profile_id, slotId: rule.slot_id, action: rule.action, type: rule.rule_type, startDate: rule.start_date, untilDate: rule.until_date, countN: rule.count_n })));
     setLoggedStatistics(statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes })));
+
+    // Reset to the familiar defaults first. The saved values below then take
+    // precedence where they exist, including when another account signs in on
+    // the same browser.
+    setCalendarDeskFilter(profile.role === 'Member' ? 'FOLLOWED' : 'ALL');
+    setCalendarRegionFilter('ALL');
+    setCalendarTimeOfDayFilter({ morning: true, afternoon: true, evening: true });
+    setCalendarDayFilter({ Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: true, Sunday: true });
+    setMyShiftsPreset('DEFAULT_5WEEKS');
+    setStatsRegionFilter('ALL');
+    setStatsDeskFilter('ALL');
+    setStatsJpFilter(profile.role === 'Member' ? profile.id : 'ALL');
+    setStatsDatePreset('CURRENT_AND_PREVIOUS');
+
+    if (preferencesResult.error) {
+      // Do not prevent sign-in if Stage 4A has not yet been run in Supabase.
+      console.warn('User preferences were not loaded:', preferencesResult.error.message);
+    } else if (preferencesResult.data) {
+      const calendar = preferencesResult.data.calendar_filters || {};
+      const myShifts = preferencesResult.data.my_shifts_filters || {};
+      const statistics = preferencesResult.data.statistics_filters || {};
+      if (typeof calendar.desk === 'string') setCalendarDeskFilter(calendar.desk);
+      if (typeof calendar.region === 'string') setCalendarRegionFilter(calendar.region);
+      if (calendar.time_of_day && typeof calendar.time_of_day === 'object') setCalendarTimeOfDayFilter(previous => ({ ...previous, ...calendar.time_of_day }));
+      if (calendar.days && typeof calendar.days === 'object') setCalendarDayFilter(previous => ({ ...previous, ...calendar.days }));
+      if (typeof myShifts.preset === 'string') setMyShiftsPreset(myShifts.preset);
+      if (typeof myShifts.from === 'string') setMyShiftsCustomFrom(myShifts.from);
+      if (typeof myShifts.to === 'string') setMyShiftsCustomTo(myShifts.to);
+      if (typeof statistics.region === 'string') setStatsRegionFilter(statistics.region);
+      if (typeof statistics.desk === 'string') setStatsDeskFilter(statistics.desk);
+      if (typeof statistics.jp === 'string') setStatsJpFilter(statistics.jp);
+      if (typeof statistics.date_preset === 'string') setStatsDatePreset(statistics.date_preset);
+      if (typeof statistics.custom_from === 'string') setCustomFromDate(statistics.custom_from);
+      if (typeof statistics.custom_to === 'string') setCustomToDate(statistics.custom_to);
+    }
+    setPreferencesReadyForProfile(profile.id);
   };
 
   const handleToggleFollowDesk = async (deskId) => {
@@ -432,6 +472,58 @@ export default function App() {
       setStatsJpFilter('ALL');
     }
   }, [currentUser]);
+
+  // Save display choices shortly after a filter is changed. The short delay
+  // groups a series of checkbox clicks into one Supabase write.
+  useEffect(() => {
+    if (!currentUser || preferencesReadyForProfile !== currentUser.id) return undefined;
+
+    const saveTimer = window.setTimeout(async () => {
+      const { error } = await supabase.from('user_preferences').upsert({
+        profile_id: currentUser.id,
+        calendar_filters: {
+          desk: calendarDeskFilter,
+          region: calendarRegionFilter,
+          time_of_day: calendarTimeOfDayFilter,
+          days: calendarDayFilter
+        },
+        my_shifts_filters: {
+          preset: myShiftsPreset,
+          from: myShiftsCustomFrom,
+          to: myShiftsCustomTo
+        },
+        statistics_filters: {
+          region: statsRegionFilter,
+          desk: statsDeskFilter,
+          jp: statsJpFilter,
+          date_preset: statsDatePreset,
+          custom_from: customFromDate,
+          custom_to: customToDate
+        },
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'profile_id' });
+
+      if (error) console.warn('User preferences were not saved:', error.message);
+    }, 400);
+
+    return () => window.clearTimeout(saveTimer);
+  }, [
+    currentUser,
+    preferencesReadyForProfile,
+    calendarDeskFilter,
+    calendarRegionFilter,
+    calendarTimeOfDayFilter,
+    calendarDayFilter,
+    myShiftsPreset,
+    myShiftsCustomFrom,
+    myShiftsCustomTo,
+    statsRegionFilter,
+    statsDeskFilter,
+    statsJpFilter,
+    statsDatePreset,
+    customFromDate,
+    customToDate
+  ]);
 
   const canManage = useMemo(() => {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
@@ -964,6 +1056,28 @@ export default function App() {
     return grouped;
   }, [deskViewFilter, activeDesksList, archivedDesksList, selectedDeskRegions, regions]);
 
+  // Keep an already-open calendar aligned with the new week at local Monday
+  // midnight. The timer is then re-scheduled for the following Monday.
+  useEffect(() => {
+    let rolloverTimer;
+
+    const scheduleWeeklyRollover = () => {
+      const now = new Date();
+      const nextMonday = new Date(now);
+      const daysUntilNextMonday = ((8 - now.getDay()) % 7) || 7;
+      nextMonday.setDate(now.getDate() + daysUntilNextMonday);
+      nextMonday.setHours(0, 0, 0, 0);
+
+      rolloverTimer = window.setTimeout(() => {
+        setCalendarNow(new Date());
+        scheduleWeeklyRollover();
+      }, Math.max(1000, nextMonday.getTime() - now.getTime()));
+    };
+
+    scheduleWeeklyRollover();
+    return () => window.clearTimeout(rolloverTimer);
+  }, []);
+
   // CALENDAR ROLLOVER AT MIDNIGHT SUNDAY NIGHT
   const currentWeek1Monday = useMemo(() => {
     // Use the date on the member's device rather than the former demo date.
@@ -977,7 +1091,7 @@ export default function App() {
     currentWeekMonday.setHours(0, 0, 0, 0);
 
     return currentWeekMonday;
-  }, []);
+  }, [calendarNow]);
 
   const rolling12Weeks = useMemo(() => {
     const weeks = [];
