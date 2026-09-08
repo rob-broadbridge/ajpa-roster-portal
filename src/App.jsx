@@ -231,8 +231,11 @@ export default function App() {
 
   // Sign Up Modal State
   const [signUpModalOpen, setSignUpModalOpen] = useState(false);
-  const [signUpForm, setSignUpForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
+  const [signUpForm, setSignUpForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', confirmPassword: '', isProvisional: false });
   const [signUpSuccessMsg, setSignUpSuccessMsg] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
+  const [signUpPasswordError, setSignUpPasswordError] = useState('');
 
   // Forgot Password & Reset Modal State
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
@@ -244,8 +247,6 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetError, setResetError] = useState('');
 
-  // Simulated Email Alert Banner for Registrar
-  const [emailAlert, setEmailAlert] = useState(null);
 
   // Desk & Calendar Filters
   const [deskViewFilter, setDeskViewFilter] = useState('Active');
@@ -414,6 +415,7 @@ export default function App() {
       if (typeof statistics.custom_to === 'string') setCustomToDate(statistics.custom_to);
     }
     setPreferencesReadyForProfile(profile.id);
+    return roster;
   };
 
   const handleToggleFollowDesk = async (deskId) => {
@@ -629,14 +631,15 @@ export default function App() {
       setLoginError(loginError.message);
       return;
     }
-    try { await loadSupabaseRoster(foundUser); } catch (loadError) { await supabase.auth.signOut(); setLoginError(`Unable to load roster data: ${loadError.message}`); return; }
+    let roster;
+    try { roster = await loadSupabaseRoster(foundUser); } catch (loadError) { await supabase.auth.signOut(); setLoginError(`Unable to load roster data: ${loadError.message}`); return; }
     setCurrentUser(foundUser);
     setIsAuthenticated(true);
     setLoginEmail('');
     setLoginPassword('');
 
     if (foundUser.role === 'Registrar') {
-      const pendingCount = users.filter(u => u.status === 'Pending').length;
+      const pendingCount = roster.users.filter(u => u.status === 'Pending').length;
       if (pendingCount > 0) {
         setPendingMembersNoticeCount(pendingCount);
       } else {
@@ -676,6 +679,7 @@ export default function App() {
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
+    setSignUpPasswordError('');
     const fullName = signUpForm.fullName.trim();
     const email = signUpForm.email.trim().toLowerCase();
     const warrantNumber = signUpForm.warrantNumber.trim().toUpperCase();
@@ -685,6 +689,10 @@ export default function App() {
     }
     if (signUpForm.password.length < 8) {
       alert('Please use a password of at least 8 characters.');
+      return;
+    }
+    if (signUpForm.password !== signUpForm.confirmPassword) {
+      setSignUpPasswordError("Passwords don't match.");
       return;
     }
     const { error } = await supabase.auth.signUp({
@@ -703,15 +711,11 @@ export default function App() {
     if (error) { alert(`Unable to submit sign-up request: ${error.message}`); return; }
     setSignUpSuccessMsg(true);
 
-    setEmailAlert({
-      title: 'Automated Email Alert Sent to Registrars',
-      message: `New JP Sign-up received for ${signUpForm.fullName} (${signUpForm.warrantNumber}). Status set to PENDING awaiting Registrar Portal approval.`
-    });
-
     setTimeout(() => {
       setSignUpSuccessMsg(false);
       setSignUpModalOpen(false);
-      setSignUpForm({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', isProvisional: false });
+      setSignUpForm({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', confirmPassword: '', isProvisional: false });
+      setSignUpPasswordError('');
     }, 2500);
   };
 
@@ -1803,20 +1807,6 @@ END:VCALENDAR`;
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans">
-      {/* EMAIL ALERT SIMULATOR BANNER FOR REGISTRARS */}
-      {emailAlert && (
-        <div className="bg-purple-900 text-white px-4 py-3 border-b-2 border-purple-400 flex justify-between items-center text-xs animate-fade-in">
-          <div className="flex items-center space-x-2">
-            <Mail className="w-4 h-4 text-purple-300 shrink-0" />
-            <span className="font-bold">{emailAlert.title}:</span>
-            <span className="text-purple-100">{emailAlert.message}</span>
-          </div>
-          <button onClick={() => setEmailAlert(null)} className="text-purple-300 hover:text-white font-bold p-1">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
       {/* REGISTRAR PENDING MEMBERS POPUP NOTICE */}
       {pendingMembersNoticeCount > 0 && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
@@ -4818,14 +4808,37 @@ END:VCALENDAR`;
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Account Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={signUpForm.password}
-                    onChange={(e) => setSignUpForm(prev => ({ ...prev, password: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
-                    placeholder="Create a password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showSignUpPassword ? 'text' : 'password'}
+                      required
+                      value={signUpForm.password}
+                      onChange={(e) => { setSignUpForm(prev => ({ ...prev, password: e.target.value })); setSignUpPasswordError(''); }}
+                      className="w-full border border-slate-300 rounded-lg pr-10 p-2.5 text-sm"
+                      placeholder="Create a password"
+                    />
+                    <button type="button" onClick={() => setShowSignUpPassword(!showSignUpPassword)} className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 transition cursor-pointer" title={showSignUpPassword ? 'Hide Password' : 'Show Password'}>
+                      {showSignUpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Confirm Password</label>
+                  {signUpPasswordError && <p className="mb-1.5 text-rose-700 font-bold">{signUpPasswordError}</p>}
+                  <div className="relative">
+                    <input
+                      type={showSignUpConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={signUpForm.confirmPassword}
+                      onChange={(e) => { setSignUpForm(prev => ({ ...prev, confirmPassword: e.target.value })); setSignUpPasswordError(''); }}
+                      className={`w-full border rounded-lg pr-10 p-2.5 text-sm ${signUpPasswordError ? 'border-rose-400 bg-rose-50' : 'border-slate-300'}`}
+                      placeholder="Enter password again"
+                    />
+                    <button type="button" onClick={() => setShowSignUpConfirmPassword(!showSignUpConfirmPassword)} className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 transition cursor-pointer" title={showSignUpConfirmPassword ? 'Hide Password' : 'Show Password'}>
+                      {showSignUpConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2 pt-1">
