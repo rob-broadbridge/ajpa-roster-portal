@@ -464,6 +464,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    // A saved preference loaded for this account must not be overwritten by
+    // the login defaults below.
+    if (!currentUser || preferencesReadyForProfile === currentUser.id) return;
+
     if (currentUser?.role === 'Member') {
       setCalendarDeskFilter('FOLLOWED');
       setStatsJpFilter(currentUser.id);
@@ -471,7 +475,7 @@ export default function App() {
       setCalendarDeskFilter('ALL');
       setStatsJpFilter('ALL');
     }
-  }, [currentUser]);
+  }, [currentUser, preferencesReadyForProfile]);
 
   // Save display choices shortly after a filter is changed. The short delay
   // groups a series of checkbox clicks into one Supabase write.
