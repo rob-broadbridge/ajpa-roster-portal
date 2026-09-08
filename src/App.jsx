@@ -17,9 +17,9 @@ const INITIAL_REGIONS = [
 
 // --- INITIAL USERS ---
 const INITIAL_USERS = [
-  { id: 'usr-1', fullName: 'Rob Broadbridge (R)', email: 'rob@broadbridge.co.nz', password: 'Abc123', phone: '274909378', warrantNumber: 'JP-99999', role: 'Registrar', isProvisional: false, status: 'Approved' },
-  { id: 'usr-2', fullName: 'Rob Broadbridge (A)', email: 'rob.broadbridge@gmail.com', password: 'Abc456', phone: '', warrantNumber: 'JP-88888', role: 'Admin', isProvisional: false, status: 'Approved' },
-  { id: 'usr-3', fullName: 'Rob Broadbbridge (JP)', email: 'jp@broadbridge.co.nz', password: 'Abc789', phone: '', warrantNumber: 'JP-25138', role: 'Member', isProvisional: false, status: 'Approved' }
+  { id: 'usr-1', fullName: 'Rob Broadbridge (R)', email: 'rob@broadbridge.co.nz', phone: '274909378', warrantNumber: 'JP-99999', role: 'Registrar', isProvisional: false, status: 'Approved' },
+  { id: 'usr-2', fullName: 'Rob Broadbridge (A)', email: 'rob.broadbridge@gmail.com', phone: '', warrantNumber: 'JP-88888', role: 'Admin', isProvisional: false, status: 'Approved' },
+  { id: 'usr-3', fullName: 'Rob Broadbbridge (JP)', email: 'jp@broadbridge.co.nz', phone: '', warrantNumber: 'JP-25138', role: 'Member', isProvisional: false, status: 'Approved' }
 ];
 
 // --- INITIAL SERVICE DESKS WITH EXPANDED ADMIN & SITE CONTACT FIELDS ---
@@ -189,6 +189,9 @@ export default function App() {
   const [showUnauthHelp, setShowUnauthHelp] = useState(false);
   const [calendarNow, setCalendarNow] = useState(() => new Date());
   const [preferencesReadyForProfile, setPreferencesReadyForProfile] = useState(null);
+  // Demo access is deliberately unavailable in deployed builds. To use it on
+  // a local developer machine, explicitly set VITE_ENABLE_DEMO=true.
+  const demoModeEnabled = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEMO === 'true';
 
   const [users, setUsers] = useState(INITIAL_USERS);
   const [regions, setRegions] = useState(INITIAL_REGIONS);
@@ -477,6 +480,19 @@ export default function App() {
     }
   }, [currentUser, preferencesReadyForProfile]);
 
+  // Supabase emits PASSWORD_RECOVERY after a member follows their email link.
+  // Only then is the password-entry screen made available.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setForgotModalOpen(false);
+        setResetLinkSent(false);
+        setResetScreenOpen(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Save display choices shortly after a filter is changed. The short delay
   // groups a series of checkbox clicks into one Supabase write.
   useEffect(() => {
@@ -629,7 +645,7 @@ export default function App() {
     };
 
     triggerDownload(`${timestamp}_1.csv`, convertToCsv(regions, ['id', 'name', 'code']));
-    triggerDownload(`${timestamp}_2.csv`, convertToCsv(users, ['id', 'fullName', 'email', 'password', 'phone', 'warrantNumber', 'role', 'isProvisional', 'status']));
+    triggerDownload(`${timestamp}_2.csv`, convertToCsv(users, ['id', 'fullName', 'email', 'phone', 'warrantNumber', 'role', 'isProvisional', 'status']));
     triggerDownload(`${timestamp}_3.csv`, convertToCsv(serviceDesks, ['id', 'code', 'name', 'address', 'region', 'primaryAdminId', 'secondaryAdminId', 'siteContactName', 'siteContactEmail', 'contactPerson', 'notes', 'status']));
     triggerDownload(`${timestamp}_4.csv`, convertToCsv(slotTemplates, ['id', 'deskId', 'dayOfWeek', 'startTime', 'endTime', 'minJps', 'targetJps', 'maxJps', 'status', 'effectiveFromDate']));
     
@@ -669,6 +685,7 @@ export default function App() {
   };
 
   const handleQuickDemoLogin = (role) => {
+    if (!demoModeEnabled) return;
     const demoUser = users.find(u => u.role === role && u.status === 'Approved');
     if (demoUser) {
       setCurrentUser(demoUser);
@@ -696,15 +713,26 @@ export default function App() {
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
+    const fullName = signUpForm.fullName.trim();
+    const email = signUpForm.email.trim().toLowerCase();
+    const warrantNumber = signUpForm.warrantNumber.trim().toUpperCase();
+    if (!fullName || !email || !warrantNumber) {
+      alert('Please complete your name, email address, and warrant number.');
+      return;
+    }
+    if (signUpForm.password.length < 8) {
+      alert('Please use a password of at least 8 characters.');
+      return;
+    }
     const { error } = await supabase.auth.signUp({
-      email: signUpForm.email.trim(),
+      email,
       password: signUpForm.password,
       options: {
         emailRedirectTo: window.location.origin,
         data: {
-          full_name: signUpForm.fullName,
-          phone: signUpForm.phone,
-          warrant_number: signUpForm.warrantNumber,
+          full_name: fullName,
+          phone: signUpForm.phone.trim(),
+          warrant_number: warrantNumber,
           is_provisional: signUpForm.isProvisional
         }
       }
@@ -724,23 +752,16 @@ export default function App() {
     }, 2500);
   };
 
-  const handleSendResetLink = (e) => {
+  const handleSendResetLink = async (e) => {
     e.preventDefault();
-    const found = users.find(u => u.email.toLowerCase() === resetEmail.trim().toLowerCase());
-    if (!found) {
-      alert('No registered JP account found with this email address.');
-      return;
-    }
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      redirectTo: window.location.origin
+    });
+    if (error) { alert(`Unable to send reset email: ${error.message}`); return; }
     setResetLinkSent(true);
   };
 
-  const handleSimulateOpenResetLink = () => {
-    setForgotModalOpen(false);
-    setResetLinkSent(false);
-    setResetScreenOpen(true);
-  };
-
-  const handleSaveNewPassword = (e) => {
+  const handleSaveNewPassword = async (e) => {
     e.preventDefault();
     setResetError('');
 
@@ -749,17 +770,27 @@ export default function App() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setResetError('Password must be at least 6 characters long.');
+    if (newPassword.length < 8) {
+      setResetError('Password must be at least 8 characters long.');
       return;
     }
 
-    setUsers(prev => prev.map(u => u.email.toLowerCase() === resetEmail.trim().toLowerCase() ? { ...u, password: newPassword } : u));
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { setResetError(`Unable to update password: ${error.message}`); return; }
     alert('Password updated successfully! You can now log in with your new password.');
     setResetScreenOpen(false);
     setNewPassword('');
     setConfirmPassword('');
     setResetEmail('');
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.warn('Unable to fully sign out:', error.message);
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setPreferencesReadyForProfile(null);
+    setShowUnauthHelp(false);
   };
 
   const handleApprovePendingUser = async (userId) => {
@@ -895,7 +926,7 @@ export default function App() {
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
 
-    const today = new Date(2026, 8, 5); 
+    const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth(); 
 
@@ -1229,7 +1260,7 @@ export default function App() {
 
   // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
   const myShiftsFilterDescriptor = useMemo(() => {
-    const today = new Date(2026, 8, 5);
+    const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
@@ -1892,11 +1923,7 @@ END:VCALENDAR`;
                 <div className="text-xs text-slate-400">{currentUser.warrantNumber} • <span className="text-amber-400 font-semibold">{currentUser.role}</span></div>
               </div>
               <button 
-                onClick={() => {
-                  setIsAuthenticated(false);
-                  setCurrentUser(null);
-                  setShowUnauthHelp(false);
-                }} 
+                onClick={handleSignOut}
                 className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-300 hover:text-white cursor-pointer" 
                 title="Sign Out"
               >
@@ -1939,7 +1966,7 @@ END:VCALENDAR`;
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters"
                   />
                 </div>
 
@@ -2036,6 +2063,7 @@ END:VCALENDAR`;
                       </div>
                     </div>
 
+                    {demoModeEnabled && (
                     <div className="bg-slate-200/70 p-4 rounded-xl border border-slate-300/80 space-y-2">
                       <span className="text-[11px] font-black uppercase text-slate-600 tracking-wider block">
                         Demo Fast Access (Click to test roles):
@@ -2052,6 +2080,7 @@ END:VCALENDAR`;
                         </button>
                       </div>
                     </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-5 bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5">
@@ -4895,14 +4924,8 @@ END:VCALENDAR`;
                 <Mail className="w-8 h-8 text-sky-600 mx-auto" />
                 <p className="text-sm font-black text-sky-950">Reset Email Sent!</p>
                 <p className="font-normal text-slate-600 leading-relaxed">
-                  A reset link was generated for <b>{resetEmail}</b>. Click below to simulate opening the reset email link.
+                  If an account exists for <b>{resetEmail}</b>, a password-reset link has been sent. Open that link from your email to choose a new password.
                 </p>
-                <button 
-                  onClick={handleSimulateOpenResetLink}
-                  className="w-full py-2.5 bg-sky-700 hover:bg-sky-600 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider shadow cursor-pointer mt-2"
-                >
-                  Simulate Opening Email Reset Link
-                </button>
               </div>
             ) : (
               <form onSubmit={handleSendResetLink} className="space-y-4 text-xs">
