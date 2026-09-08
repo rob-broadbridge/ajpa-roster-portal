@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
 import { 
@@ -651,11 +652,13 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email: loginEmail.trim(), password: loginPassword });
-    if (error) { setLoginError(error.message); return; }
-    const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-    if (profileError || profile.status !== 'Approved') { await supabase.auth.signOut(); setLoginError('Your account is not approved. Please contact the Registrar.'); return; }
-    const foundUser = { id: profile.id, fullName: profile.full_name, email: profile.email, phone: profile.phone, warrantNumber: profile.warrant_number, role: profile.role, isProvisional: profile.is_provisional, status: profile.status };
+    let foundUser;
+    try {
+      foundUser = await signInApprovedUser(loginEmail, loginPassword);
+    } catch (loginError) {
+      setLoginError(loginError.message);
+      return;
+    }
     try { await loadSupabaseRoster(foundUser); } catch (loadError) { await supabase.auth.signOut(); setLoginError(`Unable to load roster data: ${loadError.message}`); return; }
     setCurrentUser(foundUser);
     setIsAuthenticated(true);
@@ -744,10 +747,12 @@ export default function App() {
 
   const handleSendResetLink = async (e) => {
     e.preventDefault();
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-      redirectTo: window.location.origin
-    });
-    if (error) { alert(`Unable to send reset email: ${error.message}`); return; }
+    try {
+      await requestPasswordReset(resetEmail, window.location.origin);
+    } catch (resetRequestError) {
+      alert(`Unable to send reset email: ${resetRequestError.message}`);
+      return;
+    }
     setResetLinkSent(true);
   };
 
@@ -765,8 +770,12 @@ export default function App() {
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) { setResetError(`Unable to update password: ${error.message}`); return; }
+    try {
+      await updatePassword(newPassword);
+    } catch (passwordUpdateError) {
+      setResetError(`Unable to update password: ${passwordUpdateError.message}`);
+      return;
+    }
     alert('Password updated successfully! You can now log in with your new password.');
     setResetScreenOpen(false);
     setNewPassword('');
@@ -775,8 +784,11 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) console.warn('Unable to fully sign out:', error.message);
+    try {
+      await signOutUser();
+    } catch (signOutError) {
+      console.warn('Unable to fully sign out:', signOutError.message);
+    }
     setIsAuthenticated(false);
     setCurrentUser(null);
     setPreferencesReadyForProfile(null);
