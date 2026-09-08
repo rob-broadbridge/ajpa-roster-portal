@@ -11,7 +11,7 @@ import {
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
   LogOut, Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
   Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info, HelpCircle, Star,
-  Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Settings, Database,
+  Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Database,
   Eye, EyeOff
 } from 'lucide-react';
 
@@ -2994,10 +2994,6 @@ END:VCALENDAR`;
                         <Users className="w-3.5 h-3.5" />
                         <span>JP Members ({users.length})</span>
                       </button>
-                      <button onClick={() => setRegistrarSubTab('slots')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'slots' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
-                        <Settings className="w-3.5 h-3.5" />
-                        <span>Manage Slots ({slotTemplates.length})</span>
-                      </button>
                       <button onClick={() => setRegistrarSubTab('regions')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'regions' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
                         <Globe className="w-3.5 h-3.5" />
                         <span>Regions ({regions.length})</span>
@@ -3382,9 +3378,9 @@ END:VCALENDAR`;
                           <span>2. How to Add & Maintain Recurring Shift Slots</span>
                         </h4>
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
-                          <li>Click <b>"Create Slot"</b> on any service desk card or navigate to <b>Registrar Portal &rarr; Manage Slots</b>.</li>
+                          <li>Click <b>"Create Slot"</b> on the relevant service desk card.</li>
                           <li>Select day of week, start time, end time, and capacity limits (<i>Min JPs ≤ Target JPs ≤ Max JPs</i>).</li>
-                          <li>To edit or remove a slot, click the slot tile under the desk or click <b>Edit/Delete</b> in the Manage Slots subtab.</li>
+                          <li>To edit or remove a slot, click its tile under the relevant service desk.</li>
                         </ol>
                       </div>
 
