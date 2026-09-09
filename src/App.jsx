@@ -717,7 +717,14 @@ export default function App() {
         }
       }
     });
-    if (error) { alert(`Unable to submit sign-up request: ${error.message}`); return; }
+    if (error) {
+      if (error.message === 'Database error saving new user') {
+        alert('This JP warrant number is already registered. Please check the warrant number for a typing error. If it is correct, contact an AJPA Registrar for assistance.');
+      } else {
+        alert(`Unable to submit sign-up request: ${error.message}`);
+      }
+      return;
+    }
     setSignUpSuccessMsg(true);
 
     setTimeout(() => {
