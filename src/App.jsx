@@ -2092,8 +2092,9 @@ END:VCALENDAR`;
                         <li>Click the <b>"Click here to Sign up"</b> button located at the bottom of the Sign In card on the main page.</li>
                         <li>Fill in your full legal name, warrant number (e.g. <code className="bg-white px-1 border rounded">JP-25138</code>), mobile phone, and active email address.</li>
                         <li>Check the <b>Provisional JP</b> box if you are currently undertaking provisional service.</li>
-                        <li>Submit the form. Your account status will immediately be marked as <b>PENDING</b>, and an automated alert will be sent to the AJPA Registrars for verification.</li>
-                        <li>Once an AJPA Registrar approves your warrant details, you will receive confirmation and can log in with your email and password.</li>
+                        <li>Enter your password twice. The two passwords must match; use the eye icons if you need to show or hide either entry.</li>
+                        <li>Submit the form. Your account status will be marked as <b>Pending</b>, a confirmation email will be sent, and AJPA Registrars will be notified for review.</li>
+                        <li>Once an AJPA Registrar approves your warrant details, you can log in with your email and password.</li>
                       </ol>
                     </div>
 
@@ -3457,6 +3458,7 @@ END:VCALENDAR`;
                         <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window automatically rolling over after midnight Sunday night.</li>
                         <li><b>Region Filter:</b> Filter visible shifts by geographical region (e.g., Auckland East).</li>
                         <li><b>Desk Filter:</b> Switch between <i>"My Followed Desks Only"</i> and specific service desk locations.</li>
+                        <li><b>Days filter:</b> Select the days of the week you want to see. Use <b>All days</b> to restore the full week.</li>
                         <li>
                           <b>Shift Time of Day Filter:</b> Use the checkboxes at the top of the calendar to filter visible shifts by time of day:
                           <ul className="list-circle pl-5 mt-1 space-y-0.5 text-slate-600">
@@ -3512,6 +3514,7 @@ END:VCALENDAR`;
                         <li>
                           <b>My Shifts Interrogation:</b> Use the <b>My Shifts</b> tab to filter and view your registered shifts across any past, current, or future timeframe using the <b>Date Option</b> dropdown.
                         </li>
+                        <li><b>Closed slots:</b> Grey slots marked <b>Desk closed</b> or <b>Statutory holiday</b> cannot be registered for.</li>
                         <li>Click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
                       </ol>
                     </div>
@@ -3552,6 +3555,18 @@ END:VCALENDAR`;
 
                       <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
                         <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Ban className="w-4 h-4 text-sky-700 shrink-0" />
+                          <span>3. How to Close or Reopen an Individual Desk Slot</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Open the relevant slot from the <b>Calendar</b>.</li>
+                          <li>Use the <b>Holiday / Desk closed</b> tick box to close that desk’s slot for that date. The slot will turn grey and cannot be registered for.</li>
+                          <li>Untick it to reopen that individual slot. This is useful where one desk operates on a statutory holiday or needs to reopen after a local closure.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
                           <Clock className="w-4 h-4 text-sky-700 shrink-0" />
                           <span>2. How to Add & Maintain Recurring Shift Slots</span>
                         </h4>
@@ -3565,7 +3580,7 @@ END:VCALENDAR`;
                       <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
                         <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
                           <Download className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span>3. How to Download Desk Statistics</span>
+                          <span>4. How to Download Desk Statistics</span>
                         </h4>
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
                           <li>Navigate to the <b>Statistics</b> tab.</li>
@@ -3597,6 +3612,18 @@ END:VCALENDAR`;
 
                       <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
                         <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Calendar className="w-4 h-4 text-purple-700 shrink-0" />
+                          <span>3. How to Maintain Statutory Holidays</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Navigate to <b>Registrar Portal &rarr; Statutory Holidays</b>.</li>
+                          <li>Add the date and description, then click <b>Add Holiday</b>. All slots on that date will be closed by default.</li>
+                          <li>Use the edit or delete icons to change or remove a statutory holiday. Desk Admins can only reopen individual desk slots; they cannot change the statutory-holiday list.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
                           <Users className="w-4 h-4 text-purple-700 shrink-0" />
                           <span>2. How to Approve Sign-Ups & Maintain JP Members</span>
                         </h4>
@@ -3611,12 +3638,12 @@ END:VCALENDAR`;
                       <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
                         <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
                           <Database className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span>3. How to Download Master System Data Archives</span>
+                          <span>4. How to Download Master System Data Archives</span>
                         </h4>
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
                           <li>Go to <b>Registrar Portal</b> and click <b>"Download Data (CSV Archive)"</b>.</li>
                           <li>Confirm the action in the prompt modal window.</li>
-                          <li>The system will automatically generate and download <b>6 separate timestamped CSV files</b> containing all system datasets.</li>
+                          <li>The system will automatically generate and download <b>8 separate timestamped CSV files</b>, including statutory-holiday dates and desk-slot closure overrides.</li>
                         </ol>
                       </div>
                     </div>
@@ -3909,12 +3936,12 @@ END:VCALENDAR`;
               </div>
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">Confirm Master Data Download</h3>
-                <p className="text-[11px] text-slate-500">6 System CSV Archives</p>
+                <p className="text-[11px] text-slate-500">8 System CSV Archives</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to download all existing application data? This will generate <b>6 timestamped CSV files</b> corresponding to all core datasets:
+              Are you sure you want to download all existing application data? This will generate <b>8 timestamped CSV files</b> corresponding to all core datasets:
             </p>
 
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] font-mono space-y-1 text-slate-700">
@@ -3924,6 +3951,8 @@ END:VCALENDAR`;
               <div className="flex justify-between"><span>4. INITIAL_SLOT_TEMPLATES</span><span className="font-bold text-emerald-700">[Suffix _4.csv]</span></div>
               <div className="flex justify-between"><span>5. INITIAL_ASSIGNMENTS</span><span className="font-bold text-emerald-700">[Suffix _5.csv]</span></div>
               <div className="flex justify-between"><span>6. INITIAL_LOGGED_STATISTICS</span><span className="font-bold text-emerald-700">[Suffix _6.csv]</span></div>
+              <div className="flex justify-between"><span>7. STATUTORY_HOLIDAYS</span><span className="font-bold text-emerald-700">[Suffix _7.csv]</span></div>
+              <div className="flex justify-between"><span>8. DUTY_SLOT_HOLIDAY_OVERRIDES</span><span className="font-bold text-emerald-700">[Suffix _8.csv]</span></div>
             </div>
 
             <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
