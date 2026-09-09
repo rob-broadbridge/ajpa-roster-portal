@@ -1232,9 +1232,7 @@ export default function App() {
 
   const canManageHolidayForDesk = (deskId) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'Registrar') return true;
-    const desk = activeDeskMap[deskId];
-    return currentUser.role === 'Admin' && (desk?.primaryAdminId === currentUser.id || desk?.secondaryAdminId === currentUser.id);
+    return currentUser.role === 'Registrar' || currentUser.role === 'Admin';
   };
 
   // GENERATE EXTENDED OCCURRENCES ACROSS ALL TIME RANGES
@@ -2266,7 +2264,7 @@ END:VCALENDAR`;
                 <span>Statistics</span>
               </button>
 
-              {(currentUser.role === 'Registrar' || currentUser.role === 'Admin') && (
+              {currentUser.role === 'Registrar' && (
                 <button onClick={() => setActiveTab('registrar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'registrar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                   <Award className="w-4 h-4" />
                   <span>Registrar Portal</span>
@@ -3090,7 +3088,7 @@ END:VCALENDAR`;
             )}
 
             {/* TAB 5: REGISTRAR GOVERNANCE PORTAL */}
-            {activeTab === 'registrar' && (currentUser.role === 'Registrar' || currentUser.role === 'Admin') && (
+            {activeTab === 'registrar' && currentUser.role === 'Registrar' && (
               <div className="space-y-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
                   <div>
