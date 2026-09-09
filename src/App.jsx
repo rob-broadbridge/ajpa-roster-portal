@@ -2452,7 +2452,7 @@ END:VCALENDAR`;
                                       <div className="font-extrabold flex justify-between items-center">
                                         <span className="bg-slate-900 text-amber-400 px-1.5 py-0.5 rounded text-[10px] font-black">{desk.code || 'JP'}</span>
                                         {occ.isHoliday ? (
-                                          <span className="text-[10px] font-black bg-slate-700 text-white px-1.5 py-0.5 rounded">Holiday</span>
+                                          <span className="text-[10px] font-black bg-slate-700 text-white px-1.5 py-0.5 rounded">{occ.holidayDescription ? 'Statutory holiday' : 'Desk closed'}</span>
                                         ) : (
                                           <span className="text-[10px] font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">{assigned}/{occ.targetJps} JPs</span>
                                         )}
@@ -2466,8 +2466,8 @@ END:VCALENDAR`;
 
                                       <div className="pt-1.5 border-t border-slate-200/60 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                                         {occ.isHoliday ? (
-                                          <div className="w-full py-1 px-2 rounded font-black text-[10px] uppercase text-center bg-slate-300 text-slate-600 cursor-not-allowed" title={occ.holidayDescription || 'Slot closed for a holiday'}>
-                                            Closed for Holiday{occ.holidayDescription ? `: ${occ.holidayDescription}` : ''}
+                                          <div className="w-full py-1 px-2 rounded font-black text-[10px] uppercase text-center bg-slate-300 text-slate-600 cursor-not-allowed" title={occ.holidayDescription || 'Desk closed'}>
+                                            {occ.holidayDescription ? `Statutory holiday: ${occ.holidayDescription}` : 'Desk closed'}
                                           </div>
                                         ) : isRegistered ? (
                                           <>
@@ -4723,8 +4723,8 @@ END:VCALENDAR`;
                 </div>
                 {detailedSlotModal.isHoliday && (
                   <div className="flex justify-between text-slate-600">
-                    <span className="font-bold">Closure:</span>
-                    <span className="font-extrabold">Holiday{detailedSlotModal.holidayDescription ? ` — ${detailedSlotModal.holidayDescription}` : ''}</span>
+                  <span className="font-bold">Closure:</span>
+                  <span className="font-extrabold">{detailedSlotModal.holidayDescription ? `Statutory holiday — ${detailedSlotModal.holidayDescription}` : 'Desk closed'}</span>
                   </div>
                 )}
               </div>
@@ -4732,8 +4732,8 @@ END:VCALENDAR`;
               {canManageHolidayForDesk(detailedSlotModal.deskId) && (
                 <label className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer ${detailedSlotModal.isHoliday ? 'bg-slate-200 border-slate-400' : 'bg-amber-50 border-amber-200'}`}>
                   <div>
-                    <span className="font-extrabold text-slate-900 text-xs block">Holiday</span>
-                    <span className="text-[11px] text-slate-600">Tick to close this individual slot on {detailedSlotModal.formattedDate}. Untick to operate on a statutory holiday.</span>
+                    <span className="font-extrabold text-slate-900 text-xs block">Holiday / Desk closed</span>
+                    <span className="text-[11px] text-slate-600">Tick to close this individual desk slot on {detailedSlotModal.formattedDate}. Untick to operate on a statutory holiday.</span>
                   </div>
                   <input
                     type="checkbox"
