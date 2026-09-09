@@ -2119,7 +2119,7 @@ END:VCALENDAR`;
                       Auckland JP Service Desk Roster & Governance Platform
                     </h2>
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      Welcome to the official roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view 12-week rolling service desk calendars, export device schedules, and log desk statistics.
+                      Welcome to the beta test roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view 12-week rolling service desk calendars, export device schedules, and log desk statistics.
                     </p>
 
                     <div className="pt-2 grid grid-cols-2 gap-4 text-xs font-bold text-slate-700">
@@ -3515,7 +3515,7 @@ END:VCALENDAR`;
                           <b>My Shifts Interrogation:</b> Use the <b>My Shifts</b> tab to filter and view your registered shifts across any past, current, or future timeframe using the <b>Date Option</b> dropdown.
                         </li>
                         <li><b>Closed slots:</b> Grey slots marked <b>Desk closed</b> or <b>Statutory holiday</b> cannot be registered for.</li>
-                        <li>Click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
+                        <li>When a registration is confirmed, you will receive an email with a calendar appointment attachment. You can also click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
                       </ol>
                     </div>
 
