@@ -208,6 +208,8 @@ export default function App() {
   const [recurringRules, setRecurringRules] = useState([]); // Persistent bulk registration/withdrawal rules for auto-rollover
   const [cancelledSlotInstances, setCancelledSlotInstances] = useState([]);
   const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
+  const [statutoryHolidays, setStatutoryHolidays] = useState([]);
+  const [slotHolidayOverrides, setSlotHolidayOverrides] = useState([]);
 
   // REGISTRATION & WITHDRAWAL MODAL STATES
   const [registerModalOcc, setRegisterModalOcc] = useState(null);
@@ -341,6 +343,10 @@ export default function App() {
   const [pendingDeleteSlotId, setPendingDeleteSlotId] = useState(null);
   const [slotActionConfirm, setSlotActionConfirm] = useState(null);
 
+  // STATUTORY HOLIDAY ADMINISTRATION (Registrar-only)
+  const [holidayForm, setHolidayForm] = useState({ date: '', description: '' });
+  const [editingStatutoryHolidayId, setEditingStatutoryHolidayId] = useState(null);
+
   // SERVICE DESK MODALS WITH EXPANDED ADMIN & SITE CONTACT FIELDS
   const [createDeskModalOpen, setCreateDeskModalOpen] = useState(false);
   const [editingDeskId, setEditingDeskId] = useState(null);
@@ -379,6 +385,7 @@ export default function App() {
     setUsers(roster.users); setRegions(roster.regions); setServiceDesks(roster.desks); setSlotTemplates(roster.slots);
     setFollowedDesks(roster.followedDesks); setSlotAssignments(roster.assignments);
     setRecurringRules(roster.rules); setLoggedStatistics(roster.statistics);
+    setStatutoryHolidays(roster.statutoryHolidays); setSlotHolidayOverrides(roster.slotHolidayOverrides);
 
     // Reset to the familiar defaults first. The saved values below then take
     // precedence where they exist, including when another account signs in on
@@ -618,6 +625,8 @@ export default function App() {
     }));
     triggerDownload(`${timestamp}_5.csv`, convertToCsv(assignmentsArray, ['instanceKey', 'assignedJpIds']));
     triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'slotId', 'occurrenceKey', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes']));
+    triggerDownload(`${timestamp}_7.csv`, convertToCsv(statutoryHolidays, ['id', 'date', 'description']));
+    triggerDownload(`${timestamp}_8.csv`, convertToCsv(slotHolidayOverrides, ['slotId', 'date', 'isHoliday']));
   };
 
   const handleLoginSubmit = async (e) => {
@@ -899,6 +908,81 @@ export default function App() {
     setPendingDeleteSlotId(null);
   };
 
+  const handleSaveStatutoryHoliday = async (event) => {
+    event.preventDefault();
+    if (!holidayForm.date || !holidayForm.description.trim()) {
+      alert('Enter both the statutory holiday date and a description.');
+      return;
+    }
+
+    const payload = { holiday_date: holidayForm.date, description: holidayForm.description.trim() };
+    const result = editingStatutoryHolidayId
+      ? await supabase.from('statutory_holidays').update(payload).eq('id', editingStatutoryHolidayId)
+      : await supabase.from('statutory_holidays').insert(payload);
+
+    if (result.error) {
+      alert(`Unable to save statutory holiday: ${result.error.message}`);
+      return;
+    }
+
+    await loadSupabaseRoster(currentUser);
+    setHolidayForm({ date: '', description: '' });
+    setEditingStatutoryHolidayId(null);
+  };
+
+  const handleEditStatutoryHoliday = (holiday) => {
+    setHolidayForm({ date: holiday.date, description: holiday.description });
+    setEditingStatutoryHolidayId(holiday.id);
+  };
+
+  const handleDeleteStatutoryHoliday = async (holiday) => {
+    if (!window.confirm(`Delete ${holiday.description} on ${holiday.date}? Existing desk-specific Holiday overrides will be retained.`)) return;
+    const { error } = await supabase.from('statutory_holidays').delete().eq('id', holiday.id);
+    if (error) {
+      alert(`Unable to delete statutory holiday: ${error.message}`);
+      return;
+    }
+    await loadSupabaseRoster(currentUser);
+    if (editingStatutoryHolidayId === holiday.id) {
+      setHolidayForm({ date: '', description: '' });
+      setEditingStatutoryHolidayId(null);
+    }
+  };
+
+  const handleSetOccurrenceHoliday = async (occurrence, isHoliday) => {
+    if (!canManageHolidayForDesk(occurrence.deskId)) return;
+
+    const isStatutoryHoliday = Boolean(statutoryHolidayByDate[occurrence.date]);
+    const overrideKey = `${occurrence.slotId}_${occurrence.date}`;
+    const hasOverride = Object.prototype.hasOwnProperty.call(slotHolidayOverrideByKey, overrideKey);
+    let error;
+
+    // Matching the statutory default needs no stored exception. This keeps the
+    // statutory-holiday list as the source of truth while preserving deliberate
+    // desk-level reopenings (Holiday = false).
+    if (isHoliday === isStatutoryHoliday) {
+      if (hasOverride) ({ error } = await supabase.from('duty_slot_holiday_overrides').delete().eq('duty_slot_id', occurrence.slotId).eq('duty_date', occurrence.date));
+    } else {
+      ({ error } = await supabase.from('duty_slot_holiday_overrides').upsert({
+        duty_slot_id: occurrence.slotId,
+        duty_date: occurrence.date,
+        is_holiday: isHoliday,
+      }, { onConflict: 'duty_slot_id,duty_date' }));
+    }
+
+    if (error) {
+      alert(`Unable to update the Holiday setting: ${error.message}`);
+      return;
+    }
+
+    await loadSupabaseRoster(currentUser);
+    setDetailedSlotModal(current => current ? {
+      ...current,
+      isHoliday,
+      holidayDescription: isStatutoryHoliday ? statutoryHolidayByDate[occurrence.date].description : '',
+    } : null);
+  };
+
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
 
@@ -1132,6 +1216,27 @@ export default function App() {
     return weeks;
   }, [currentWeek1Monday]);
 
+  const statutoryHolidayByDate = useMemo(() => {
+    return statutoryHolidays.reduce((byDate, holiday) => {
+      byDate[holiday.date] = holiday;
+      return byDate;
+    }, {});
+  }, [statutoryHolidays]);
+
+  const slotHolidayOverrideByKey = useMemo(() => {
+    return slotHolidayOverrides.reduce((byKey, override) => {
+      byKey[`${override.slotId}_${override.date}`] = override.isHoliday;
+      return byKey;
+    }, {});
+  }, [slotHolidayOverrides]);
+
+  const canManageHolidayForDesk = (deskId) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'Registrar') return true;
+    const desk = activeDeskMap[deskId];
+    return currentUser.role === 'Admin' && (desk?.primaryAdminId === currentUser.id || desk?.secondaryAdminId === currentUser.id);
+  };
+
   // GENERATE EXTENDED OCCURRENCES ACROSS ALL TIME RANGES
   const generatedOccurrences = useMemo(() => {
     const instances = [];
@@ -1158,12 +1263,17 @@ export default function App() {
 
         if (template.status === 'Active' && template.dayOfWeek === fullDayName) {
           const instanceKey = `${template.deskId}_${template.id}_${isoDate}`;
+          const overrideKey = `${template.id}_${isoDate}`;
+          const statutoryHoliday = statutoryHolidayByDate[isoDate];
+          const isHoliday = Object.prototype.hasOwnProperty.call(slotHolidayOverrideByKey, overrideKey)
+            ? slotHolidayOverrideByKey[overrideKey]
+            : Boolean(statutoryHoliday);
 
           if (!cancelledSlotInstances.includes(instanceKey)) {
             let assignedJpIds = [...(slotAssignments[instanceKey] || [])];
 
             // AUTO-ROLLOVER RECURRING RULES ENGINE
-            if (currentUser) {
+            if (currentUser && !isHoliday) {
               const matchingRules = recurringRules.filter(r => r.userId === currentUser.id && r.slotId === template.id);
               for (const rule of matchingRules) {
                 let matches = false;
@@ -1213,7 +1323,9 @@ export default function App() {
               minJps: template.minJps,
               targetJps: template.targetJps,
               maxJps: template.maxJps,
-              assignedJpIds
+              assignedJpIds,
+              isHoliday,
+              holidayDescription: statutoryHoliday?.description || ''
             });
           }
         }
@@ -1221,7 +1333,7 @@ export default function App() {
     }
 
     return instances;
-  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap, currentUser, recurringRules]);
+  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap, currentUser, recurringRules, statutoryHolidayByDate, slotHolidayOverrideByKey]);
 
   // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
   const myShiftsFilterDescriptor = useMemo(() => {
@@ -1394,6 +1506,10 @@ export default function App() {
   // OPEN REGISTRATION MODAL
   const handleOpenRegisterModal = (occ, e) => {
     if (e) e.stopPropagation();
+    if (occ.isHoliday) {
+      alert('This slot is marked as a Holiday and is not available for registration.');
+      return;
+    }
     setRegisterModalOcc(occ);
     setRegisterOption('SINGLE');
     setRegisterCountN(4);
@@ -1403,9 +1519,13 @@ export default function App() {
   // EXECUTE REGISTRATION LOGIC
   const handleExecuteRegister = async () => {
     if (!registerModalOcc || !currentUser) return;
+    if (registerModalOcc.isHoliday) {
+      alert('This slot is marked as a Holiday and cannot be registered for.');
+      return;
+    }
 
     const slotOccurrences = generatedOccurrences
-      .filter(o => o.slotId === registerModalOcc.slotId && o.date >= registerModalOcc.date)
+      .filter(o => o.slotId === registerModalOcc.slotId && o.date >= registerModalOcc.date && !o.isHoliday)
       .sort((a, b) => a.date.localeCompare(b.date));
 
     let targetOccurrences = [];
@@ -2319,7 +2439,8 @@ END:VCALENDAR`;
                                   const isRegistered = occ.assignedJpIds.includes(currentUser.id);
 
                                   let colorClass = 'bg-rose-50 border-rose-300 text-rose-900 hover:bg-rose-100';
-                                  if (assigned >= occ.targetJps) colorClass = 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100';
+                                  if (occ.isHoliday) colorClass = 'bg-slate-200 border-slate-400 text-slate-600 opacity-80 hover:bg-slate-300';
+                                  else if (assigned >= occ.targetJps) colorClass = 'bg-emerald-50 border-emerald-300 text-emerald-900 hover:bg-emerald-100';
                                   else if (assigned >= occ.minJps) colorClass = 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100';
 
                                   return (
@@ -2330,7 +2451,11 @@ END:VCALENDAR`;
                                     >
                                       <div className="font-extrabold flex justify-between items-center">
                                         <span className="bg-slate-900 text-amber-400 px-1.5 py-0.5 rounded text-[10px] font-black">{desk.code || 'JP'}</span>
-                                        <span className="text-[10px] font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">{assigned}/{occ.targetJps} JPs</span>
+                                        {occ.isHoliday ? (
+                                          <span className="text-[10px] font-black bg-slate-700 text-white px-1.5 py-0.5 rounded">Holiday</span>
+                                        ) : (
+                                          <span className="text-[10px] font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200">{assigned}/{occ.targetJps} JPs</span>
+                                        )}
                                       </div>
 
                                       <div className="font-bold truncate text-[11px] text-slate-900">{desk.name}</div>
@@ -2340,7 +2465,11 @@ END:VCALENDAR`;
                                       </div>
 
                                       <div className="pt-1.5 border-t border-slate-200/60 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                        {isRegistered ? (
+                                        {occ.isHoliday ? (
+                                          <div className="w-full py-1 px-2 rounded font-black text-[10px] uppercase text-center bg-slate-300 text-slate-600 cursor-not-allowed" title={occ.holidayDescription || 'Slot closed for a holiday'}>
+                                            Closed for Holiday{occ.holidayDescription ? `: ${occ.holidayDescription}` : ''}
+                                          </div>
+                                        ) : isRegistered ? (
                                           <>
                                             <div className="grid grid-cols-2 gap-1">
                                               <button 
@@ -2973,7 +3102,7 @@ END:VCALENDAR`;
                     <button 
                       onClick={() => setConfirmDownloadModalOpen(true)}
                       className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-extrabold shadow flex items-center space-x-1.5 transition cursor-pointer"
-                      title="Export all 6 application datasets into timestamped CSV files"
+                      title="Export all application datasets into timestamped CSV files"
                     >
                       <Database className="w-4 h-4 text-emerald-300" />
                       <span>Download Data (CSV Archive)</span>
@@ -2988,6 +3117,12 @@ END:VCALENDAR`;
                         <Globe className="w-3.5 h-3.5" />
                         <span>Regions ({regions.length})</span>
                       </button>
+                      {currentUser.role === 'Registrar' && (
+                        <button onClick={() => setRegistrarSubTab('statutory-holidays')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'statutory-holidays' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Statutory Holidays ({statutoryHolidays.length})</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3084,6 +3219,61 @@ END:VCALENDAR`;
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                )}
+
+                {/* SUBTAB: STATUTORY HOLIDAYS (Registrar-only) */}
+                {registrarSubTab === 'statutory-holidays' && currentUser.role === 'Registrar' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-base">Statutory Holidays</h3>
+                      <p className="text-xs text-slate-500 mt-1">All recurring slots on these dates are closed by default. A Registrar or Desk Admin can untick Holiday on an individual calendar slot where a desk will operate.</p>
+                    </div>
+
+                    <form onSubmit={handleSaveStatutoryHoliday} className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-[180px_1fr_auto] gap-3 items-end">
+                      <div>
+                        <label className="block font-bold text-slate-700 text-xs mb-1">Date</label>
+                        <input type="date" required value={holidayForm.date} onChange={(event) => setHolidayForm(previous => ({ ...previous, date: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white" />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-slate-700 text-xs mb-1">Description</label>
+                        <input type="text" required value={holidayForm.description} onChange={(event) => setHolidayForm(previous => ({ ...previous, description: event.target.value }))} placeholder="e.g. Christmas Day" className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white" />
+                      </div>
+                      <div className="flex gap-2">
+                        {editingStatutoryHolidayId && (
+                          <button type="button" onClick={() => { setHolidayForm({ date: '', description: '' }); setEditingStatutoryHolidayId(null); }} className="px-3 py-2 rounded-lg text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer">Cancel</button>
+                        )}
+                        <button type="submit" className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 shadow cursor-pointer">{editingStatutoryHolidayId ? 'Save Changes' : 'Add Holiday'}</button>
+                      </div>
+                    </form>
+
+                    {statutoryHolidays.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-slate-400 italic border border-dashed border-slate-300 rounded-xl">No statutory holidays have been added yet.</div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100 text-slate-700 uppercase font-black tracking-wider border-b border-slate-200">
+                              <th className="p-3">Date</th>
+                              <th className="p-3">Description</th>
+                              <th className="p-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {statutoryHolidays.map(holiday => (
+                              <tr key={holiday.id} className="hover:bg-slate-50">
+                                <td className="p-3 font-mono font-bold text-slate-900">{holiday.date}</td>
+                                <td className="p-3 font-bold text-slate-800">{holiday.description}</td>
+                                <td className="p-3 text-right space-x-1">
+                                  <button type="button" onClick={() => handleEditStatutoryHoliday(holiday)} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 cursor-pointer" title="Change statutory holiday"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => handleDeleteStatutoryHoliday(holiday)} className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded text-rose-700 cursor-pointer" title="Delete statutory holiday"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -4531,7 +4721,28 @@ END:VCALENDAR`;
                   <span className="font-bold text-slate-600">Region:</span>
                   <span className="font-extrabold text-slate-900">{activeDeskMap[detailedSlotModal.deskId]?.region}</span>
                 </div>
+                {detailedSlotModal.isHoliday && (
+                  <div className="flex justify-between text-slate-600">
+                    <span className="font-bold">Closure:</span>
+                    <span className="font-extrabold">Holiday{detailedSlotModal.holidayDescription ? ` — ${detailedSlotModal.holidayDescription}` : ''}</span>
+                  </div>
+                )}
               </div>
+
+              {canManageHolidayForDesk(detailedSlotModal.deskId) && (
+                <label className={`flex items-center justify-between gap-3 p-3 rounded-xl border cursor-pointer ${detailedSlotModal.isHoliday ? 'bg-slate-200 border-slate-400' : 'bg-amber-50 border-amber-200'}`}>
+                  <div>
+                    <span className="font-extrabold text-slate-900 text-xs block">Holiday</span>
+                    <span className="text-[11px] text-slate-600">Tick to close this individual slot on {detailedSlotModal.formattedDate}. Untick to operate on a statutory holiday.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={detailedSlotModal.isHoliday}
+                    onChange={(event) => handleSetOccurrenceHoliday(detailedSlotModal, event.target.checked)}
+                    className="w-4 h-4 rounded text-slate-700 cursor-pointer"
+                  />
+                </label>
+              )}
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex justify-between items-center">

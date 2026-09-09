@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 
 export async function fetchRosterData(profileId) {
-  const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, preferencesResult] = await Promise.all([
+  const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),
     supabase.from('regions').select('*').order('name'),
     supabase.from('service_desks').select('*, regions(name)').order('name'),
@@ -10,10 +10,12 @@ export async function fetchRosterData(profileId) {
     supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
     supabase.from('recurring_rules').select('*').order('created_at'),
     supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false }),
-    supabase.from('user_preferences').select('*').eq('profile_id', profileId).maybeSingle()
+    supabase.from('user_preferences').select('*').eq('profile_id', profileId).maybeSingle(),
+    supabase.from('statutory_holidays').select('*').order('holiday_date'),
+    supabase.from('duty_slot_holiday_overrides').select('*')
   ]);
 
-  const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult].find(result => result.error);
+  const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);
   if (failure) throw failure.error;
 
   const users = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status }));
@@ -32,5 +34,8 @@ export async function fetchRosterData(profileId) {
   const rules = rulesResult.data.map(rule => ({ id: rule.id, userId: rule.profile_id, slotId: rule.slot_id, action: rule.action, type: rule.rule_type, startDate: rule.start_date, untilDate: rule.until_date, countN: rule.count_n }));
   const statistics = statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes }));
 
-  return { users, regions, desks, slots, followedDesks: followsResult.data.map(follow => follow.desk_id), assignments, rules, statistics, preferences: preferencesResult.data, preferencesError: preferencesResult.error };
+  const statutoryHolidays = statutoryHolidaysResult.data.map(holiday => ({ id: holiday.id, date: holiday.holiday_date, description: holiday.description }));
+  const slotHolidayOverrides = slotHolidayOverridesResult.data.map(override => ({ slotId: override.duty_slot_id, date: override.duty_date, isHoliday: override.is_holiday }));
+
+  return { users, regions, desks, slots, followedDesks: followsResult.data.map(follow => follow.desk_id), assignments, rules, statistics, statutoryHolidays, slotHolidayOverrides, preferences: preferencesResult.data, preferencesError: preferencesResult.error };
 }
