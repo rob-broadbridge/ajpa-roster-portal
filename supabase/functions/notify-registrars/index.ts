@@ -6,6 +6,27 @@ const escapeIcsText = (value: string) => value
   .replace(/,/g, '\\,')
   .replace(/;/g, '\\;');
 
+// Apple Calendar can reject long, unfolded iCalendar content lines even when
+// Google Calendar and Outlook accept them. Fold at a conservative byte limit
+// using the RFC continuation-line convention.
+const foldIcsLine = (line: string) => {
+  const encoder = new TextEncoder();
+  const foldedLines: string[] = [];
+  let currentLine = '';
+
+  for (const character of line) {
+    if (currentLine && encoder.encode(`${currentLine}${character}`).length > 73) {
+      foldedLines.push(currentLine);
+      currentLine = ` ${character}`;
+    } else {
+      currentLine += character;
+    }
+  }
+
+  foldedLines.push(currentLine);
+  return foldedLines.join('\r\n');
+};
+
 const toIcsDateTime = (date: string, time: string) => `${date.replaceAll('-', '')}T${time.replaceAll(':', '').slice(0, 4)}00`;
 
 const toBase64 = (value: string) => {
@@ -29,12 +50,13 @@ const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, 
   const description = `Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`;
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
-  return [
+  const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//AJPA//Service Desk Management Platform//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    'X-WR-TIMEZONE:Pacific/Auckland',
     'BEGIN:VTIMEZONE',
     'TZID:Pacific/Auckland',
     'X-LIC-LOCATION:Pacific/Auckland',
@@ -54,7 +76,7 @@ const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, 
     'END:STANDARD',
     'END:VTIMEZONE',
     'BEGIN:VEVENT',
-    `UID:ajpa-duty-${profileId}-${slotId}-${dutyDate}@ajpa-roster`,
+    `UID:ajpa-duty-${profileId}-${slotId}-${dutyDate}@contact.broadbridge.co.nz`,
     `DTSTAMP:${stamp}`,
     `DTSTART;TZID=Pacific/Auckland:${toIcsDateTime(dutyDate, startTime)}`,
     `DTEND;TZID=Pacific/Auckland:${toIcsDateTime(dutyDate, endTime)}`,
@@ -62,11 +84,13 @@ const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, 
     `LOCATION:${escapeIcsText(location)}`,
     `DESCRIPTION:${escapeIcsText(description)}`,
     'STATUS:CONFIRMED',
+    'SEQUENCE:0',
     'TRANSP:OPAQUE',
     'END:VEVENT',
     'END:VCALENDAR',
-    '',
-  ].join('\r\n');
+  ];
+
+  return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
 };
 
 Deno.serve(async (request) => {

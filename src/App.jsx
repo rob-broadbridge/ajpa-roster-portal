@@ -193,6 +193,82 @@ const calculateJpDuties = (hoursWorked) => {
   return Number.isFinite(hours) && hours > 0 ? Math.ceil(hours / 2) : 0;
 };
 
+// iCalendar readers in Apple Calendar are stricter than some other clients.
+// Use CRLF endings, a stable UID, an explicit Auckland timezone and folded
+// content lines so the downloaded appointment is portable across Apple,
+// Google and Microsoft calendar applications.
+const escapeIcsText = (value = '') => String(value)
+  .replace(/\\/g, '\\\\')
+  .replace(/\r?\n/g, '\\n')
+  .replace(/,/g, '\\,')
+  .replace(/;/g, '\\;');
+
+const foldIcsLine = (line) => {
+  const encoder = new TextEncoder();
+  const foldedLines = [];
+  let currentLine = '';
+
+  for (const character of line) {
+    if (currentLine && encoder.encode(`${currentLine}${character}`).length > 73) {
+      foldedLines.push(currentLine);
+      currentLine = ` ${character}`;
+    } else {
+      currentLine += character;
+    }
+  }
+
+  foldedLines.push(currentLine);
+  return foldedLines.join('\r\n');
+};
+
+const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskName, deskAddress }) => {
+  const location = `${deskName}, ${deskAddress}`;
+  const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+  const dateTime = (time) => `${date.replaceAll('-', '')}T${time.replaceAll(':', '').slice(0, 4)}00`;
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//AJPA//Service Desk Management Platform//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-TIMEZONE:Pacific/Auckland',
+    'BEGIN:VTIMEZONE',
+    'TZID:Pacific/Auckland',
+    'X-LIC-LOCATION:Pacific/Auckland',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+1200',
+    'TZOFFSETTO:+1300',
+    'TZNAME:NZDT',
+    'DTSTART:19700927T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=9;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+1300',
+    'TZOFFSETTO:+1200',
+    'TZNAME:NZST',
+    'DTSTART:19700405T030000',
+    'RRULE:FREQ=YEARLY;BYMONTH=4;BYDAY=1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    `UID:ajpa-duty-${profileId}-${slotId}-${date}@contact.broadbridge.co.nz`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;TZID=Pacific/Auckland:${dateTime(startTime)}`,
+    `DTEND;TZID=Pacific/Auckland:${dateTime(endTime)}`,
+    `SUMMARY:${escapeIcsText(`JP duty - ${deskName}`)}`,
+    `LOCATION:${escapeIcsText(location)}`,
+    `DESCRIPTION:${escapeIcsText(`Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`)}`,
+    'STATUS:CONFIRMED',
+    'SEQUENCE:0',
+    'TRANSP:OPAQUE',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+
+  return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
+};
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -1790,26 +1866,15 @@ export default function App() {
   const generateIcsFile = (occurrence, e) => {
     if (e) e.stopPropagation();
     const desk = activeDeskMap[occurrence.deskId] || {};
-    
-    const startTimeClean = occurrence.startTime.replace(':', '');
-    const endTimeClean = occurrence.endTime.replace(':', '');
-    const dateClean = occurrence.date.replace(/-/g, '');
-
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Auckland Justices of the Peace Association//Service Desk Platform//EN
-CALSCALE:GREGORIAN
-METHOD:PUBLISH
-BEGIN:VEVENT
-SUMMARY:JP Duty - ${desk.name || 'Service Desk'} [${desk.code || 'JP'}]
-DESCRIPTION:Justice of the Peace Service Desk Duty at ${desk.name}.\\nAddress: ${desk.address || ''}\\nDuty Hours: ${occurrence.startTime} - ${occurrence.endTime}
-LOCATION:${desk.address || 'Auckland, NZ'}
-DTSTART:${dateClean}T${startTimeClean}00
-DTEND:${dateClean}T${endTimeClean}00
-STATUS:CONFIRMED
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR`;
+    const icsContent = buildCalendarFile({
+      profileId: currentUser?.id || 'member',
+      slotId: occurrence.slotId,
+      date: occurrence.date,
+      startTime: occurrence.startTime,
+      endTime: occurrence.endTime,
+      deskName: desk.name || 'Service Desk',
+      deskAddress: desk.address || 'Auckland, New Zealand',
+    });
 
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');
@@ -1818,6 +1883,7 @@ END:VCALENDAR`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => window.URL.revokeObjectURL(link.href), 0);
   };
 
   const handleOpenAddUserModal = () => {
