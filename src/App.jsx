@@ -1574,6 +1574,28 @@ export default function App() {
       targetOccurrences = slotOccurrences;
     }
 
+    // A single-date withdrawal is stored as a one-occurrence WITHDRAW rule so
+    // it can override a previous recurring registration. If the member later
+    // registers for that same date again, remove the old override first;
+    // otherwise the database assignment exists but the calendar correctly
+    // applies the stale rule and hides it from the member.
+    if (registerOption === 'SINGLE') {
+      const { error: clearWithdrawalOverrideError } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('profile_id', currentUser.id)
+        .eq('slot_id', registerModalOcc.slotId)
+        .eq('action', 'WITHDRAW')
+        .eq('rule_type', 'NEXT_N')
+        .eq('start_date', registerModalOcc.date)
+        .eq('count_n', 1);
+
+      if (clearWithdrawalOverrideError) {
+        alert(`Unable to prepare this slot for re-registration: ${clearWithdrawalOverrideError.message}`);
+        return;
+      }
+    }
+
     const registrationResults = await Promise.all(targetOccurrences.map(occ => supabase.rpc('register_for_duty', { p_slot_id: occ.slotId, p_duty_date: occ.date })));
     const failedRegistration = registrationResults.find(result => result.error);
     if (failedRegistration) { alert(`Unable to register: ${failedRegistration.error.message}`); return; }
@@ -1627,6 +1649,10 @@ export default function App() {
       setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === registerModalOcc.slotId && r.action === 'REGISTER')), newRule]);
     }
 
+    // Reload from Supabase rather than relying only on the optimistic update.
+    // This keeps the Calendar and My Shifts views identical to the persisted
+    // roster, including after a withdrawal followed by a re-registration.
+    await loadSupabaseRoster(currentUser);
     setRegisterModalOcc(null);
   };
 
