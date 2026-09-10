@@ -7,7 +7,7 @@ import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calenda
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
-  Plus, Search, Filter, Download, ChevronLeft, ChevronRight, 
+  Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
   LogOut, Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
   Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info, HelpCircle, Star,
@@ -339,6 +339,7 @@ export default function App() {
   const [calendarDeskFilter, setCalendarDeskFilter] = useState('FOLLOWED');
   const [memberCalendarDeskIds, setMemberCalendarDeskIds] = useState([]);
   const [calendarRegionFilter, setCalendarRegionFilter] = useState('ALL');
+  const [calendarFilterSections, setCalendarFilterSections] = useState({ location: false, time: false, days: false });
   
   // 12-WEEK CALENDAR TIME OF DAY FILTER
   const [calendarTimeOfDayFilter, setCalendarTimeOfDayFilter] = useState({ ...DEFAULT_TIME_OF_DAY_FILTER });
@@ -2424,134 +2425,175 @@ export default function App() {
             {/* TAB 1: CALENDAR VIEW */}
             {activeTab === 'calendar' && (
               <div className="space-y-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                   <div>
                     <h2 className="text-xl font-bold text-slate-900">12-Week Rolling Calendar</h2>
                     <p className="text-xs text-slate-500 mt-1">
-                      {currentUser.role === 'Member' ? 'Showing shift slots strictly for your Followed Service Desks.' : 'Filter calendar view by region, desk selection, and shift time of day.'}
+                      {currentUser.role === 'Member' ? 'Choose the followed desks and shift times you want to see.' : 'Filter calendar view by region, desk selection, and shift time of day.'}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300">
-                      <Globe className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="font-bold text-slate-600">Region:</span>
-                      <select 
-                        value={calendarRegionFilter} 
-                        onChange={(e) => setCalendarRegionFilter(e.target.value)}
-                        className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
-                      >
-                        <option value="ALL">All Regions</option>
-                        {regions.map(r => (
-                          <option key={r.id} value={r.name}>{r.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {currentUser.role === 'Member' ? (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300 text-xs">
-                        <div className="flex items-center space-x-1.5">
-                          <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                          <span className="font-bold text-slate-600">Desks:</span>
-                        </div>
-                        <label className="flex items-center gap-1.5 font-extrabold text-slate-800 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={followedDesks.length > 0 && followedDesks.every(deskId => memberCalendarDeskIds.includes(deskId))}
-                            onChange={(event) => setMemberCalendarDeskIds(event.target.checked ? [...followedDesks] : [])}
-                            className="accent-sky-700 cursor-pointer"
-                          />
-                          <span>All Followed Desks</span>
-                        </label>
-                        {activeDesksList.filter(desk => followedDesks.includes(desk.id)).map(desk => (
-                          <label key={desk.id} className="flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={memberCalendarDeskIds.includes(desk.id)}
-                              onChange={(event) => setMemberCalendarDeskIds(previous => event.target.checked
-                                ? [...new Set([...previous, desk.id])]
-                                : previous.filter(deskId => deskId !== desk.id))}
-                              className="accent-sky-700 cursor-pointer"
-                            />
-                            <span>[{desk.code}] {desk.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300">
-                        <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                        <span className="font-bold text-slate-600">Desk:</span>
-                        <select
-                          value={calendarDeskFilter}
-                          onChange={(e) => setCalendarDeskFilter(e.target.value)}
-                          className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
-                        >
-                          <option value="FOLLOWED">My Followed Desks Only</option>
-                          <option value="ALL">All Service Desks</option>
-                          {activeDesksList.map(desk => (
-                            <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* TIME OF DAY FILTER CHECKBOXES */}
-                    <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded border border-slate-300">
-                      <Clock className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span className="font-bold text-slate-700">Shift Time:</span>
-                      
-                      <label className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={calendarTimeOfDayFilter.morning} 
-                          onChange={(e) => setCalendarTimeOfDayFilter(prev => ({ ...prev, morning: e.target.checked }))}
-                          className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
-                        />
-                        <span>Morning</span>
-                      </label>
-
-                      <label className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={calendarTimeOfDayFilter.afternoon} 
-                          onChange={(e) => setCalendarTimeOfDayFilter(prev => ({ ...prev, afternoon: e.target.checked }))}
-                          className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
-                        />
-                        <span>Afternoon</span>
-                      </label>
-
-                      <label className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          checked={calendarTimeOfDayFilter.evening} 
-                          onChange={(e) => setCalendarTimeOfDayFilter(prev => ({ ...prev, evening: e.target.checked }))}
-                          className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
-                        />
-                        <span>Evening</span>
-                      </label>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded border border-slate-300">
-                      <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="font-bold text-slate-700 mr-1">Days:</span>
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                        <label key={day} className="flex items-center space-x-1 font-bold text-slate-800 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={calendarDayFilter[day]}
-                            onChange={(e) => setCalendarDayFilter(prev => ({ ...prev, [day]: e.target.checked }))}
-                            className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
-                          />
-                          <span>{day.slice(0, 3)}</span>
-                        </label>
-                      ))}
+                  <div className="rounded-xl border border-slate-200 divide-y divide-slate-200 overflow-hidden text-xs">
+                    <div>
                       <button
                         type="button"
-                        onClick={() => setCalendarDayFilter({ ...DEFAULT_DAY_FILTER })}
-                        className="ml-1 text-sky-700 hover:text-sky-900 underline font-bold"
+                        onClick={() => setCalendarFilterSections(previous => ({ ...previous, location: !previous.location }))}
+                        aria-expanded={calendarFilterSections.location}
+                        className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-slate-50 hover:bg-slate-100 text-left cursor-pointer"
                       >
-                        All days
+                        <span className="flex items-center gap-2 min-w-0">
+                          <Globe className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span className="font-extrabold text-slate-800">Location &amp; desks</span>
+                          <span className="text-slate-500 truncate">
+                            {calendarRegionFilter === 'ALL' ? 'All regions' : calendarRegionFilter}
+                            {' · '}
+                            {currentUser.role === 'Member'
+                              ? (followedDesks.length > 0 && followedDesks.every(deskId => memberCalendarDeskIds.includes(deskId))
+                                ? 'All followed desks'
+                                : memberCalendarDeskIds.length === 0
+                                  ? 'No desks selected'
+                                  : `${memberCalendarDeskIds.length} followed desk${memberCalendarDeskIds.length === 1 ? '' : 's'}`)
+                              : (calendarDeskFilter === 'ALL'
+                                ? 'All service desks'
+                                : calendarDeskFilter === 'FOLLOWED'
+                                  ? 'Followed desks only'
+                                  : activeDeskMap[calendarDeskFilter]?.name || 'Selected desk')}
+                          </span>
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${calendarFilterSections.location ? 'rotate-180' : ''}`} />
                       </button>
+                      {calendarFilterSections.location && (
+                        <div className="px-3.5 py-3 bg-white space-y-3">
+                          <label className="flex flex-wrap items-center gap-2 font-bold text-slate-700">
+                            <span>Region</span>
+                            <select
+                              value={calendarRegionFilter}
+                              onChange={(event) => setCalendarRegionFilter(event.target.value)}
+                              className="bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800 cursor-pointer"
+                            >
+                              <option value="ALL">All Regions</option>
+                              {regions.map(region => <option key={region.id} value={region.name}>{region.name}</option>)}
+                            </select>
+                          </label>
+
+                          {currentUser.role === 'Member' ? (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-3">
+                              <label className="flex items-center gap-1.5 font-extrabold text-slate-800 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={followedDesks.length > 0 && followedDesks.every(deskId => memberCalendarDeskIds.includes(deskId))}
+                                  onChange={(event) => setMemberCalendarDeskIds(event.target.checked ? [...followedDesks] : [])}
+                                  className="accent-sky-700 cursor-pointer"
+                                />
+                                <span>All Followed Desks</span>
+                              </label>
+                              {activeDesksList.filter(desk => followedDesks.includes(desk.id)).map(desk => (
+                                <label key={desk.id} className="flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={memberCalendarDeskIds.includes(desk.id)}
+                                    onChange={(event) => setMemberCalendarDeskIds(previous => event.target.checked
+                                      ? [...new Set([...previous, desk.id])]
+                                      : previous.filter(deskId => deskId !== desk.id))}
+                                    className="accent-sky-700 cursor-pointer"
+                                  />
+                                  <span>[{desk.code}] {desk.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <label className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 font-bold text-slate-700">
+                              <span>Desk</span>
+                              <select
+                                value={calendarDeskFilter}
+                                onChange={(event) => setCalendarDeskFilter(event.target.value)}
+                                className="bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800 cursor-pointer"
+                              >
+                                <option value="FOLLOWED">My Followed Desks Only</option>
+                                <option value="ALL">All Service Desks</option>
+                                {activeDesksList.map(desk => <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>)}
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setCalendarFilterSections(previous => ({ ...previous, time: !previous.time }))}
+                        aria-expanded={calendarFilterSections.time}
+                        className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-white hover:bg-slate-50 text-left cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <Clock className="w-4 h-4 text-purple-600 shrink-0" />
+                          <span className="font-extrabold text-slate-800">Shift time</span>
+                          <span className="text-slate-500 truncate">
+                            {Object.values(calendarTimeOfDayFilter).every(Boolean)
+                              ? 'All times'
+                              : Object.entries(calendarTimeOfDayFilter).filter(([, selected]) => selected).map(([period]) => period.charAt(0).toUpperCase() + period.slice(1)).join(', ') || 'No times selected'}
+                          </span>
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${calendarFilterSections.time ? 'rotate-180' : ''}`} />
+                      </button>
+                      {calendarFilterSections.time && (
+                        <div className="flex flex-wrap gap-x-5 gap-y-2 px-3.5 py-3 bg-white">
+                          {['morning', 'afternoon', 'evening'].map(period => (
+                            <label key={period} className="flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={calendarTimeOfDayFilter[period]}
+                                onChange={(event) => setCalendarTimeOfDayFilter(previous => ({ ...previous, [period]: event.target.checked }))}
+                                className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
+                              />
+                              <span>{period.charAt(0).toUpperCase() + period.slice(1)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setCalendarFilterSections(previous => ({ ...previous, days: !previous.days }))}
+                        aria-expanded={calendarFilterSections.days}
+                        className="w-full flex items-center justify-between gap-3 px-3.5 py-3 bg-slate-50 hover:bg-slate-100 text-left cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="font-extrabold text-slate-800">Days</span>
+                          <span className="text-slate-500 truncate">
+                            {Object.values(calendarDayFilter).every(Boolean)
+                              ? 'All days'
+                              : Object.entries(calendarDayFilter).filter(([, selected]) => selected).map(([day]) => day.slice(0, 3)).join(', ') || 'No days selected'}
+                          </span>
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${calendarFilterSections.days ? 'rotate-180' : ''}`} />
+                      </button>
+                      {calendarFilterSections.days && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-3 bg-white">
+                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                            <label key={day} className="flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={calendarDayFilter[day]}
+                                onChange={(event) => setCalendarDayFilter(previous => ({ ...previous, [day]: event.target.checked }))}
+                                className="rounded text-amber-500 cursor-pointer w-3.5 h-3.5"
+                              />
+                              <span>{day}</span>
+                            </label>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setCalendarDayFilter({ ...DEFAULT_DAY_FILTER })}
+                            className="text-sky-700 hover:text-sky-900 underline font-bold cursor-pointer"
+                          >
+                            Select all days
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
