@@ -31,6 +31,27 @@ export async function signInApprovedUser(email, password) {
   return mapProfile(profile);
 }
 
+// Supabase keeps a signed-in session in the browser. Rehydrate the matching
+// approved profile when the application is refreshed or reopened.
+export async function getCurrentApprovedUser() {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new Error(sessionError.message);
+  if (!session?.user) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError || profile?.status !== 'Approved') {
+    await supabase.auth.signOut();
+    return null;
+  }
+
+  return mapProfile(profile);
+}
+
 export async function requestPasswordReset(email, redirectTo) {
   const normalisedEmail = email.trim().toLowerCase();
   const { data: accountExists, error: accountCheckError } = await supabase

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
+import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
 import { fetchRosterData } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
@@ -273,6 +273,7 @@ export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authRestoring, setAuthRestoring] = useState(true);
   const [activeTab, setActiveTab] = useState('calendar');
   const [showUnauthHelp, setShowUnauthHelp] = useState(false);
   const [calendarNow, setCalendarNow] = useState(() => new Date());
@@ -519,6 +520,64 @@ export default function App() {
     return roster;
   };
 
+  // Restore an existing Supabase session after a page refresh. This avoids
+  // making members sign in again while their browser session remains valid.
+  useEffect(() => {
+    let isMounted = true;
+    const hashParameters = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+    const restoreSession = async () => {
+      // Let the password-recovery event open its dedicated password screen.
+      if (hashParameters.get('type') === 'recovery') {
+        if (isMounted) setAuthRestoring(false);
+        return;
+      }
+
+      try {
+        const restoredUser = await getCurrentApprovedUser();
+        if (!restoredUser || !isMounted) return;
+
+        const roster = await loadSupabaseRoster(restoredUser);
+        if (!isMounted) return;
+
+        setCurrentUser(restoredUser);
+        setIsAuthenticated(true);
+        setActiveTab('calendar');
+        if (restoredUser.role === 'Registrar') {
+          setPendingMembersNoticeCount(roster.users.filter(user => user.status === 'Pending').length);
+        }
+      } catch (restoreError) {
+        console.warn('Saved session could not be restored:', restoreError.message);
+      } finally {
+        if (isMounted) setAuthRestoring(false);
+      }
+    };
+
+    restoreSession();
+    return () => { isMounted = false; };
+  }, []);
+
+  // A single-page app has no browser history entries for its tabs. Add a
+  // portal entry while signed in so Android Back returns to the Calendar (and
+  // closes any open action window) instead of immediately closing the app.
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    const portalHistoryState = { ajpaPortal: true };
+    window.history.pushState(portalHistoryState, '', window.location.href);
+    const handleBrowserBack = () => {
+      setRegisterModalOcc(null);
+      setWithdrawModalOcc(null);
+      setDetailedSlotModal(null);
+      setLogStatsOccurrence(null);
+      setActiveTab('calendar');
+      window.history.pushState(portalHistoryState, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
+  }, [isAuthenticated]);
+
   const handleToggleFollowDesk = async (deskId) => {
     if (!currentUser) return;
     const isFollowed = followedDesks.includes(deskId);
@@ -549,6 +608,9 @@ export default function App() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setAuthRestoring(false);
         setForgotModalOpen(false);
         setResetLinkSent(false);
         setResetScreenOpen(true);
@@ -2151,7 +2213,13 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         
         {/* --- LANDING / LOGIN PAGE (WHEN NOT AUTHENTICATED) --- */}
-        {!isAuthenticated ? (
+        {authRestoring ? (
+          <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center space-y-3">
+            <div className="w-10 h-10 mx-auto rounded-full border-4 border-slate-200 border-t-amber-500 animate-spin" />
+            <h2 className="text-lg font-extrabold text-slate-900">Restoring your session</h2>
+            <p className="text-xs text-slate-500">Please wait while the AJPA Roster Portal securely reloads your account.</p>
+          </div>
+        ) : !isAuthenticated ? (
           resetScreenOpen ? (
             /* PASSWORD RESET PAGE FROM EMAIL LINK */
             <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
