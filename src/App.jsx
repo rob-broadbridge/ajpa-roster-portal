@@ -186,6 +186,13 @@ const INITIAL_LOGGED_STATISTICS = [
   }
 ];
 
+// A JP duty is counted for each complete or partial two-hour block.
+// Examples: 0 hours = 0 duties, 0.25–2 hours = 1 duty, 2.25–4 hours = 2 duties.
+const calculateJpDuties = (hoursWorked) => {
+  const hours = Number(hoursWorked);
+  return Number.isFinite(hours) && hours > 0 ? Math.ceil(hours / 2) : 0;
+};
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -1085,7 +1092,7 @@ export default function App() {
   const handleOpenEditStatModal = (statRecord) => {
     setEditingStatRecord(statRecord);
     setEditStatForm({
-      noOfJpDuties: statRecord.noOfJpDuties,
+      noOfJpDuties: calculateJpDuties(statRecord.noOfHoursWorked),
       noOfClients: statRecord.noOfClients,
       noOfHoursWorked: statRecord.noOfHoursWorked,
       certifiedCopies: statRecord.certifiedCopies,
@@ -1100,7 +1107,12 @@ export default function App() {
   const handleEditStatInputChange = (field, value, isFloat = false) => {
     if (isFloat) {
       const val = parseFloat(value);
-      setEditStatForm(prev => ({ ...prev, [field]: isNaN(val) || val < 0 ? 0 : val }));
+      const cleanValue = isNaN(val) || val < 0 ? 0 : val;
+      setEditStatForm(prev => ({
+        ...prev,
+        [field]: cleanValue,
+        ...(field === 'noOfHoursWorked' ? { noOfJpDuties: calculateJpDuties(cleanValue) } : {})
+      }));
     } else {
       const val = parseInt(value, 10);
       setEditStatForm(prev => ({ ...prev, [field]: isNaN(val) || val < 0 ? 0 : val }));
@@ -1430,7 +1442,7 @@ export default function App() {
     } catch (err) {}
 
     setStatsForm({
-      noOfJpDuties: 1,
+      noOfJpDuties: calculateJpDuties(defaultHours),
       noOfClients: 0,
       noOfHoursWorked: defaultHours,
       certifiedCopies: 0,
@@ -1445,7 +1457,12 @@ export default function App() {
   const handleStatsInputChange = (field, value, isFloat = false) => {
     if (isFloat) {
       const val = parseFloat(value);
-      setStatsForm(prev => ({ ...prev, [field]: isNaN(val) || val < 0 ? 0 : val }));
+      const cleanValue = isNaN(val) || val < 0 ? 0 : val;
+      setStatsForm(prev => ({
+        ...prev,
+        [field]: cleanValue,
+        ...(field === 'noOfHoursWorked' ? { noOfJpDuties: calculateJpDuties(cleanValue) } : {})
+      }));
     } else {
       const val = parseInt(value, 10);
       setStatsForm(prev => ({ ...prev, [field]: isNaN(val) || val < 0 ? 0 : val }));
@@ -4251,10 +4268,10 @@ END:VCALENDAR`;
                     type="number" 
                     min="0"
                     step="1"
-                    required 
+                    readOnly
                     value={editStatForm.noOfJpDuties} 
-                    onChange={(e) => handleEditStatInputChange('noOfJpDuties', e.target.value)} 
-                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-sm bg-white" 
+                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-500 text-sm bg-slate-200 cursor-not-allowed"
+                    title="Calculated automatically: one JP duty for each two hours or part thereof"
                   />
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
@@ -4600,10 +4617,10 @@ END:VCALENDAR`;
                     type="number" 
                     min="0"
                     step="1"
-                    required 
+                    readOnly
                     value={statsForm.noOfJpDuties} 
-                    onChange={(e) => handleStatsInputChange('noOfJpDuties', e.target.value)} 
-                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-900 text-sm bg-white" 
+                    className="w-full border border-slate-300 rounded-lg p-2 font-bold text-slate-500 text-sm bg-slate-200 cursor-not-allowed"
+                    title="Calculated automatically: one JP duty for each two hours or part thereof"
                   />
                 </div>
                 <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
