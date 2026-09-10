@@ -843,6 +843,7 @@ export default function App() {
   }, [slotForm]);
 
   const handleOpenAddSlotModal = (targetDeskId = null) => {
+    if (!canManage) return;
     setEditingSlotId(null);
     setSlotValidationError('');
     setSlotForm({
@@ -878,6 +879,7 @@ export default function App() {
 
   const handlePromptSaveSlot = (e) => {
     e.preventDefault();
+    if (!canManage) return;
     const errorMsg = validateSlotForm(slotForm);
     if (errorMsg) {
       setSlotValidationError(errorMsg);
@@ -892,10 +894,15 @@ export default function App() {
   };
 
   const handlePromptDeleteSlot = () => {
+    if (!canManage) return;
     setSlotActionConfirm('DELETE');
   };
 
   const handleConfirmSlotAction = async () => {
+    if (!canManage && slotActionConfirm !== 'CANCEL') {
+      setSlotActionConfirm(null);
+      return;
+    }
     if (slotActionConfirm === 'SAVE') {
       const payload = { desk_id: slotForm.deskId, day_of_week: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(slotForm.dayOfWeek), start_time: slotForm.startTime, end_time: slotForm.endTime, min_jps: Number(slotForm.minJps), target_jps: Number(slotForm.targetJps), max_jps: Number(slotForm.maxJps), status: slotForm.status, effective_from: slotForm.effectiveFromDate };
       const result = editingSlotId ? await supabase.from('duty_slots').update(payload).eq('id', editingSlotId) : await supabase.from('duty_slots').insert(payload);
@@ -920,6 +927,7 @@ export default function App() {
   };
 
   const confirmDeleteSlot = async () => {
+    if (!canManage) return;
     const { error } = await supabase.from('duty_slots').update({ status: 'Archived' }).eq('id', pendingDeleteSlotId);
     if (error) { alert(`Unable to archive duty slot: ${error.message}`); return; }
     await loadSupabaseRoster(currentUser);
@@ -4010,14 +4018,14 @@ END:VCALENDAR`;
           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">
-                {editingSlotId ? 'Edit Shift Slot Template' : 'Create New Shift Slot Template'}
+                {!canManage ? 'Shift Slot Details' : editingSlotId ? 'Edit Shift Slot Template' : 'Create New Shift Slot Template'}
               </h3>
-              <button onClick={handlePromptCancelSlot} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+              <button onClick={() => canManage ? handlePromptCancelSlot() : setSlotModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {(slotValidationError || activeSlotValidationError) && (
+            {canManage && (slotValidationError || activeSlotValidationError) && (
               <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg text-xs font-bold flex items-start space-x-2 animate-pulse">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <div>
@@ -4028,6 +4036,12 @@ END:VCALENDAR`;
             )}
 
             <form onSubmit={handlePromptSaveSlot} className="space-y-3 text-xs">
+              {!canManage && (
+                <p className="bg-slate-100 border border-slate-200 text-slate-600 p-3 rounded-lg font-medium">
+                  This is a view-only summary. Only Desk Admins and Registrars can change slot settings.
+                </p>
+              )}
+              <fieldset disabled={!canManage} className={!canManage ? 'space-y-3 opacity-75' : 'space-y-3'}>
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Target Service Desk</label>
                 <select 
@@ -4159,9 +4173,10 @@ END:VCALENDAR`;
                   </select>
                 </div>
               </div>
+              </fieldset>
 
               <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-                {editingSlotId ? (
+                {canManage && editingSlotId ? (
                   <button 
                     type="button" 
                     onClick={handlePromptDeleteSlot} 
@@ -4172,26 +4187,36 @@ END:VCALENDAR`;
                   </button>
                 ) : <div />}
 
-                <div className="flex space-x-2">
-                  <button 
-                    type="button" 
-                    onClick={handlePromptCancelSlot} 
-                    className="px-4 py-2 rounded-lg font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                {canManage ? (
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={handlePromptCancelSlot}
+                      className="px-4 py-2 rounded-lg font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!!activeSlotValidationError}
+                      className={`px-5 py-2 rounded-lg font-bold shadow transition cursor-pointer ${
+                        activeSlotValidationError
+                          ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
+                          : 'bg-slate-900 hover:bg-slate-800 text-amber-400'
+                      }`}
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSlotModalOpen(false)}
+                    className="px-4 py-2 rounded-lg font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 cursor-pointer"
                   >
-                    Cancel
+                    Close
                   </button>
-                  <button 
-                    type="submit" 
-                    disabled={!!activeSlotValidationError}
-                    className={`px-5 py-2 rounded-lg font-bold shadow transition cursor-pointer ${
-                      activeSlotValidationError 
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60' 
-                        : 'bg-slate-900 hover:bg-slate-800 text-amber-400'
-                    }`}
-                  >
-                    Save Changes
-                  </button>
-                </div>
+                )}
               </div>
             </form>
           </div>
