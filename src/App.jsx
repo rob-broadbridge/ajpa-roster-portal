@@ -337,6 +337,7 @@ export default function App() {
   const [deskViewFilter, setDeskViewFilter] = useState('Active');
   const [selectedDeskRegions, setSelectedDeskRegions] = useState(INITIAL_REGIONS.map(r => r.name));
   const [calendarDeskFilter, setCalendarDeskFilter] = useState('FOLLOWED');
+  const [memberCalendarDeskIds, setMemberCalendarDeskIds] = useState([]);
   const [calendarRegionFilter, setCalendarRegionFilter] = useState('ALL');
   
   // 12-WEEK CALENDAR TIME OF DAY FILTER
@@ -475,6 +476,7 @@ export default function App() {
     // precedence where they exist, including when another account signs in on
     // the same browser.
     setCalendarDeskFilter(profile.role === 'Member' ? 'FOLLOWED' : 'ALL');
+    setMemberCalendarDeskIds(profile.role === 'Member' ? roster.followedDesks : []);
     setCalendarRegionFilter('ALL');
     setCalendarTimeOfDayFilter({ ...DEFAULT_TIME_OF_DAY_FILTER });
     setCalendarDayFilter({ ...DEFAULT_DAY_FILTER });
@@ -493,6 +495,11 @@ export default function App() {
       const myShifts = roster.preferences.my_shifts_filters || {};
       const statistics = roster.preferences.statistics_filters || {};
       if (typeof calendar.desk === 'string') setCalendarDeskFilter(calendar.desk);
+      if (profile.role === 'Member' && Array.isArray(calendar.member_desk_ids)) {
+        // A desk can be unfollowed after the preference was last saved; do not
+        // retain it as an invisible selected filter option.
+        setMemberCalendarDeskIds(calendar.member_desk_ids.filter(deskId => roster.followedDesks.includes(deskId)));
+      }
       if (typeof calendar.region === 'string') setCalendarRegionFilter(calendar.region);
       if (calendar.time_of_day && typeof calendar.time_of_day === 'object') setCalendarTimeOfDayFilter(previous => ({ ...previous, ...calendar.time_of_day }));
       if (calendar.days && typeof calendar.days === 'object') setCalendarDayFilter(previous => ({ ...previous, ...calendar.days }));
@@ -559,6 +566,7 @@ export default function App() {
         await saveUserPreferences(currentUser.id, {
         calendar_filters: {
           desk: calendarDeskFilter,
+          member_desk_ids: memberCalendarDeskIds,
           region: calendarRegionFilter,
           time_of_day: calendarTimeOfDayFilter,
           days: calendarDayFilter
@@ -588,6 +596,7 @@ export default function App() {
     currentUser,
     preferencesReadyForProfile,
     calendarDeskFilter,
+    memberCalendarDeskIds,
     calendarRegionFilter,
     calendarTimeOfDayFilter,
     calendarDayFilter,
@@ -2439,22 +2448,52 @@ export default function App() {
                       </select>
                     </div>
 
-                    <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300">
-                      <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                      <span className="font-bold text-slate-600">Desk:</span>
-                      <select 
-                        value={calendarDeskFilter} 
-                        onChange={(e) => setCalendarDeskFilter(e.target.value)}
-                        disabled={currentUser.role === 'Member'}
-                        className={`bg-transparent font-bold text-slate-800 outline-none cursor-pointer ${currentUser.role === 'Member' ? 'opacity-80 cursor-not-allowed' : ''}`}
-                      >
-                        <option value="FOLLOWED">My Followed Desks Only</option>
-                        <option value="ALL">All Service Desks</option>
-                        {activeDesksList.map(desk => (
-                          <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>
+                    {currentUser.role === 'Member' ? (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300 text-xs">
+                        <div className="flex items-center space-x-1.5">
+                          <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                          <span className="font-bold text-slate-600">Desks:</span>
+                        </div>
+                        <label className="flex items-center gap-1.5 font-extrabold text-slate-800 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={followedDesks.length > 0 && followedDesks.every(deskId => memberCalendarDeskIds.includes(deskId))}
+                            onChange={(event) => setMemberCalendarDeskIds(event.target.checked ? [...followedDesks] : [])}
+                            className="accent-sky-700 cursor-pointer"
+                          />
+                          <span>All Followed Desks</span>
+                        </label>
+                        {activeDesksList.filter(desk => followedDesks.includes(desk.id)).map(desk => (
+                          <label key={desk.id} className="flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={memberCalendarDeskIds.includes(desk.id)}
+                              onChange={(event) => setMemberCalendarDeskIds(previous => event.target.checked
+                                ? [...new Set([...previous, desk.id])]
+                                : previous.filter(deskId => deskId !== desk.id))}
+                              className="accent-sky-700 cursor-pointer"
+                            />
+                            <span>[{desk.code}] {desk.name}</span>
+                          </label>
                         ))}
-                      </select>
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-300">
+                        <Filter className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                        <span className="font-bold text-slate-600">Desk:</span>
+                        <select
+                          value={calendarDeskFilter}
+                          onChange={(e) => setCalendarDeskFilter(e.target.value)}
+                          className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
+                        >
+                          <option value="FOLLOWED">My Followed Desks Only</option>
+                          <option value="ALL">All Service Desks</option>
+                          {activeDesksList.map(desk => (
+                            <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     {/* TIME OF DAY FILTER CHECKBOXES */}
                     <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded border border-slate-300">
@@ -2538,8 +2577,12 @@ export default function App() {
                               return false;
                             }
 
-                            if (calendarDeskFilter === 'FOLLOWED' && !followedDesks.includes(occ.deskId)) return false;
-                            if (calendarDeskFilter !== 'ALL' && calendarDeskFilter !== 'FOLLOWED' && occ.deskId !== calendarDeskFilter) return false;
+                            if (currentUser.role === 'Member') {
+                              if (!memberCalendarDeskIds.includes(occ.deskId)) return false;
+                            } else {
+                              if (calendarDeskFilter === 'FOLLOWED' && !followedDesks.includes(occ.deskId)) return false;
+                              if (calendarDeskFilter !== 'ALL' && calendarDeskFilter !== 'FOLLOWED' && occ.deskId !== calendarDeskFilter) return false;
+                            }
                             
                             const [startH] = occ.startTime.split(':').map(Number);
                             let timePeriod = 'morning';
