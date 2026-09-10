@@ -271,6 +271,7 @@ export default function App() {
 
   // MY SHIFTS TAB FILTERS
   const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_5WEEKS');
+  const [myShiftsDeskFilter, setMyShiftsDeskFilter] = useState('ALL');
   const [myShiftsCustomModalOpen, setMyShiftsCustomModalOpen] = useState(false);
   const [myShiftsCustomFrom, setMyShiftsCustomFrom] = useState('2026-08-31');
   const [myShiftsCustomTo, setMyShiftsCustomTo] = useState('2026-10-04');
@@ -402,6 +403,7 @@ export default function App() {
     setCalendarTimeOfDayFilter({ ...DEFAULT_TIME_OF_DAY_FILTER });
     setCalendarDayFilter({ ...DEFAULT_DAY_FILTER });
     setMyShiftsPreset('DEFAULT_5WEEKS');
+    setMyShiftsDeskFilter('ALL');
     setStatsRegionFilter('ALL');
     setStatsDeskFilter('ALL');
     setStatsJpFilter(profile.role === 'Member' ? profile.id : 'ALL');
@@ -419,6 +421,7 @@ export default function App() {
       if (calendar.time_of_day && typeof calendar.time_of_day === 'object') setCalendarTimeOfDayFilter(previous => ({ ...previous, ...calendar.time_of_day }));
       if (calendar.days && typeof calendar.days === 'object') setCalendarDayFilter(previous => ({ ...previous, ...calendar.days }));
       if (typeof myShifts.preset === 'string') setMyShiftsPreset(myShifts.preset);
+      if (typeof myShifts.desk === 'string') setMyShiftsDeskFilter(myShifts.desk);
       if (typeof myShifts.from === 'string') setMyShiftsCustomFrom(myShifts.from);
       if (typeof myShifts.to === 'string') setMyShiftsCustomTo(myShifts.to);
       if (typeof statistics.region === 'string') setStatsRegionFilter(statistics.region);
@@ -486,6 +489,7 @@ export default function App() {
         },
         my_shifts_filters: {
           preset: myShiftsPreset,
+          desk: myShiftsDeskFilter,
           from: myShiftsCustomFrom,
           to: myShiftsCustomTo
         },
@@ -512,6 +516,7 @@ export default function App() {
     calendarTimeOfDayFilter,
     calendarDayFilter,
     myShiftsPreset,
+    myShiftsDeskFilter,
     myShiftsCustomFrom,
     myShiftsCustomTo,
     statsRegionFilter,
@@ -1437,9 +1442,10 @@ export default function App() {
 
     return generatedOccurrences.filter(occ => {
       if (!occ.assignedJpIds.includes(currentUser.id)) return false;
+      if (myShiftsDeskFilter !== 'ALL' && occ.deskId !== myShiftsDeskFilter) return false;
       return occ.date >= myShiftsFilterDescriptor.startDateStr && occ.date <= myShiftsFilterDescriptor.endDateStr;
     }).sort((a, b) => a.date.localeCompare(b.date));
-  }, [generatedOccurrences, currentUser, myShiftsFilterDescriptor]);
+  }, [generatedOccurrences, currentUser, myShiftsFilterDescriptor, myShiftsDeskFilter]);
 
   const handleOpenLogStatsModal = (occ, e) => {
     if (e) e.stopPropagation();
@@ -2912,10 +2918,11 @@ END:VCALENDAR`;
                     <p className="text-xs text-slate-500 mt-1">Interrogate your registered duty shifts across any past or future date ranges.</p>
                   </div>
 
-                  <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-lg border border-slate-300 text-xs font-bold">
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-300 text-xs font-bold">
                     <Filter className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span className="text-slate-700">Date Option:</span>
+                    <label className="text-slate-700" htmlFor="my-shifts-date-filter">Date:</label>
                     <select 
+                      id="my-shifts-date-filter"
                       value={myShiftsPreset}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -2931,6 +2938,18 @@ END:VCALENDAR`;
                       <option value="LAST_MONTH">Last Month</option>
                       <option value="NEXT_MONTH">Next Month</option>
                       <option value="CUSTOM">Custom Date Range...</option>
+                    </select>
+                    <label className="text-slate-700" htmlFor="my-shifts-desk-filter">Desk:</label>
+                    <select
+                      id="my-shifts-desk-filter"
+                      value={myShiftsDeskFilter}
+                      onChange={(e) => setMyShiftsDeskFilter(e.target.value)}
+                      className="bg-white border border-slate-300 rounded px-2 py-1 font-bold text-slate-900 cursor-pointer shadow-xs max-w-48"
+                    >
+                      <option value="ALL">All Service Desks</option>
+                      {activeDesksList.map(desk => (
+                        <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -2948,7 +2967,7 @@ END:VCALENDAR`;
 
                 {myShiftsFilteredList.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
-                    You have no registered shifts matching the selected date range option.
+                    You have no registered shifts matching the selected filters.
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -2973,6 +2992,10 @@ END:VCALENDAR`;
                             <button onClick={(e) => generateIcsFile(occ, e)} className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
                               <CalendarPlus className="w-3.5 h-3.5" />
                               <span>Add to Cal</span>
+                            </button>
+                            <button onClick={(e) => handleOpenWithdrawModal(occ, e)} className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
+                              <UserX className="w-3.5 h-3.5" />
+                              <span>Withdraw</span>
                             </button>
                           </div>
                         </div>
