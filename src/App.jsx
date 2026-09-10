@@ -3680,8 +3680,9 @@ export default function App() {
                         <span>1. Account Sign-Up & Login</span>
                       </h4>
                       <ul className="list-disc pl-5 space-y-1 font-medium leading-relaxed">
-                        <li>New members click <b>"Click here to Sign up"</b> on the login screen to register warrant details.</li>
+                        <li>New members click <b>"Click here to Sign up"</b> on the login screen to register warrant details. Enter the password twice; the application will not accept it unless the two entries match.</li>
                         <li>Accounts start as <b>Pending</b> until an AJPA Registrar verifies credentials. Once approved, log in with your email and password.</li>
+                        <li>Use the eye icon to show or hide a password while entering it. If you forget your password, select <b>"Forgot password?"</b>, enter your registered email address, and follow the reset link sent to that address.</li>
                       </ul>
                     </div>
 
@@ -3692,16 +3693,16 @@ export default function App() {
                       </h4>
                       <ul className="list-disc pl-5 space-y-1 font-medium leading-relaxed">
                         <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window automatically rolling over after midnight Sunday night.</li>
-                        <li><b>Region Filter:</b> Filter visible shifts by geographical region (e.g., Auckland East).</li>
-                        <li><b>Desk Filter:</b> Switch between <i>"My Followed Desks Only"</i> and specific service desk locations.</li>
-                        <li><b>Days filter:</b> Select the days of the week you want to see. Use <b>All days</b> to restore the full week.</li>
+                        <li>The three compact filter rows show your current selections. Click <b>Location &amp; desks</b>, <b>Shift time</b>, or <b>Days</b> to expand and change that group.</li>
+                        <li><b>Location &amp; desks:</b> Filter by region. JP Members can tick any combination of followed desks; select <b>All Followed Desks</b> to tick every desk they follow.</li>
+                        <li><b>Days:</b> Select the days of the week you want to see. Use <b>Select all days</b> to restore the full week.</li>
                         <li>
-                          <b>Shift Time of Day Filter:</b> Use the checkboxes at the top of the calendar to filter visible shifts by time of day:
+                          <b>Shift time:</b> Use the checkboxes to filter visible shifts by time of day:
                           <ul className="list-circle pl-5 mt-1 space-y-0.5 text-slate-600">
                             <li><b>Morning:</b> Shifts starting between Midnight (00:00) and Midday (11:59).</li>
                             <li><b>Afternoon:</b> Shifts starting between Midday (12:00) and 4:59 PM (16:59).</li>
                             <li><b>Evening:</b> Shifts starting between 5:00 PM (17:00) and Midnight (23:59).</li>
-                            <li><i>Note: All three checkboxes are checked by default so all shifts display when you first open the calendar.</i></li>
+                            <li><i>All three options are selected by default.</i></li>
                           </ul>
                         </li>
                       </ul>
@@ -3716,7 +3717,7 @@ export default function App() {
                         <li>Navigate to the <b>Service Desks</b> tab.</li>
                         <li>Locate your preferred desk tile (e.g. <i>Remuera Library</i>).</li>
                         <li>Click the <b>"+ Follow"</b> button. It will change to <b>"★ Following"</b>.</li>
-                        <li>Your 12-Week Calendar will now show upcoming shifts for these followed desks.</li>
+                        <li>Open <b>Calendar (12 Wks) &rarr; Location &amp; desks</b> to choose which of your followed desks are currently displayed.</li>
                       </ol>
                     </div>
 
@@ -3748,7 +3749,7 @@ export default function App() {
                           <b>Automatic Calendar Rollover Logic:</b> When the 12-week calendar rolls over at midnight Sunday night, cases configured with <i>Next n slots</i>, <i>Slots until and including dd/mm/yyyy</i>, and <i>All future slots</i> will automatically register or withdraw you for the newly rolled-in slots according to your rule logic.
                         </li>
                         <li>
-                          <b>My Shifts Interrogation:</b> Use the <b>My Shifts</b> tab to filter and view your registered shifts across any past, current, or future timeframe using the <b>Date Option</b> dropdown.
+                          <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. Each shift also has its own <b>Withdraw</b> button, as well as <b>Log Stats</b> and <b>Add to Cal</b>.
                         </li>
                         <li><b>Closed slots:</b> Grey slots marked <b>Desk closed</b> or <b>Statutory holiday</b> cannot be registered for.</li>
                         <li>When a registration is confirmed, you will receive an email with a calendar appointment attachment. You can also click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
@@ -3762,7 +3763,7 @@ export default function App() {
                       </h4>
                       <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
                         <li>After completing a duty shift, click <b>"Log Stats"</b> on the shift tile or in the <b>My Shifts</b> tab.</li>
-                        <li>Enter clients served, hours worked, and document counts (Certified Copies, Statutory Declarations, Witnessed Signatures, Affidavits, Other).</li>
+                        <li>Enter clients served, hours worked, and document counts (Certified Copies, Statutory Declarations, Witnessed Signatures, Affidavits, Other). <b>JP Duties</b> is calculated automatically as one duty for every two hours, or part thereof, and cannot be edited.</li>
                         <li>Click <b>"Save Statistics Log"</b>.</li>
                         <li>To edit or delete an existing log, go to the <b>Statistics</b> tab, click on any row in the table, update the values, and click <b>"Save Changes"</b> or <b>"Delete Entry"</b>.</li>
                       </ol>
@@ -3808,8 +3809,8 @@ export default function App() {
                         </h4>
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
                           <li>Click <b>"Create Slot"</b> on the relevant service desk card.</li>
-                          <li>Select day of week, start time, end time, and capacity limits (<i>Min JPs ≤ Target JPs ≤ Max JPs</i>).</li>
-                          <li>To edit or remove a slot, click its tile under the relevant service desk.</li>
+                          <li>Select day of week, start time, end time, and capacity limits (<i>Min JPs ≤ Target JPs ≤ Max JPs</i>). A desk may have more than one slot on the same day, provided each slot has its own start and end time.</li>
+                          <li>To edit or remove a slot, click its tile under the relevant service desk. JP Members can view these slot details but cannot change them.</li>
                         </ol>
                       </div>
 
@@ -3866,7 +3867,7 @@ export default function App() {
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
                           <li>Navigate to <b>Registrar Portal &rarr; JP Members</b>.</li>
                           <li>Review new member registrations in the <b>Pending Approval</b> queue.</li>
-                          <li>Click <b>"Approve"</b> to activate their account or <b>"Reject"</b> to deny access.</li>
+                          <li>Click <b>"Approve"</b> to activate their account or <b>"Reject"</b> to deny access. Approval sends the new member an automated welcome email with the JP Member guidance.</li>
                           <li>Click the edit icon next to any member to update warrant numbers, system roles (Member, Admin, Registrar), or provisional status.</li>
                         </ol>
                       </div>
