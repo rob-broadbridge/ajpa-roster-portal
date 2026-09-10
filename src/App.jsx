@@ -3158,6 +3158,15 @@ export default function App() {
                       <option value="NEXT_MONTH">Next Month</option>
                       <option value="CUSTOM">Custom Date Range...</option>
                     </select>
+                    {myShiftsPreset === 'CUSTOM' && (
+                      <button
+                        type="button"
+                        onClick={() => setMyShiftsCustomModalOpen(true)}
+                        className="px-2 py-1 rounded border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 font-extrabold cursor-pointer"
+                      >
+                        Change range
+                      </button>
+                    )}
                     <label className="text-slate-700" htmlFor="my-shifts-desk-filter">Desk:</label>
                     <select
                       id="my-shifts-desk-filter"
