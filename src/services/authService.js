@@ -32,7 +32,16 @@ export async function signInApprovedUser(email, password) {
 }
 
 export async function requestPasswordReset(email, redirectTo) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+  const normalisedEmail = email.trim().toLowerCase();
+  const { data: accountExists, error: accountCheckError } = await supabase
+    .rpc('is_registered_email', { email_to_check: normalisedEmail });
+
+  if (accountCheckError) throw new Error(accountCheckError.message);
+  if (!accountExists) {
+    throw new Error('NO_REGISTERED_ACCOUNT');
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(normalisedEmail, { redirectTo });
   if (error) throw new Error(error.message);
 }
 

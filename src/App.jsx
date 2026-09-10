@@ -747,6 +747,10 @@ export default function App() {
     try {
       await requestPasswordReset(resetEmail, window.location.origin);
     } catch (resetRequestError) {
+      if (resetRequestError.message === 'NO_REGISTERED_ACCOUNT') {
+        alert('No account was found for that email address. Please check the address and try again, or register for access.');
+        return;
+      }
       alert(`Unable to send reset email: ${resetRequestError.message}`);
       return;
     }
@@ -5156,7 +5160,7 @@ END:VCALENDAR`;
                 <Mail className="w-8 h-8 text-sky-600 mx-auto" />
                 <p className="text-sm font-black text-sky-950">Reset Email Sent!</p>
                 <p className="font-normal text-slate-600 leading-relaxed">
-                  If an account exists for <b>{resetEmail}</b>, a password-reset link has been sent. Open that link from your email to choose a new password.
+                  A password-reset link has been sent to <b>{resetEmail}</b>. Open that link from your email to choose a new password.
                 </p>
               </div>
             ) : (
