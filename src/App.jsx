@@ -2394,11 +2394,6 @@ export default function App() {
                 <span>Calendar (12 Wks)</span>
               </button>
 
-              <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <MapPin className="w-4 h-4" />
-                <span>Service Desks</span>
-              </button>
-
               <button onClick={() => setActiveTab('my-shifts')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'my-shifts' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <UserCheck className="w-4 h-4" />
                 <span>My Shifts</span>
@@ -2407,6 +2402,11 @@ export default function App() {
               <button onClick={() => setActiveTab('statistics')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'statistics' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <BarChart2 className="w-4 h-4" />
                 <span>Statistics</span>
+              </button>
+
+              <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+                <MapPin className="w-4 h-4" />
+                <span>Service Desks</span>
               </button>
 
               {currentUser.role === 'Registrar' && (
