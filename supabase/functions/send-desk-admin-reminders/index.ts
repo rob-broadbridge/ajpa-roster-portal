@@ -36,7 +36,6 @@ Deno.serve(async (request) => {
   const { data: admins, error: adminsError } = await supabase
     .from('profiles')
     .select('id, full_name, email, desk_admin_reminder_frequency, desk_admin_reminder_start_date, desk_admin_reminder_weeks')
-    .eq('role', 'Admin')
     .eq('status', 'Approved')
     .in('desk_admin_reminder_frequency', ['WEEKLY', 'FORTNIGHTLY']);
   if (adminsError) throw adminsError;

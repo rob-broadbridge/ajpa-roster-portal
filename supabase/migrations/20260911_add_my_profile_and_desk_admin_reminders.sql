@@ -44,13 +44,16 @@ security definer
 set search_path = public
 as $$
 declare
-  current_role text;
+  is_desk_admin boolean;
 begin
-  select role into current_role
-  from public.profiles
-  where id = auth.uid();
+  select exists (
+    select 1
+    from public.service_desks
+    where primary_admin_id = auth.uid()
+       or secondary_admin_id = auth.uid()
+  ) into is_desk_admin;
 
-  if current_role is null then
+  if auth.uid() is null then
     raise exception 'No profile was found for the signed-in user.';
   end if;
 
@@ -64,9 +67,9 @@ begin
 
   update public.profiles
   set phone = nullif(trim(p_phone), ''),
-      desk_admin_reminder_frequency = case when current_role = 'Admin' then p_reminder_frequency else 'NONE' end,
-      desk_admin_reminder_start_date = case when current_role = 'Admin' and p_reminder_frequency <> 'NONE' then p_reminder_start_date else null end,
-      desk_admin_reminder_weeks = case when current_role = 'Admin' then p_reminder_weeks else 4 end
+      desk_admin_reminder_frequency = case when is_desk_admin then p_reminder_frequency else 'NONE' end,
+      desk_admin_reminder_start_date = case when is_desk_admin and p_reminder_frequency <> 'NONE' then p_reminder_start_date else null end,
+      desk_admin_reminder_weeks = case when is_desk_admin then p_reminder_weeks else 4 end
   where id = auth.uid();
 end;
 $$;

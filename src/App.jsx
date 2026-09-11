@@ -683,6 +683,11 @@ export default function App() {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
 
+  const isCurrentUserDeskAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    return serviceDesks.some(desk => desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id);
+  }, [currentUser, serviceDesks]);
+
   useEffect(() => {
     if (!currentUser) return;
     setProfileForm({
@@ -972,15 +977,15 @@ export default function App() {
 
     const email = profileForm.email.trim().toLowerCase();
     const phone = profileForm.phone.trim();
-    const reminderFrequency = currentUser.role === 'Admin' ? profileForm.reminderFrequency : 'NONE';
-    const reminderStartDate = currentUser.role === 'Admin' && reminderFrequency !== 'NONE' ? profileForm.reminderStartDate : null;
-    const reminderWeeks = currentUser.role === 'Admin' ? Math.max(1, Math.min(52, Number(profileForm.reminderWeeks) || 1)) : 4;
+    const reminderFrequency = isCurrentUserDeskAdmin ? profileForm.reminderFrequency : 'NONE';
+    const reminderStartDate = isCurrentUserDeskAdmin && reminderFrequency !== 'NONE' ? profileForm.reminderStartDate : null;
+    const reminderWeeks = isCurrentUserDeskAdmin ? Math.max(1, Math.min(52, Number(profileForm.reminderWeeks) || 1)) : 4;
 
     if (!email) {
       setProfileSaveError('Please enter an email address.');
       return;
     }
-    if (currentUser.role === 'Admin' && reminderFrequency !== 'NONE' && !reminderStartDate) {
+    if (isCurrentUserDeskAdmin && reminderFrequency !== 'NONE' && !reminderStartDate) {
       setProfileSaveError('Choose a reminder start date, or select No reminders.');
       return;
     }
@@ -3369,7 +3374,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {currentUser.role === 'Admin' && (
+                  {isCurrentUserDeskAdmin && (
                     <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 space-y-3">
                       <div>
                         <h3 className="font-extrabold text-slate-900">Desk Admin roster reminders</h3>
