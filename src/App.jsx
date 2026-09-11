@@ -807,6 +807,16 @@ export default function App() {
     return serviceDesks.filter(d => d.status === 'Active');
   }, [serviceDesks]);
 
+  // The Location & desks filter should not offer a desk outside the selected
+  // region. Keeping this derived means newly added active desks appear here.
+  const calendarRegionDesks = useMemo(() => {
+    return activeDesksList.filter(desk => calendarRegionFilter === 'ALL' || desk.region === calendarRegionFilter);
+  }, [activeDesksList, calendarRegionFilter]);
+
+  const calendarRegionFollowedDeskIds = useMemo(() => {
+    return calendarRegionDesks.filter(desk => followedDesks.includes(desk.id)).map(desk => desk.id);
+  }, [calendarRegionDesks, followedDesks]);
+
   const archivedDesksList = useMemo(() => {
     return serviceDesks.filter(d => d.status === 'Archived');
   }, [serviceDesks]);
@@ -2639,13 +2649,6 @@ export default function App() {
                 <span>Statistics</span>
               </button>
 
-              {canViewActivityAudit && (
-                <button onClick={() => setActiveTab('activity-audit')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'activity-audit' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                  <FileText className="w-4 h-4" />
-                  <span>Activity Log</span>
-                </button>
-              )}
-
               <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <MapPin className="w-4 h-4" />
                 <span>Service Desks</span>
@@ -2655,6 +2658,13 @@ export default function App() {
                 <Users className="w-4 h-4" />
                 <span>My Profile</span>
               </button>
+
+              {canViewActivityAudit && (
+                <button onClick={() => setActiveTab('activity-audit')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'activity-audit' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+                  <FileText className="w-4 h-4" />
+                  <span>Activity Log</span>
+                </button>
+              )}
 
               {currentUser.role === 'Registrar' && (
                 <button onClick={() => setActiveTab('registrar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'registrar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
@@ -2715,7 +2725,16 @@ export default function App() {
                             <span>Region</span>
                             <select
                               value={calendarRegionFilter}
-                              onChange={(event) => setCalendarRegionFilter(event.target.value)}
+                              onChange={(event) => {
+                                const selectedRegion = event.target.value;
+                                setCalendarRegionFilter(selectedRegion);
+                                // Reset an incompatible individual-desk choice.
+                                if (calendarDeskFilter !== 'ALL' && calendarDeskFilter !== 'FOLLOWED'
+                                  && selectedRegion !== 'ALL'
+                                  && activeDeskMap[calendarDeskFilter]?.region !== selectedRegion) {
+                                  setCalendarDeskFilter('ALL');
+                                }
+                              }}
                               className="bg-white border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-800 cursor-pointer"
                             >
                               <option value="ALL">All Regions</option>
@@ -2728,13 +2747,15 @@ export default function App() {
                               <label className="flex items-center gap-1.5 font-extrabold text-slate-800 cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  checked={followedDesks.length > 0 && followedDesks.every(deskId => memberCalendarDeskIds.includes(deskId))}
-                                  onChange={(event) => setMemberCalendarDeskIds(event.target.checked ? [...followedDesks] : [])}
+                                  checked={calendarRegionFollowedDeskIds.length > 0 && calendarRegionFollowedDeskIds.every(deskId => memberCalendarDeskIds.includes(deskId))}
+                                  onChange={(event) => setMemberCalendarDeskIds(previous => event.target.checked
+                                    ? [...new Set([...previous, ...calendarRegionFollowedDeskIds])]
+                                    : previous.filter(deskId => !calendarRegionFollowedDeskIds.includes(deskId)))}
                                   className="accent-sky-700 cursor-pointer"
                                 />
-                                <span>All Followed Desks</span>
+                                <span>{calendarRegionFilter === 'ALL' ? 'All Followed Desks' : 'All Followed Desks in this Region'}</span>
                               </label>
-                              {activeDesksList.filter(desk => followedDesks.includes(desk.id)).map(desk => (
+                              {calendarRegionDesks.filter(desk => followedDesks.includes(desk.id)).map(desk => (
                                 <label key={desk.id} className="flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -2758,7 +2779,7 @@ export default function App() {
                               >
                                 <option value="FOLLOWED">My Followed Desks Only</option>
                                 <option value="ALL">All Service Desks</option>
-                                {activeDesksList.map(desk => <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>)}
+                                {calendarRegionDesks.map(desk => <option key={desk.id} value={desk.id}>[{desk.code}] {desk.name}</option>)}
                               </select>
                             </label>
                           )}
