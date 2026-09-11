@@ -1716,6 +1716,10 @@ export default function App() {
 
   const handleOpenLogStatsModal = (occ, e) => {
     if (e) e.stopPropagation();
+    if (!isOccurrenceFinished(occ)) {
+      alert('Statistics can be logged after this shift has ended.');
+      return;
+    }
     if (hasLoggedStatisticsForOccurrence(occ)) {
       alert('Statistics have already been logged for this shift. To maintain them, open the Statistics tab.');
       return;
@@ -2909,9 +2913,9 @@ export default function App() {
                                               <button 
                                                 type="button" 
                                                 onClick={(e) => handleOpenLogStatsModal(occ, e)} 
-                                                disabled={statsLogged}
-                                                className={`py-1 px-1 rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition ${statsLogged ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'}`}
-                                                title={statsLogged ? 'Statistics already logged — use the Statistics tab to maintain them' : 'Log Shift Statistics'}
+                                                disabled={statsLogged || !shiftFinished}
+                                                className={`py-1 px-1 rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition ${statsLogged || !shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'}`}
+                                                title={statsLogged ? 'Statistics already logged — use the Statistics tab to maintain them' : shiftFinished ? 'Log Shift Statistics' : 'Statistics can be logged after this shift has ended'}
                                               >
                                                 <BarChart2 className="w-2.5 h-2.5 shrink-0" />
                                                 <span>{statsLogged ? 'Stats Logged' : 'Log Stats'}</span>
@@ -3367,7 +3371,7 @@ export default function App() {
                             </p>
                           </div>
                           <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={(e) => handleOpenLogStatsModal(occ, e)} disabled={statsLogged} title={statsLogged ? 'Statistics already logged — use the Statistics tab to maintain them' : 'Log Shift Statistics'} className={`px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs ${statsLogged ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'}`}>
+                            <button onClick={(e) => handleOpenLogStatsModal(occ, e)} disabled={statsLogged || !shiftFinished} title={statsLogged ? 'Statistics already logged — use the Statistics tab to maintain them' : shiftFinished ? 'Log Shift Statistics' : 'Statistics can be logged after this shift has ended'} className={`px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs ${statsLogged || !shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'}`}>
                               <BarChart2 className="w-3.5 h-3.5" />
                               <span>{statsLogged ? 'Stats Logged' : 'Log Stats'}</span>
                             </button>
@@ -4074,7 +4078,7 @@ export default function App() {
                           <b>Automatic Calendar Rollover Logic:</b> When the 12-week calendar rolls over at midnight Sunday night, cases configured with <i>Next n slots</i>, <i>Slots until and including dd/mm/yyyy</i>, and <i>All future slots</i> will automatically register or withdraw you for the newly rolled-in slots according to your rule logic.
                         </li>
                         <li>
-                          <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. Each shift has <b>Withdraw</b>, <b>Log Stats</b>, and <b>Add to Cal</b> where applicable. Once a shift has finished, calendar download and withdrawal are unavailable. Once statistics are logged, the disabled <b>Stats Logged</b> button directs you to the <b>Statistics</b> tab for any maintenance.
+                          <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. <b>Log Stats</b> becomes available only after the shift has finished. At that point, calendar download and withdrawal are unavailable. Once statistics are logged, the disabled <b>Stats Logged</b> button directs you to the <b>Statistics</b> tab for any maintenance.
                         </li>
                         <li><b>Closed slots:</b> Grey slots marked <b>Desk closed</b> or <b>Statutory holiday</b> cannot be registered for.</li>
                         <li>When a registration is confirmed, you will receive an email with a calendar appointment attachment. You can also click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
