@@ -1,5 +1,34 @@
 import { supabase } from '../supabaseClient';
 
+export async function fetchRosterActivityAudit(limit = 250) {
+  const { data, error } = await supabase
+    .from('roster_activity_audit')
+    .select('*')
+    .order('occurred_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map(activity => ({
+    id: activity.id,
+    occurredAt: activity.occurred_at,
+    actorProfileId: activity.actor_profile_id,
+    subjectProfileId: activity.subject_profile_id,
+    eventType: activity.event_type,
+    dutySlotId: activity.duty_slot_id,
+    dutyDate: activity.duty_date,
+    ruleAction: activity.rule_action,
+    ruleType: activity.rule_type,
+    ruleStartDate: activity.rule_start_date,
+    ruleUntilDate: activity.rule_until_date,
+    ruleCount: activity.rule_count_n,
+    deskCode: activity.desk_code_snapshot,
+    deskName: activity.desk_name_snapshot,
+    startTime: activity.start_time_snapshot?.slice(0, 5) || '',
+    endTime: activity.end_time_snapshot?.slice(0, 5) || ''
+  }));
+}
+
 export async function fetchRosterData(profileId) {
   const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),

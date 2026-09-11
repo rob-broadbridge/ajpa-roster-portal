@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
-import { fetchRosterData } from './services/rosterService';
+import { fetchRosterActivityAudit, fetchRosterData } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
@@ -321,6 +321,8 @@ export default function App() {
   const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
   const [statutoryHolidays, setStatutoryHolidays] = useState([]);
   const [slotHolidayOverrides, setSlotHolidayOverrides] = useState([]);
+  const [rosterActivityAudit, setRosterActivityAudit] = useState([]);
+  const [rosterActivityAuditError, setRosterActivityAuditError] = useState('');
 
   // REGISTRATION & WITHDRAWAL MODAL STATES
   const [registerModalOcc, setRegisterModalOcc] = useState(null);
@@ -500,6 +502,22 @@ export default function App() {
     setFollowedDesks(roster.followedDesks); setSlotAssignments(roster.assignments);
     setRecurringRules(roster.rules); setLoggedStatistics(roster.statistics);
     setStatutoryHolidays(roster.statutoryHolidays); setSlotHolidayOverrides(roster.slotHolidayOverrides);
+
+    if (profile.role === 'Admin' || profile.role === 'Registrar') {
+      try {
+        setRosterActivityAudit(await fetchRosterActivityAudit());
+        setRosterActivityAuditError('');
+      } catch (auditError) {
+        // The rest of the portal stays available until the audit migration has
+        // been applied. The screen explains this to the authorised user.
+        console.warn('Roster activity audit could not be loaded:', auditError.message);
+        setRosterActivityAudit([]);
+        setRosterActivityAuditError(auditError.message);
+      }
+    } else {
+      setRosterActivityAudit([]);
+      setRosterActivityAuditError('');
+    }
 
     // Reset to the familiar defaults first. The saved values below then take
     // precedence where they exist, including when another account signs in on
@@ -708,6 +726,10 @@ export default function App() {
   ]);
 
   const canManage = useMemo(() => {
+    return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
+  }, [currentUser]);
+
+  const canViewActivityAudit = useMemo(() => {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
 
@@ -2617,6 +2639,13 @@ export default function App() {
                 <span>Statistics</span>
               </button>
 
+              {canViewActivityAudit && (
+                <button onClick={() => setActiveTab('activity-audit')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'activity-audit' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+                  <FileText className="w-4 h-4" />
+                  <span>Activity Log</span>
+                </button>
+              )}
+
               <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                 <MapPin className="w-4 h-4" />
                 <span>Service Desks</span>
@@ -3652,6 +3681,74 @@ export default function App() {
               </div>
             )}
 
+            {/* AUDIT LOG: restricted in both the interface and Supabase RLS. */}
+            {activeTab === 'activity-audit' && canViewActivityAudit && (
+              <div className="space-y-6">
+                <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-2">
+                  <span className="bg-sky-100 text-sky-900 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Desk Admin & Registrar access</span>
+                  <h2 className="text-xl font-extrabold text-slate-900">Roster Activity Log</h2>
+                  <p className="text-xs text-slate-500">The latest 250 registration, withdrawal, and recurring-rule changes. Entries are recorded by the database and cannot be edited in the portal.</p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+                  {rosterActivityAuditError ? (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-lg text-xs font-bold">
+                      The activity log is not available yet. Run the Activity Audit Log SQL migration, then sign out and back in. Detail: {rosterActivityAuditError}
+                    </div>
+                  ) : rosterActivityAudit.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
+                      No new roster activity has been recorded since the audit log was enabled.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse min-w-[850px]">
+                        <thead>
+                          <tr className="bg-slate-900 text-white uppercase font-black tracking-wider">
+                            <th className="p-2.5">When (Auckland)</th>
+                            <th className="p-2.5">Account</th>
+                            <th className="p-2.5">Action</th>
+                            <th className="p-2.5">JP affected</th>
+                            <th className="p-2.5">Service Desk</th>
+                            <th className="p-2.5">Shift / rule</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {rosterActivityAudit.map(activity => {
+                            const actor = userMap[activity.actorProfileId];
+                            const subject = userMap[activity.subjectProfileId];
+                            const actionLabel = activity.eventType === 'DUTY_REGISTERED'
+                              ? 'Registered for shift'
+                              : activity.eventType === 'DUTY_WITHDRAWN'
+                                ? 'Withdrew from shift'
+                                : activity.eventType === 'RULE_CREATED'
+                                  ? `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule created`
+                                  : `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule removed`;
+                            const ruleDetail = activity.ruleType
+                              ? `${activity.ruleType.replaceAll('_', ' ').toLowerCase()}${activity.ruleCount ? ` · ${activity.ruleCount} slot${activity.ruleCount === 1 ? '' : 's'}` : ''}`
+                              : 'Single shift';
+                            const occurredAt = activity.occurredAt
+                              ? new Date(activity.occurredAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' })
+                              : '—';
+
+                            return (
+                              <tr key={activity.id} className="hover:bg-sky-50/60">
+                                <td className="p-2.5 whitespace-nowrap font-mono text-[11px] text-slate-700">{occurredAt}</td>
+                                <td className="p-2.5 font-bold text-slate-900">{actor?.fullName || 'System / unknown account'}</td>
+                                <td className="p-2.5 font-bold text-slate-800">{actionLabel}</td>
+                                <td className="p-2.5 text-slate-700">{subject?.fullName || 'Deleted or unavailable profile'}</td>
+                                <td className="p-2.5 text-slate-700"><span className="bg-slate-900 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-black mr-1">{activity.deskCode || 'JP'}</span>{activity.deskName || 'Archived desk'}</td>
+                                <td className="p-2.5 text-slate-700 whitespace-nowrap">{activity.dutyDate || activity.ruleStartDate || '—'} {activity.startTime && activity.endTime ? `· ${activity.startTime}–${activity.endTime}` : ''}<div className="text-[10px] text-slate-400 mt-0.5">{ruleDetail}</div></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* TAB 5: REGISTRAR GOVERNANCE PORTAL */}
             {activeTab === 'registrar' && currentUser.role === 'Registrar' && (
               <div className="space-y-6">
@@ -4164,6 +4261,18 @@ export default function App() {
                           <li>Open <b>My Profile</b> and select weekly, fortnightly, or no reminders.</li>
                           <li>For weekly or fortnightly reminders, choose the first reminder date and the number of weeks ahead to report on.</li>
                           <li>On each scheduled date, an email covers every Primary and Secondary desk assigned to you, listing slots below their minimum JP requirement or confirming that all open slots meet minimum staffing.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <FileText className="w-4 h-4 text-sky-700 shrink-0" />
+                          <span>6. Activity Audit Log</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Open <b>Activity Log</b> to review recent shift registrations, withdrawals, and recurring-rule actions.</li>
+                          <li>The log records the time, account that performed the action, affected JP, service desk, and relevant shift or rule details.</li>
+                          <li>It is view-only and available only to Desk Admins and Registrars. It records activity from the time the audit feature was enabled.</li>
                         </ol>
                       </div>
                     </div>
