@@ -269,6 +269,27 @@ const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskNa
   return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
 };
 
+// Duty times are Auckland times, irrespective of the device's own timezone.
+// A sortable local timestamp lets the action controls close at the correct
+// moment without relying on browser-specific date parsing.
+const getAucklandTimestamp = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-NZ', {
+    timeZone: 'Pacific/Auckland',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  }).formatToParts(date).reduce((values, part) => {
+    if (part.type !== 'literal') values[part.type] = part.value;
+    return values;
+  }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+};
+
+const hasShiftEnded = (occurrence, now = new Date()) => {
+  if (!occurrence?.date || !occurrence?.endTime) return false;
+  return getAucklandTimestamp(now) > `${occurrence.date}T${occurrence.endTime}:00`;
+};
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -281,6 +302,8 @@ export default function App() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [showUnauthHelp, setShowUnauthHelp] = useState(false);
   const [calendarNow, setCalendarNow] = useState(() => new Date());
+  // Refresh action availability while a member leaves the portal open.
+  const [actionClock, setActionClock] = useState(() => new Date());
   const [preferencesReadyForProfile, setPreferencesReadyForProfile] = useState(null);
   // Demo access is deliberately unavailable in deployed builds. To use it on
   // a local developer machine, explicitly set VITE_ENABLE_DEMO=true.
@@ -621,6 +644,11 @@ export default function App() {
       }
     });
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const clockTimer = window.setInterval(() => setActionClock(new Date()), 30000);
+    return () => window.clearInterval(clockTimer);
   }, []);
 
   // Save display choices shortly after a filter is changed. The short delay
@@ -1676,8 +1704,22 @@ export default function App() {
     }).sort((a, b) => a.date.localeCompare(b.date));
   }, [generatedOccurrences, currentUser, myShiftsFilterDescriptor, myShiftsDeskFilter]);
 
+  const loggedStatisticKeys = useMemo(() => new Set(
+    loggedStatistics.map(stat => `${stat.jpId}:${stat.slotId}:${stat.date}`)
+  ), [loggedStatistics]);
+
+  const hasLoggedStatisticsForOccurrence = (occurrence) => (
+    Boolean(currentUser) && loggedStatisticKeys.has(`${currentUser.id}:${occurrence.slotId}:${occurrence.date}`)
+  );
+
+  const isOccurrenceFinished = (occurrence) => hasShiftEnded(occurrence, actionClock);
+
   const handleOpenLogStatsModal = (occ, e) => {
     if (e) e.stopPropagation();
+    if (hasLoggedStatisticsForOccurrence(occ)) {
+      alert('Statistics have already been logged for this shift. To maintain them, open the Statistics tab.');
+      return;
+    }
     setLogStatsOccurrence(occ);
 
     let defaultHours = 2.00;
@@ -1719,6 +1761,11 @@ export default function App() {
   const handleSaveStatsSubmit = async (e) => {
     e.preventDefault();
     if (!logStatsOccurrence || !currentUser) return;
+    if (hasLoggedStatisticsForOccurrence(logStatsOccurrence)) {
+      alert('Statistics have already been logged for this shift. To maintain them, open the Statistics tab.');
+      setLogStatsOccurrence(null);
+      return;
+    }
 
     const desk = activeDeskMap[logStatsOccurrence.deskId] || {};
 
@@ -1894,6 +1941,10 @@ export default function App() {
   // OPEN WITHDRAWAL MODAL
   const handleOpenWithdrawModal = (occ, e) => {
     if (e) e.stopPropagation();
+    if (isOccurrenceFinished(occ)) {
+      alert('This shift has already finished and can no longer be withdrawn from.');
+      return;
+    }
     setWithdrawModalOcc(occ);
     setWithdrawOption('SINGLE');
     setWithdrawCountN(4);
@@ -1903,6 +1954,11 @@ export default function App() {
   // EXECUTE WITHDRAWAL LOGIC
   const handleExecuteWithdraw = async () => {
     if (!withdrawModalOcc || !currentUser) return;
+    if (isOccurrenceFinished(withdrawModalOcc)) {
+      alert('This shift has already finished and can no longer be withdrawn from.');
+      setWithdrawModalOcc(null);
+      return;
+    }
 
     const slotOccurrences = generatedOccurrences
       .filter(o => o.slotId === withdrawModalOcc.slotId && o.date >= withdrawModalOcc.date)
@@ -2018,6 +2074,10 @@ export default function App() {
 
   const generateIcsFile = (occurrence, e) => {
     if (e) e.stopPropagation();
+    if (isOccurrenceFinished(occurrence)) {
+      alert('This shift has already finished and can no longer be added to your calendar.');
+      return;
+    }
     const desk = activeDeskMap[occurrence.deskId] || {};
     const icsContent = buildCalendarFile({
       profileId: currentUser?.id || 'member',
@@ -2809,6 +2869,8 @@ export default function App() {
                                   const desk = activeDeskMap[occ.deskId] || {};
                                   const assigned = occ.assignedJpIds.length;
                                   const isRegistered = occ.assignedJpIds.includes(currentUser.id);
+                                  const statsLogged = hasLoggedStatisticsForOccurrence(occ);
+                                  const shiftFinished = isOccurrenceFinished(occ);
 
                                   let colorClass = 'bg-rose-50 border-rose-300 text-rose-900 hover:bg-rose-100';
                                   if (occ.isHoliday) colorClass = 'bg-slate-200 border-slate-400 text-slate-600 opacity-80 hover:bg-slate-300';
@@ -2847,18 +2909,20 @@ export default function App() {
                                               <button 
                                                 type="button" 
                                                 onClick={(e) => handleOpenLogStatsModal(occ, e)} 
-                                                className="py-1 px-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition cursor-pointer"
-                                                title="Log Shift Statistics"
+                                                disabled={statsLogged}
+                                                className={`py-1 px-1 rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition ${statsLogged ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'}`}
+                                                title={statsLogged ? 'Statistics already logged — use the Statistics tab to maintain them' : 'Log Shift Statistics'}
                                               >
                                                 <BarChart2 className="w-2.5 h-2.5 shrink-0" />
-                                                <span>Log Stats</span>
+                                                <span>{statsLogged ? 'Stats Logged' : 'Log Stats'}</span>
                                               </button>
 
                                               <button 
                                                 type="button" 
                                                 onClick={(e) => generateIcsFile(occ, e)} 
-                                                className="py-1 px-1 bg-sky-600 hover:bg-sky-500 text-white rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition cursor-pointer"
-                                                title="Add to Device Calendar"
+                                                disabled={shiftFinished}
+                                                className={`py-1 px-1 rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'}`}
+                                                title={shiftFinished ? 'This shift has finished' : 'Add to Device Calendar'}
                                               >
                                                 <CalendarPlus className="w-2.5 h-2.5 shrink-0" />
                                                 <span>Add to Cal</span>
@@ -2868,7 +2932,9 @@ export default function App() {
                                             <button 
                                               type="button" 
                                               onClick={(e) => handleOpenWithdrawModal(occ, e)} 
-                                              className="w-full py-1 px-2 rounded font-black text-[10px] uppercase shadow-sm transition flex items-center justify-center space-x-1 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                                              disabled={shiftFinished}
+                                              className={`w-full py-1 px-2 rounded font-black text-[10px] uppercase shadow-sm transition flex items-center justify-center space-x-1 ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'}`}
+                                              title={shiftFinished ? 'This shift has finished and can no longer be withdrawn from' : 'Withdraw from this shift'}
                                             >
                                               <UserCheck className="w-3 h-3" />
                                               <span>Withdraw</span>
@@ -3287,6 +3353,8 @@ export default function App() {
                   <div className="space-y-3">
                     {myShiftsFilteredList.map(occ => {
                       const desk = activeDeskMap[occ.deskId] || {};
+                      const statsLogged = hasLoggedStatisticsForOccurrence(occ);
+                      const shiftFinished = isOccurrenceFinished(occ);
                       return (
                         <div key={occ.instanceKey} onClick={() => setDetailedSlotModal(occ)} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-slate-100 transition shadow-xs">
                           <div>
@@ -3299,15 +3367,15 @@ export default function App() {
                             </p>
                           </div>
                           <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={(e) => handleOpenLogStatsModal(occ, e)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
+                            <button onClick={(e) => handleOpenLogStatsModal(occ, e)} disabled={statsLogged} title={statsLogged ? 'Statistics already logged — use the Statistics tab to maintain them' : 'Log Shift Statistics'} className={`px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs ${statsLogged ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer'}`}>
                               <BarChart2 className="w-3.5 h-3.5" />
-                              <span>Log Stats</span>
+                              <span>{statsLogged ? 'Stats Logged' : 'Log Stats'}</span>
                             </button>
-                            <button onClick={(e) => generateIcsFile(occ, e)} className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
+                            <button onClick={(e) => generateIcsFile(occ, e)} disabled={shiftFinished} title={shiftFinished ? 'This shift has finished' : 'Add to Device Calendar'} className={`px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700 text-white cursor-pointer'}`}>
                               <CalendarPlus className="w-3.5 h-3.5" />
                               <span>Add to Cal</span>
                             </button>
-                            <button onClick={(e) => handleOpenWithdrawModal(occ, e)} className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 cursor-pointer shadow-xs">
+                            <button onClick={(e) => handleOpenWithdrawModal(occ, e)} disabled={shiftFinished} title={shiftFinished ? 'This shift has finished and can no longer be withdrawn from' : 'Withdraw from this shift'} className={`px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'}`}>
                               <UserX className="w-3.5 h-3.5" />
                               <span>Withdraw</span>
                             </button>
@@ -4006,7 +4074,7 @@ export default function App() {
                           <b>Automatic Calendar Rollover Logic:</b> When the 12-week calendar rolls over at midnight Sunday night, cases configured with <i>Next n slots</i>, <i>Slots until and including dd/mm/yyyy</i>, and <i>All future slots</i> will automatically register or withdraw you for the newly rolled-in slots according to your rule logic.
                         </li>
                         <li>
-                          <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. Each shift also has its own <b>Withdraw</b> button, as well as <b>Log Stats</b> and <b>Add to Cal</b>.
+                          <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. Each shift has <b>Withdraw</b>, <b>Log Stats</b>, and <b>Add to Cal</b> where applicable. Once a shift has finished, calendar download and withdrawal are unavailable. Once statistics are logged, the disabled <b>Stats Logged</b> button directs you to the <b>Statistics</b> tab for any maintenance.
                         </li>
                         <li><b>Closed slots:</b> Grey slots marked <b>Desk closed</b> or <b>Statutory holiday</b> cannot be registered for.</li>
                         <li>When a registration is confirmed, you will receive an email with a calendar appointment attachment. You can also click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
