@@ -9,7 +9,10 @@ function mapProfile(profile) {
     warrantNumber: profile.warrant_number,
     role: profile.role,
     isProvisional: profile.is_provisional,
-    status: profile.status
+    status: profile.status,
+    reminderFrequency: profile.desk_admin_reminder_frequency || 'NONE',
+    reminderStartDate: profile.desk_admin_reminder_start_date || '',
+    reminderWeeks: profile.desk_admin_reminder_weeks || 4
   };
 }
 

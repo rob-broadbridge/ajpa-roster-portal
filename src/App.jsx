@@ -275,6 +275,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authRestoring, setAuthRestoring] = useState(true);
   const [activeTab, setActiveTab] = useState('calendar');
+  const [profileForm, setProfileForm] = useState({ email: '', phone: '', reminderFrequency: 'NONE', reminderStartDate: '', reminderWeeks: 4 });
+  const [profileSaveMessage, setProfileSaveMessage] = useState('');
+  const [profileSaveError, setProfileSaveError] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
   const [showUnauthHelp, setShowUnauthHelp] = useState(false);
   const [calendarNow, setCalendarNow] = useState(() => new Date());
   const [preferencesReadyForProfile, setPreferencesReadyForProfile] = useState(null);
@@ -679,6 +683,19 @@ export default function App() {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    setProfileForm({
+      email: currentUser.email || '',
+      phone: currentUser.phone || '',
+      reminderFrequency: currentUser.reminderFrequency || 'NONE',
+      reminderStartDate: currentUser.reminderStartDate || '',
+      reminderWeeks: currentUser.reminderWeeks || 4
+    });
+    setProfileSaveMessage('');
+    setProfileSaveError('');
+  }, [currentUser]);
+
   const eligibleAdminsList = useMemo(() => {
     return users.filter(u => (u.role === 'Admin' || u.role === 'Registrar') && u.status === 'Approved');
   }, [users]);
@@ -947,6 +964,65 @@ export default function App() {
     setCurrentUser(null);
     setPreferencesReadyForProfile(null);
     setShowUnauthHelp(false);
+  };
+
+  const handleSaveMyProfile = async (event) => {
+    event.preventDefault();
+    if (!currentUser) return;
+
+    const email = profileForm.email.trim().toLowerCase();
+    const phone = profileForm.phone.trim();
+    const reminderFrequency = currentUser.role === 'Admin' ? profileForm.reminderFrequency : 'NONE';
+    const reminderStartDate = currentUser.role === 'Admin' && reminderFrequency !== 'NONE' ? profileForm.reminderStartDate : null;
+    const reminderWeeks = currentUser.role === 'Admin' ? Math.max(1, Math.min(52, Number(profileForm.reminderWeeks) || 1)) : 4;
+
+    if (!email) {
+      setProfileSaveError('Please enter an email address.');
+      return;
+    }
+    if (currentUser.role === 'Admin' && reminderFrequency !== 'NONE' && !reminderStartDate) {
+      setProfileSaveError('Choose a reminder start date, or select No reminders.');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileSaveError('');
+    setProfileSaveMessage('');
+    try {
+      let emailChangePending = false;
+      if (email !== currentUser.email.toLowerCase()) {
+        const { data, error: authEmailError } = await supabase.auth.updateUser({ email });
+        if (authEmailError) throw authEmailError;
+        // When Supabase email confirmation is enabled, the old address remains
+        // active until the member confirms the message sent to the new one.
+        emailChangePending = data.user?.email?.toLowerCase() !== email;
+      }
+
+      const { error: profileError } = await supabase.rpc('update_my_profile', {
+        p_phone: phone,
+        p_reminder_frequency: reminderFrequency,
+        p_reminder_start_date: reminderStartDate,
+        p_reminder_weeks: reminderWeeks
+      });
+      if (profileError) throw profileError;
+
+      setCurrentUser(previous => ({
+        ...previous,
+        email: emailChangePending ? previous.email : email,
+        phone,
+        reminderFrequency,
+        reminderStartDate: reminderStartDate || '',
+        reminderWeeks
+      }));
+      setProfileForm(previous => ({ ...previous, phone, reminderFrequency, reminderStartDate: reminderStartDate || '', reminderWeeks }));
+      setProfileSaveMessage(emailChangePending
+        ? 'Profile saved. Confirm the email-change message sent to your new address to complete the email update.'
+        : 'Your profile has been saved.');
+    } catch (profileUpdateError) {
+      setProfileSaveError(`Unable to save your profile: ${profileUpdateError.message}`);
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const handleApprovePendingUser = async (userId) => {
@@ -2477,6 +2553,11 @@ export default function App() {
                 <span>Service Desks</span>
               </button>
 
+              <button onClick={() => setActiveTab('my-profile')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'my-profile' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
+                <Users className="w-4 h-4" />
+                <span>My Profile</span>
+              </button>
+
               {currentUser.role === 'Registrar' && (
                 <button onClick={() => setActiveTab('registrar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'registrar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
                   <Award className="w-4 h-4" />
@@ -3234,6 +3315,99 @@ export default function App() {
               </div>
             )}
 
+            {/* TAB: MY PROFILE */}
+            {activeTab === 'my-profile' && (
+              <div className="max-w-3xl space-y-6">
+                <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-2">
+                  <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">My Profile</span>
+                  <h2 className="text-xl font-extrabold text-slate-900">Your AJPA Portal Details</h2>
+                  <p className="text-xs text-slate-500">Keep your contact details current. Your role and warrant information are maintained by an AJPA Registrar.</p>
+                </div>
+
+                <form onSubmit={handleSaveMyProfile} className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-5 text-xs">
+                  {profileSaveError && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3 rounded-lg font-bold flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{profileSaveError}</span>
+                    </div>
+                  )}
+                  {profileSaveMessage && (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg font-bold flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{profileSaveMessage}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-600 mb-1">Full legal name</label>
+                      <input value={currentUser.fullName || ''} readOnly className="w-full border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600 bg-slate-100 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-600 mb-1">Warrant number</label>
+                      <input value={currentUser.warrantNumber || ''} readOnly className="w-full border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600 bg-slate-100 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-600 mb-1">Portal role</label>
+                      <input value={currentUser.role || ''} readOnly className="w-full border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600 bg-slate-100 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-600 mb-1">Account status</label>
+                      <input value={`${currentUser.status || ''}${currentUser.isProvisional ? ' · Provisional JP' : ''}`} readOnly className="w-full border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600 bg-slate-100 cursor-not-allowed" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Email address</label>
+                      <input type="email" required value={profileForm.email} onChange={(event) => setProfileForm(previous => ({ ...previous, email: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm" />
+                      <p className="text-[10px] text-slate-500 mt-1">Changing this may require confirmation from the new email address.</p>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Mobile phone</label>
+                      <input type="tel" value={profileForm.phone} onChange={(event) => setProfileForm(previous => ({ ...previous, phone: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="e.g. 021 123 4567" />
+                    </div>
+                  </div>
+
+                  {currentUser.role === 'Admin' && (
+                    <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 space-y-3">
+                      <div>
+                        <h3 className="font-extrabold text-slate-900">Desk Admin roster reminders</h3>
+                        <p className="text-[11px] text-slate-600 mt-1">At midnight on each scheduled day, you will receive one email covering your Primary and Secondary desks for the selected reporting period.</p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Email reminders</label>
+                          <select value={profileForm.reminderFrequency} onChange={(event) => setProfileForm(previous => ({ ...previous, reminderFrequency: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white font-bold">
+                            <option value="NONE">No reminders</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="FORTNIGHTLY">Fortnightly</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Start date</label>
+                          <input type="date" disabled={profileForm.reminderFrequency === 'NONE'} value={profileForm.reminderStartDate} onChange={(event) => setProfileForm(previous => ({ ...previous, reminderStartDate: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white disabled:bg-slate-100 disabled:text-slate-400" />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Weeks to report on</label>
+                          <input type="number" min="1" max="52" disabled={profileForm.reminderFrequency === 'NONE'} value={profileForm.reminderWeeks} onChange={(event) => setProfileForm(previous => ({ ...previous, reminderWeeks: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white disabled:bg-slate-100 disabled:text-slate-400" />
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-slate-600">
+                        Managed desks: {serviceDesks.filter(desk => desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id).map(desk => `[${desk.code}] ${desk.name}`).join(', ') || 'No Primary or Secondary desk assignments are currently recorded.'}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2 border-t border-slate-100">
+                    <button type="submit" disabled={profileSaving} className="px-5 py-2.5 rounded-lg text-xs font-extrabold bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-amber-400 shadow cursor-pointer disabled:cursor-not-allowed">
+                      {profileSaving ? 'Saving…' : 'Save Profile'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
             {/* TAB 4: STATISTICS LOG TAB */}
             {activeTab === 'statistics' && (
               <div className="space-y-6">
@@ -3760,6 +3934,7 @@ export default function App() {
                         <li>New members click <b>"Click here to Sign up"</b> on the login screen to register warrant details. Enter the password twice; the application will not accept it unless the two entries match.</li>
                         <li>Accounts start as <b>Pending</b> until an AJPA Registrar verifies credentials. Once approved, log in with your email and password.</li>
                         <li>Use the eye icon to show or hide a password while entering it. If you forget your password, select <b>"Forgot password?"</b>, enter your registered email address, and follow the reset link sent to that address.</li>
+                        <li><b>My Profile:</b> update your email address and mobile phone. Your name, warrant number, role, and account status are displayed for reference and are maintained by a Registrar.</li>
                       </ul>
                     </div>
 
@@ -3900,6 +4075,18 @@ export default function App() {
                           <li>Navigate to the <b>Statistics</b> tab.</li>
                           <li>Use the filters (Date Range, Region, Desk, JP Member) to customize your dataset.</li>
                           <li>Click <b>"Download Filtered CSV"</b> at the top right to download a spreadsheet report.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-sky-50/60 p-4 rounded-xl border border-sky-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Mail className="w-4 h-4 text-sky-700 shrink-0" />
+                          <span>5. Desk Admin roster reminders</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Open <b>My Profile</b> and select weekly, fortnightly, or no reminders.</li>
+                          <li>For weekly or fortnightly reminders, choose the first reminder date and the number of weeks ahead to report on.</li>
+                          <li>On each scheduled date, an email covers every Primary and Secondary desk assigned to you, listing slots below their minimum JP requirement or confirming that all open slots meet minimum staffing.</li>
                         </ol>
                       </div>
                     </div>
