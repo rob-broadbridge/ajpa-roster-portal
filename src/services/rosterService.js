@@ -23,6 +23,8 @@ export async function fetchRosterData(profileId) {
   const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status }));
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const slots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
+  const userMap = Object.fromEntries(users.map(user => [user.id, user]));
+  const deskMap = Object.fromEntries(desks.map(desk => [desk.id, desk]));
   const slotMap = Object.fromEntries(slots.map(slot => [slot.id, slot]));
   const assignments = assignmentsResult.data.reduce((all, assignment) => {
     const slot = slotMap[assignment.slot_id];
@@ -32,7 +34,39 @@ export async function fetchRosterData(profileId) {
     return all;
   }, {});
   const rules = rulesResult.data.map(rule => ({ id: rule.id, userId: rule.profile_id, slotId: rule.slot_id, action: rule.action, type: rule.rule_type, startDate: rule.start_date, untilDate: rule.until_date, countN: rule.count_n }));
-  const statistics = statisticsResult.data.map(stat => ({ id: stat.id, jpId: stat.profile_id, deskId: stat.slot_id, deskName: stat.desk_name_snapshot, deskCode: stat.desk_code_snapshot, date: stat.duty_date, startTime: stat.start_time_snapshot.slice(0, 5), endTime: stat.end_time_snapshot.slice(0, 5), noOfJpDuties: stat.no_of_jp_duties, noOfClients: stat.no_of_clients, noOfHoursWorked: Number(stat.no_of_hours_worked), certifiedCopies: stat.certified_copies, statutoryDeclarations: stat.statutory_declarations, signatureWitnessed: stat.signatures_witnessed, affidavits: stat.affidavits, other: stat.other_duties, notes: stat.notes }));
+  const statistics = statisticsResult.data.map(stat => {
+    // duty_statistics stores the profile ID, rather than duplicating personal
+    // details in every log entry. Resolve it here so the on-screen log and CSV
+    // export consistently show the JP's current name and warrant number.
+    const member = userMap[stat.profile_id];
+    const slot = slotMap[stat.slot_id];
+    const desk = slot ? deskMap[slot.deskId] : null;
+
+    return {
+      id: stat.id,
+      jpId: stat.profile_id,
+      jpName: member?.fullName || 'JP member unavailable',
+      warrantNumber: member?.warrantNumber || '',
+      deskId: slot?.deskId || '',
+      deskName: stat.desk_name_snapshot || desk?.name || 'Service Desk',
+      deskCode: stat.desk_code_snapshot || desk?.code || '',
+      region: desk?.region || '',
+      slotId: stat.slot_id,
+      occurrenceKey: slot ? `${slot.deskId}_${slot.id}_${stat.duty_date}` : '',
+      date: stat.duty_date,
+      startTime: stat.start_time_snapshot?.slice(0, 5) || '',
+      endTime: stat.end_time_snapshot?.slice(0, 5) || '',
+      noOfJpDuties: stat.no_of_jp_duties,
+      noOfClients: stat.no_of_clients,
+      noOfHoursWorked: Number(stat.no_of_hours_worked),
+      certifiedCopies: stat.certified_copies,
+      statutoryDeclarations: stat.statutory_declarations,
+      signatureWitnessed: stat.signatures_witnessed,
+      affidavits: stat.affidavits,
+      other: stat.other_duties,
+      notes: stat.notes
+    };
+  });
 
   const statutoryHolidays = statutoryHolidaysResult.data.map(holiday => ({ id: holiday.id, date: holiday.holiday_date, description: holiday.description }));
   const slotHolidayOverrides = slotHolidayOverridesResult.data.map(override => ({ slotId: override.duty_slot_id, date: override.duty_date, isHoliday: override.is_holiday }));
