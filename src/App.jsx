@@ -422,6 +422,7 @@ export default function App() {
     notes: ''
   });
   const [statsSuccessToast, setStatsSuccessToast] = useState(false);
+  const [registrationSuccessToast, setRegistrationSuccessToast] = useState(false);
 
   // Full Slot Details Modal State
   const [detailedSlotModal, setDetailedSlotModal] = useState(null);
@@ -1972,6 +1973,8 @@ export default function App() {
     // roster, including after a withdrawal followed by a re-registration.
     await loadSupabaseRoster(currentUser);
     setRegisterModalOcc(null);
+    setRegistrationSuccessToast(true);
+    setTimeout(() => setRegistrationSuccessToast(false), 6000);
   };
 
   // OPEN WITHDRAWAL MODAL
@@ -2347,6 +2350,13 @@ export default function App() {
         <div className="fixed top-4 right-4 z-50 bg-emerald-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-500 flex items-center space-x-2 animate-bounce">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <span className="font-bold text-xs">Service Desk statistics updated successfully!</span>
+        </div>
+      )}
+
+      {registrationSuccessToast && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-amber-500 flex items-start space-x-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          <span className="font-bold text-xs leading-relaxed">Registration saved. A confirmation email and calendar appointment will be sent in approximately five minutes if you remain registered.</span>
         </div>
       )}
 
@@ -4199,7 +4209,7 @@ export default function App() {
                           <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. <b>Log Stats</b> becomes available only after the shift has finished. At that point, calendar download and withdrawal are unavailable. Once statistics are logged, the disabled <b>Stats Logged</b> button directs you to the <b>Statistics</b> tab for any maintenance.
                         </li>
                         <li><b>Closed slots:</b> Grey slots marked <b>Desk closed</b> or <b>Statutory holiday</b> cannot be registered for.</li>
-                        <li>When a registration is confirmed, you will receive an email with a calendar appointment attachment. You can also click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
+                          <li>A registration is saved immediately. If you remain registered for approximately five minutes, you will receive a confirmation email with a calendar appointment attachment. If you withdraw after that email, you will receive a cancellation email; delete any personal calendar appointment yourself, because the portal cannot remove it. You can also click <b>"Add to Cal"</b> on any registered shift to download an <code className="bg-white px-1 border rounded">.ics</code> calendar file for Outlook, Google, or Apple Calendar.</li>
                       </ol>
                     </div>
 
