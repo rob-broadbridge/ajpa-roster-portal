@@ -15,6 +15,26 @@ import {
   Eye, EyeOff
 } from 'lucide-react';
 
+const WEEKDAY_SORT_ORDER = {
+  Monday: 0,
+  Tuesday: 1,
+  Wednesday: 2,
+  Thursday: 3,
+  Friday: 4,
+  Saturday: 5,
+  Sunday: 6,
+};
+
+const compareRecurringSlots = (firstSlot, secondSlot) => {
+  const dayDifference = (WEEKDAY_SORT_ORDER[firstSlot.dayOfWeek] ?? 99) - (WEEKDAY_SORT_ORDER[secondSlot.dayOfWeek] ?? 99);
+  if (dayDifference !== 0) return dayDifference;
+  const startDifference = (firstSlot.startTime || '').localeCompare(secondSlot.startTime || '');
+  if (startDifference !== 0) return startDifference;
+  const endDifference = (firstSlot.endTime || '').localeCompare(secondSlot.endTime || '');
+  if (endDifference !== 0) return endDifference;
+  return (firstSlot.id || '').localeCompare(secondSlot.id || '');
+};
+
 // --- MASTER REGIONS LIST ---
 const INITIAL_REGIONS = [
   { id: 'reg-1', name: 'Auckland East', code: 'AKL-E' }
@@ -2917,6 +2937,12 @@ export default function App() {
                             }
 
                             return occ.date === dayObj.isoDate;
+                          }).sort((firstOccurrence, secondOccurrence) => {
+                            const startDifference = (firstOccurrence.startTime || '').localeCompare(secondOccurrence.startTime || '');
+                            if (startDifference !== 0) return startDifference;
+                            const firstDeskName = activeDeskMap[firstOccurrence.deskId]?.name || '';
+                            const secondDeskName = activeDeskMap[secondOccurrence.deskId]?.name || '';
+                            return firstDeskName.localeCompare(secondDeskName);
                           });
 
                           return (
@@ -3115,7 +3141,9 @@ export default function App() {
                           const primaryAdmin = userMap[desk.primaryAdminId];
                           const secondaryAdmin = userMap[desk.secondaryAdminId];
 
-                          const deskSlotTemplates = slotTemplates.filter(s => s.deskId === desk.id);
+                          const deskSlotTemplates = slotTemplates
+                            .filter(slot => slot.deskId === desk.id)
+                            .sort(compareRecurringSlots);
 
                           return (
                             <div key={desk.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">

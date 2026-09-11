@@ -6,6 +6,7 @@ type Notification = {
   slot_id: string;
   duty_date: string;
   status: string;
+  created_at: string;
   desk_admin_alert_required: boolean;
   member_cancellation_sent_at: string | null;
   desk_admin_alert_sent_at: string | null;
@@ -40,13 +41,16 @@ const toBase64 = (value: string) => {
   return btoa(binary);
 };
 
-const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, deskName, deskAddress }: {
-  profileId: string; slotId: string; dutyDate: string; startTime: string; endTime: string; deskName: string; deskAddress: string;
+const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, deskName, deskAddress, createdAt }: {
+  profileId: string; slotId: string; dutyDate: string; startTime: string; endTime: string; deskName: string; deskAddress: string; createdAt: string;
 }) => {
   const location = `${deskName}, ${deskAddress}`;
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
   const description = `Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`;
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  // This must be based on the queued notification, not the time of a retry.
+  // Resend's idempotency key requires exactly the same request payload if a
+  // previous delivery attempt needs to be repeated.
+  const stamp = new Date(createdAt).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//AJPA//Service Desk Management Platform//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-TIMEZONE:Pacific/Auckland',
     'BEGIN:VTIMEZONE', 'TZID:Pacific/Auckland', 'X-LIC-LOCATION:Pacific/Auckland',
@@ -140,7 +144,7 @@ Deno.serve(async (request) => {
         const startTime = slot.start_time.slice(0, 5);
         const endTime = slot.end_time.slice(0, 5);
         const location = `${desk.name}, ${desk.address}`;
-        const calendarInvite = buildCalendarInvite({ profileId: member.id, slotId: slot.id, dutyDate: notification.duty_date, startTime, endTime, deskName: desk.name, deskAddress: desk.address });
+        const calendarInvite = buildCalendarInvite({ profileId: member.id, slotId: slot.id, dutyDate: notification.duty_date, startTime, endTime, deskName: desk.name, deskAddress: desk.address, createdAt: notification.created_at });
         const response = await sendEmail({
           to: [member.email],
           subject: `JP duty confirmed — ${desk.name}, ${notification.duty_date}`,
