@@ -30,21 +30,20 @@ export async function fetchRosterActivityAudit(limit = 250) {
 }
 
 export async function fetchRosterData(profileId) {
-  const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
+  const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),
     supabase.from('regions').select('*').order('name'),
     supabase.from('service_desks').select('*, regions(name)').order('name'),
     supabase.from('duty_slots').select('*').eq('status', 'Active'),
     supabase.from('desk_follows').select('desk_id').eq('profile_id', profileId),
     supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
-    supabase.from('recurring_rules').select('*').order('created_at'),
     supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false }),
     supabase.from('user_preferences').select('*').eq('profile_id', profileId).maybeSingle(),
     supabase.from('statutory_holidays').select('*').order('holiday_date'),
     supabase.from('duty_slot_holiday_overrides').select('*')
   ]);
 
-  const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, rulesResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);
+  const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);
   if (failure) throw failure.error;
 
   const users = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status, reminderFrequency: member.desk_admin_reminder_frequency || 'NONE', reminderStartDate: member.desk_admin_reminder_start_date || '', reminderWeeks: member.desk_admin_reminder_weeks || 4 }));
@@ -62,7 +61,6 @@ export async function fetchRosterData(profileId) {
     all[key] = [...(all[key] || []), assignment.profile_id];
     return all;
   }, {});
-  const rules = rulesResult.data.map(rule => ({ id: rule.id, userId: rule.profile_id, slotId: rule.slot_id, action: rule.action, type: rule.rule_type, startDate: rule.start_date, untilDate: rule.until_date, countN: rule.count_n }));
   const statistics = statisticsResult.data.map(stat => {
     // duty_statistics stores the profile ID, rather than duplicating personal
     // details in every log entry. Resolve it here so the on-screen log and CSV
@@ -100,5 +98,5 @@ export async function fetchRosterData(profileId) {
   const statutoryHolidays = statutoryHolidaysResult.data.map(holiday => ({ id: holiday.id, date: holiday.holiday_date, description: holiday.description }));
   const slotHolidayOverrides = slotHolidayOverridesResult.data.map(override => ({ slotId: override.duty_slot_id, date: override.duty_date, isHoliday: override.is_holiday }));
 
-  return { users, regions, desks, slots, followedDesks: followsResult.data.map(follow => follow.desk_id), assignments, rules, statistics, statutoryHolidays, slotHolidayOverrides, preferences: preferencesResult.data, preferencesError: preferencesResult.error };
+  return { users, regions, desks, slots, followedDesks: followsResult.data.map(follow => follow.desk_id), assignments, statistics, statutoryHolidays, slotHolidayOverrides, preferences: preferencesResult.data, preferencesError: preferencesResult.error };
 }

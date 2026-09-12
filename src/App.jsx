@@ -336,7 +336,6 @@ export default function App() {
   const [followedDesks, setFollowedDesks] = useState(['desk-remuera', 'desk-glen-innes', 'desk-st-heliers', 'desk-panmure', 'desk-parnell', 'desk-newmarket', 'desk-otahuhu']);
 
   const [slotAssignments, setSlotAssignments] = useState(INITIAL_ASSIGNMENTS);
-  const [recurringRules, setRecurringRules] = useState([]); // Persistent bulk registration/withdrawal rules for auto-rollover
   const [cancelledSlotInstances, setCancelledSlotInstances] = useState([]);
   const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
   const [statutoryHolidays, setStatutoryHolidays] = useState([]);
@@ -521,7 +520,7 @@ export default function App() {
     const roster = await fetchRosterData(profile.id);
     setUsers(roster.users); setRegions(roster.regions); setServiceDesks(roster.desks); setSlotTemplates(roster.slots);
     setFollowedDesks(roster.followedDesks); setSlotAssignments(roster.assignments);
-    setRecurringRules(roster.rules); setLoggedStatistics(roster.statistics);
+    setLoggedStatistics(roster.statistics);
     setStatutoryHolidays(roster.statutoryHolidays); setSlotHolidayOverrides(roster.slotHolidayOverrides);
 
     if (profile.role === 'Admin' || profile.role === 'Registrar') {
@@ -653,6 +652,16 @@ export default function App() {
     const { error } = await query;
     if (error) { alert(`Unable to update followed desks: ${error.message}`); return; }
     setFollowedDesks(previous => isFollowed ? previous.filter(id => id !== deskId) : [...previous, deskId]);
+
+    // For JP Members, following a desk means they expect to see it straight
+    // away on their personal Calendar. Keep the saved Calendar desk selection
+    // in step with the Follow/Unfollow action rather than making them open a
+    // second filter panel to select it again.
+    if (currentUser.role === 'Member') {
+      setMemberCalendarDeskIds(previous => isFollowed
+        ? previous.filter(id => id !== deskId)
+        : [...new Set([...previous, deskId])]);
+    }
   };
 
   useEffect(() => {
@@ -1616,44 +1625,6 @@ export default function App() {
           if (!cancelledSlotInstances.includes(instanceKey)) {
             let assignedJpIds = [...(slotAssignments[instanceKey] || [])];
 
-            // AUTO-ROLLOVER RECURRING RULES ENGINE
-            if (currentUser && !isHoliday) {
-              const matchingRules = recurringRules.filter(r => r.userId === currentUser.id && r.slotId === template.id);
-              for (const rule of matchingRules) {
-                let matches = false;
-                if (rule.type === 'ALL_FUTURE' && isoDate >= rule.startDate) {
-                  matches = true;
-                } else if (rule.type === 'UNTIL_DATE' && isoDate >= rule.startDate && isoDate <= rule.untilDate) {
-                  matches = true;
-                } else if (rule.type === 'NEXT_N' && isoDate >= rule.startDate) {
-                  // Filter future occurrence dates for this slotTemplate
-                  const slotOccurrences = [];
-                  for (let tempD = new Date(rule.startDate); tempD <= rangeEnd; tempD.setDate(tempD.getDate() + 1)) {
-                    if (dayNameMap[tempD.getDay()] === template.dayOfWeek) {
-                      const y = tempD.getFullYear();
-                      const m = String(tempD.getMonth() + 1).padStart(2, '0');
-                      const da = String(tempD.getDate()).padStart(2, '0');
-                      slotOccurrences.push(`${y}-${m}-${da}`);
-                    }
-                  }
-                  const targetDates = slotOccurrences.slice(0, rule.countN);
-                  if (targetDates.includes(isoDate)) {
-                    matches = true;
-                  }
-                }
-
-                if (matches) {
-                  if (rule.action === 'REGISTER' && !assignedJpIds.includes(currentUser.id)) {
-                    if (assignedJpIds.length < template.maxJps) {
-                      assignedJpIds.push(currentUser.id);
-                    }
-                  } else if (rule.action === 'WITHDRAW' && assignedJpIds.includes(currentUser.id)) {
-                    assignedJpIds = assignedJpIds.filter(id => id !== currentUser.id);
-                  }
-                }
-              }
-            }
-
             instances.push({
               instanceKey,
               slotId: template.id,
@@ -1677,7 +1648,7 @@ export default function App() {
     }
 
     return instances;
-  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap, currentUser, recurringRules, statutoryHolidayByDate, slotHolidayOverrideByKey]);
+  }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap, statutoryHolidayByDate, slotHolidayOverrideByKey]);
 
   // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
   const myShiftsFilterDescriptor = useMemo(() => {
@@ -1897,100 +1868,21 @@ export default function App() {
       return;
     }
 
-    const slotOccurrences = generatedOccurrences
-      .filter(o => o.slotId === registerModalOcc.slotId && o.date >= registerModalOcc.date && !o.isHoliday)
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    let targetOccurrences = [];
-
-    if (registerOption === 'SINGLE') {
-      targetOccurrences = [registerModalOcc];
-    } else if (registerOption === 'NEXT_N') {
-      targetOccurrences = slotOccurrences.slice(0, Math.max(1, parseInt(registerCountN, 10) || 1));
-    } else if (registerOption === 'UNTIL_DATE') {
-      targetOccurrences = slotOccurrences.filter(o => o.date <= registerUntilDate);
-    } else if (registerOption === 'ALL_FUTURE') {
-      targetOccurrences = slotOccurrences;
-    }
-
-    // A single-date withdrawal is stored as a one-occurrence WITHDRAW rule so
-    // it can override a previous recurring registration. If the member later
-    // registers for that same date again, remove the old override first;
-    // otherwise the database assignment exists but the calendar correctly
-    // applies the stale rule and hides it from the member.
-    if (registerOption === 'SINGLE') {
-      const { error: clearWithdrawalOverrideError } = await supabase
-        .from('recurring_rules')
-        .delete()
-        .eq('profile_id', currentUser.id)
-        .eq('slot_id', registerModalOcc.slotId)
-        .eq('action', 'WITHDRAW')
-        .eq('rule_type', 'NEXT_N')
-        .eq('start_date', registerModalOcc.date)
-        .eq('count_n', 1);
-
-      if (clearWithdrawalOverrideError) {
-        alert(`Unable to prepare this slot for re-registration: ${clearWithdrawalOverrideError.message}`);
-        return;
-      }
-    }
-
-    const registrationResults = await Promise.all(targetOccurrences.map(occ => supabase.rpc('register_for_duty', { p_slot_id: occ.slotId, p_duty_date: occ.date })));
-    const failedRegistration = registrationResults.find(result => result.error);
-    if (failedRegistration) { alert(`Unable to register: ${failedRegistration.error.message}`); return; }
-
-    setSlotAssignments(prev => {
-      const updated = { ...prev };
-      targetOccurrences.forEach(occ => {
-        const currentAssigned = updated[occ.instanceKey] || [];
-        if (!currentAssigned.includes(currentUser.id) && currentAssigned.length < occ.maxJps) {
-          updated[occ.instanceKey] = [...currentAssigned, currentUser.id];
-        }
-      });
-      return updated;
+    const { error } = await supabase.rpc('apply_duty_assignment_change', {
+      p_action: 'REGISTER',
+      p_slot_id: registerModalOcc.slotId,
+      p_start_date: registerModalOcc.date,
+      p_scope: registerOption,
+      p_count_n: registerOption === 'NEXT_N' ? (parseInt(registerCountN, 10) || 1) : null,
+      p_until_date: registerOption === 'UNTIL_DATE' ? registerUntilDate : null
     });
-
-    if (registerOption !== 'SINGLE') {
-      const { error: removeRuleError } = await supabase
-        .from('recurring_rules')
-        .delete()
-        .eq('profile_id', currentUser.id)
-        .eq('slot_id', registerModalOcc.slotId)
-        .eq('action', 'REGISTER');
-      if (removeRuleError) { alert(`Registration saved, but the recurring rule could not be updated: ${removeRuleError.message}`); return; }
-
-      const rulePayload = {
-        profile_id: currentUser.id,
-        slot_id: registerModalOcc.slotId,
-        action: 'REGISTER',
-        rule_type: registerOption,
-        start_date: registerModalOcc.date,
-        until_date: registerOption === 'UNTIL_DATE' ? registerUntilDate : null,
-        count_n: registerOption === 'NEXT_N' ? (parseInt(registerCountN, 10) || 1) : null
-      };
-      const { data: savedRule, error: saveRuleError } = await supabase
-        .from('recurring_rules')
-        .insert(rulePayload)
-        .select()
-        .single();
-      if (saveRuleError) { alert(`Registration saved, but the recurring rule could not be saved: ${saveRuleError.message}`); return; }
-
-      const newRule = {
-        id: savedRule.id,
-        userId: savedRule.profile_id,
-        slotId: savedRule.slot_id,
-        action: savedRule.action,
-        type: savedRule.rule_type,
-        startDate: savedRule.start_date,
-        countN: savedRule.count_n,
-        untilDate: savedRule.until_date
-      };
-      setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === registerModalOcc.slotId && r.action === 'REGISTER')), newRule]);
+    if (error) {
+      alert(`Unable to register: ${error.message}`);
+      return;
     }
 
-    // Reload from Supabase rather than relying only on the optimistic update.
-    // This keeps the Calendar and My Shifts views identical to the persisted
-    // roster, including after a withdrawal followed by a re-registration.
+    // The database action is atomic. Reloading its saved result keeps every
+    // calendar view identical to the shared roster on every device.
     await loadSupabaseRoster(currentUser);
     setRegisterModalOcc(null);
     setRegistrationSuccessToast(true);
@@ -2019,112 +1911,17 @@ export default function App() {
       return;
     }
 
-    const slotOccurrences = generatedOccurrences
-      .filter(o => o.slotId === withdrawModalOcc.slotId && o.date >= withdrawModalOcc.date)
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    let targetOccurrences = [];
-
-    if (withdrawOption === 'SINGLE') {
-      targetOccurrences = [withdrawModalOcc];
-    } else if (withdrawOption === 'NEXT_N') {
-      targetOccurrences = slotOccurrences.slice(0, Math.max(1, parseInt(withdrawCountN, 10) || 1));
-    } else if (withdrawOption === 'UNTIL_DATE') {
-      targetOccurrences = slotOccurrences.filter(o => o.date <= withdrawUntilDate);
-    } else if (withdrawOption === 'ALL_FUTURE') {
-      targetOccurrences = slotOccurrences;
-    }
-
-    const withdrawalResults = await Promise.all(targetOccurrences.map(occ => supabase
-      .from('duty_assignments')
-      .delete()
-      .eq('slot_id', occ.slotId)
-      .eq('duty_date', occ.date)
-      .eq('profile_id', currentUser.id)
-      .select('slot_id, duty_date, profile_id')));
-    const failedWithdrawal = withdrawalResults.find(result => result.error);
-    if (failedWithdrawal) { alert(`Unable to withdraw: ${failedWithdrawal.error.message}`); return; }
-
-    setSlotAssignments(prev => {
-      const updated = { ...prev };
-      targetOccurrences.forEach(occ => {
-        const currentAssigned = updated[occ.instanceKey] || [];
-        if (currentAssigned.includes(currentUser.id)) {
-          updated[occ.instanceKey] = currentAssigned.filter(id => id !== currentUser.id);
-        }
-      });
-      return updated;
+    const { error } = await supabase.rpc('apply_duty_assignment_change', {
+      p_action: 'WITHDRAW',
+      p_slot_id: withdrawModalOcc.slotId,
+      p_start_date: withdrawModalOcc.date,
+      p_scope: withdrawOption,
+      p_count_n: withdrawOption === 'NEXT_N' ? (parseInt(withdrawCountN, 10) || 1) : null,
+      p_until_date: withdrawOption === 'UNTIL_DATE' ? withdrawUntilDate : null
     });
-
-    if (withdrawOption !== 'SINGLE') {
-      const { error: removeRuleError } = await supabase
-        .from('recurring_rules')
-        .delete()
-        .eq('profile_id', currentUser.id)
-        .eq('slot_id', withdrawModalOcc.slotId)
-        .eq('action', 'WITHDRAW');
-      if (removeRuleError) { alert(`Withdrawal saved, but the recurring rule could not be updated: ${removeRuleError.message}`); return; }
-
-      const rulePayload = {
-        profile_id: currentUser.id,
-        slot_id: withdrawModalOcc.slotId,
-        action: 'WITHDRAW',
-        rule_type: withdrawOption,
-        start_date: withdrawModalOcc.date,
-        until_date: withdrawOption === 'UNTIL_DATE' ? withdrawUntilDate : null,
-        count_n: withdrawOption === 'NEXT_N' ? (parseInt(withdrawCountN, 10) || 1) : null
-      };
-      const { data: savedRule, error: saveRuleError } = await supabase
-        .from('recurring_rules')
-        .insert(rulePayload)
-        .select()
-        .single();
-      if (saveRuleError) { alert(`Withdrawal saved, but the recurring rule could not be saved: ${saveRuleError.message}`); return; }
-
-      const newRule = {
-        id: savedRule.id,
-        userId: savedRule.profile_id,
-        slotId: savedRule.slot_id,
-        action: savedRule.action,
-        type: savedRule.rule_type,
-        startDate: savedRule.start_date,
-        countN: savedRule.count_n,
-        untilDate: savedRule.until_date
-      };
-      setRecurringRules(prev => [...prev.filter(r => !(r.userId === currentUser.id && r.slotId === withdrawModalOcc.slotId && r.action === 'WITHDRAW')), newRule]);
-    } else {
-      // Record a one-occurrence withdrawal in Supabase. This overrides a
-      // repeating registration on every device without changing the other
-      // dates covered by that registration.
-      const { error: removeOneOffRuleError } = await supabase
-        .from('recurring_rules')
-        .delete()
-        .eq('profile_id', currentUser.id)
-        .eq('slot_id', withdrawModalOcc.slotId)
-        .eq('action', 'WITHDRAW')
-        .eq('rule_type', 'NEXT_N')
-        .eq('start_date', withdrawModalOcc.date)
-        .eq('count_n', 1);
-      if (removeOneOffRuleError) {
-        alert(`Unable to update the one-off withdrawal: ${removeOneOffRuleError.message}`);
-        return;
-      }
-
-      const { error: saveOneOffRuleError } = await supabase
-        .from('recurring_rules')
-        .insert({
-          profile_id: currentUser.id,
-          slot_id: withdrawModalOcc.slotId,
-          action: 'WITHDRAW',
-          rule_type: 'NEXT_N',
-          start_date: withdrawModalOcc.date,
-          count_n: 1,
-          until_date: null
-        });
-      if (saveOneOffRuleError) {
-        alert(`Withdrawal saved, but the one-off withdrawal could not be recorded: ${saveOneOffRuleError.message}`);
-        return;
-      }
+    if (error) {
+      alert(`Unable to withdraw: ${error.message}`);
+      return;
     }
 
     await loadSupabaseRoster(currentUser);
