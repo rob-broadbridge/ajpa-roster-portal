@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
-import { fetchRosterActivityAudit, fetchRosterData } from './services/rosterService';
+import { fetchDutyNotificationFailures, fetchRosterActivityAudit, fetchRosterData, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
@@ -342,6 +342,10 @@ export default function App() {
   const [slotHolidayOverrides, setSlotHolidayOverrides] = useState([]);
   const [rosterActivityAudit, setRosterActivityAudit] = useState([]);
   const [rosterActivityAuditError, setRosterActivityAuditError] = useState('');
+  const [dutyNotificationFailures, setDutyNotificationFailures] = useState([]);
+  const [dutyNotificationFailuresError, setDutyNotificationFailuresError] = useState('');
+  const [dutyNotificationFailuresLoading, setDutyNotificationFailuresLoading] = useState(false);
+  const [retryingDutyNotificationId, setRetryingDutyNotificationId] = useState(null);
 
   // REGISTRATION & WITHDRAWAL MODAL STATES
   const [registerModalOcc, setRegisterModalOcc] = useState(null);
@@ -539,6 +543,22 @@ export default function App() {
       setRosterActivityAuditError('');
     }
 
+    if (profile.role === 'Registrar') {
+      try {
+        setDutyNotificationFailures(await fetchDutyNotificationFailures());
+        setDutyNotificationFailuresError('');
+      } catch (notificationError) {
+        // Stage 3B is an operational aid only. A missing migration must not
+        // prevent a Registrar from using the rest of the portal.
+        console.warn('Duty notification failures could not be loaded:', notificationError.message);
+        setDutyNotificationFailures([]);
+        setDutyNotificationFailuresError(notificationError.message);
+      }
+    } else {
+      setDutyNotificationFailures([]);
+      setDutyNotificationFailuresError('');
+    }
+
     // Reset to the familiar defaults first. The saved values below then take
     // precedence where they exist, including when another account signs in on
     // the same browser.
@@ -583,6 +603,34 @@ export default function App() {
     }
     setPreferencesReadyForProfile(profile.id);
     return roster;
+  };
+
+  const handleRefreshDutyNotificationFailures = async () => {
+    if (currentUser?.role !== 'Registrar') return;
+    setDutyNotificationFailuresLoading(true);
+    try {
+      setDutyNotificationFailures(await fetchDutyNotificationFailures());
+      setDutyNotificationFailuresError('');
+    } catch (notificationError) {
+      setDutyNotificationFailuresError(notificationError.message);
+    } finally {
+      setDutyNotificationFailuresLoading(false);
+    }
+  };
+
+  const handleRetryDutyNotificationFailure = async (notification) => {
+    if (!window.confirm(`Return the failed ${notification.dutyDate} email for ${notification.memberName} to the delivery queue? The system will retry it shortly.`)) return;
+
+    setRetryingDutyNotificationId(notification.id);
+    try {
+      await retryDutyNotificationFailure(notification.id);
+      await handleRefreshDutyNotificationFailures();
+      alert('The email has been returned to the delivery queue. Refresh this screen in a few minutes to confirm the result.');
+    } catch (notificationError) {
+      alert(`Unable to retry this email: ${notificationError.message}`);
+    } finally {
+      setRetryingDutyNotificationId(null);
+    }
   };
 
   // Restore an existing Supabase session after a page refresh. This avoids
@@ -3633,6 +3681,10 @@ export default function App() {
                         <Globe className="w-3.5 h-3.5" />
                         <span>Regions ({regions.length})</span>
                       </button>
+                      <button onClick={() => setRegistrarSubTab('email-delivery')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'email-delivery' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>Email Delivery{dutyNotificationFailures.length ? ` (${dutyNotificationFailures.length})` : ''}</span>
+                      </button>
                       {currentUser.role === 'Registrar' && (
                         <button onClick={() => setRegistrarSubTab('statutory-holidays')} className={`px-4 py-2 rounded-md flex items-center space-x-1.5 cursor-pointer ${registrarSubTab === 'statutory-holidays' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
                           <Calendar className="w-3.5 h-3.5" />
@@ -3735,6 +3787,74 @@ export default function App() {
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                )}
+
+                {/* SUBTAB: EMAIL DELIVERY (Registrar-only) */}
+                {registrarSubTab === 'email-delivery' && currentUser.role === 'Registrar' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base">Duty Email Delivery</h3>
+                        <p className="text-xs text-slate-500 mt-1">Only emails that could not be delivered after five automatic attempts appear here. Correct the underlying email configuration first, then return the item to the delivery queue.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRefreshDutyNotificationFailures}
+                        disabled={dutyNotificationFailuresLoading}
+                        className="px-3 py-2 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 text-amber-400 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        {dutyNotificationFailuresLoading ? 'Refreshing…' : 'Refresh'}
+                      </button>
+                    </div>
+
+                    {dutyNotificationFailuresError ? (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-lg text-xs font-bold">
+                        The email-delivery list is not available. Run the Stage 3B SQL migration, then sign out and back in. Detail: {dutyNotificationFailuresError}
+                      </div>
+                    ) : dutyNotificationFailures.length === 0 ? (
+                      <div className="py-10 text-center text-sm text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded-xl">
+                        No duty emails have permanently failed. Emails that are still within their automatic retry period do not need action here.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse min-w-[800px]">
+                          <thead>
+                            <tr className="bg-slate-100 text-slate-700 uppercase font-black tracking-wider border-b border-slate-200">
+                              <th className="p-3">Updated</th>
+                              <th className="p-3">JP Member</th>
+                              <th className="p-3">Service Desk</th>
+                              <th className="p-3">Duty Date</th>
+                              <th className="p-3">Attempts</th>
+                              <th className="p-3">Last Error</th>
+                              <th className="p-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {dutyNotificationFailures.map(notification => (
+                              <tr key={notification.id} className="hover:bg-rose-50/50">
+                                <td className="p-3 whitespace-nowrap text-slate-700">{notification.updatedAt ? new Date(notification.updatedAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
+                                <td className="p-3 font-bold text-slate-900">{notification.memberName}</td>
+                                <td className="p-3 text-slate-800">{notification.deskName}</td>
+                                <td className="p-3 font-mono text-slate-800">{notification.dutyDate}</td>
+                                <td className="p-3 text-center font-bold text-rose-700">{notification.failureCount}</td>
+                                <td className="p-3 text-rose-800 max-w-md break-words">{notification.lastError || 'No error detail was recorded.'}</td>
+                                <td className="p-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRetryDutyNotificationFailure(notification)}
+                                    disabled={retryingDutyNotificationId === notification.id}
+                                    className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-amber-500 hover:bg-amber-400 disabled:bg-slate-300 text-slate-950 disabled:text-slate-500 cursor-pointer disabled:cursor-not-allowed"
+                                  >
+                                    {retryingDutyNotificationId === notification.id ? 'Retrying…' : 'Retry Email'}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -4187,6 +4307,18 @@ export default function App() {
                           <li>Go to <b>Registrar Portal</b> and click <b>"Download Data (CSV Archive)"</b>.</li>
                           <li>Confirm the action in the prompt modal window.</li>
                           <li>The system will automatically generate and download <b>8 separate timestamped CSV files</b>, including statutory-holiday dates and desk-slot closure overrides.</li>
+                        </ol>
+                      </div>
+
+                      <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 space-y-2">
+                        <h4 className="font-extrabold text-xs text-slate-900 flex items-center space-x-2">
+                          <Mail className="w-4 h-4 text-purple-700 shrink-0" />
+                          <span>5. Monitor & Retry Failed Duty Emails</span>
+                        </h4>
+                        <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
+                          <li>Go to <b>Registrar Portal &rarr; Email Delivery</b>. The tab is empty unless an email has failed all five automatic delivery attempts.</li>
+                          <li>Read the error detail and correct the cause first — for example, a Resend sender-domain or email-address issue.</li>
+                          <li>Use <b>Retry Email</b> to return the item to the secure delivery queue. The system checks that the booking still exists before a confirmation email is sent.</li>
                         </ol>
                       </div>
                     </div>

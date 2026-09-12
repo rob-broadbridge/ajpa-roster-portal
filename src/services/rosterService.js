@@ -29,6 +29,38 @@ export async function fetchRosterActivityAudit(limit = 250) {
   }));
 }
 
+// This RPC deliberately exposes only permanently failed email jobs, and the
+// database function independently checks that the caller is a Registrar.
+// Keeping the query in the service layer prevents the UI from ever reading the
+// notification outbox directly.
+export async function fetchDutyNotificationFailures(limit = 100) {
+  const { data, error } = await supabase.rpc('get_duty_notification_failures', {
+    p_limit: limit
+  });
+
+  if (error) throw error;
+
+  return (data ?? []).map(notification => ({
+    id: notification.id,
+    status: notification.status,
+    failureCount: notification.failure_count,
+    lastError: notification.last_error || '',
+    dutyDate: notification.duty_date,
+    updatedAt: notification.updated_at,
+    memberName: notification.member_name || 'Unavailable member',
+    deskName: notification.desk_name || 'Unavailable service desk'
+  }));
+}
+
+export async function retryDutyNotificationFailure(notificationId) {
+  const { data, error } = await supabase.rpc('retry_failed_duty_notification', {
+    p_notification_id: notificationId
+  });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchRosterData(profileId) {
   const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),
