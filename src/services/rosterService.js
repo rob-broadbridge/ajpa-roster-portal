@@ -61,18 +61,47 @@ export async function retryDutyNotificationFailure(notificationId) {
   return data;
 }
 
-export async function fetchRosterData(profileId) {
+// Full roster history is only required when a Registrar explicitly requests a
+// CSV archive. Normal portal use needs the operational calendar window only.
+export async function fetchFullRosterArchiveData() {
+  const [assignmentsResult, slotHolidayOverridesResult] = await Promise.all([
+    supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
+    supabase.from('duty_slot_holiday_overrides').select('*')
+  ]);
+
+  const failure = [assignmentsResult, slotHolidayOverridesResult].find(result => result.error);
+  if (failure) throw failure.error;
+
+  return {
+    assignments: assignmentsResult.data ?? [],
+    slotHolidayOverrides: slotHolidayOverridesResult.data ?? []
+  };
+}
+
+export async function fetchRosterData(profileId, { operationalStartDate, operationalEndDate } = {}) {
+  const assignmentsQuery = supabase.from('duty_assignments').select('slot_id, duty_date, profile_id');
+  const slotHolidayOverridesQuery = supabase.from('duty_slot_holiday_overrides').select('*');
+
+  if (operationalStartDate) {
+    assignmentsQuery.gte('duty_date', operationalStartDate);
+    slotHolidayOverridesQuery.gte('duty_date', operationalStartDate);
+  }
+  if (operationalEndDate) {
+    assignmentsQuery.lte('duty_date', operationalEndDate);
+    slotHolidayOverridesQuery.lte('duty_date', operationalEndDate);
+  }
+
   const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),
     supabase.from('regions').select('*').order('name'),
     supabase.from('service_desks').select('*, regions(name)').order('name'),
     supabase.from('duty_slots').select('*').eq('status', 'Active'),
     supabase.from('desk_follows').select('desk_id').eq('profile_id', profileId),
-    supabase.from('duty_assignments').select('slot_id, duty_date, profile_id'),
+    assignmentsQuery,
     supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false }),
     supabase.from('user_preferences').select('*').eq('profile_id', profileId).maybeSingle(),
     supabase.from('statutory_holidays').select('*').order('holiday_date'),
-    supabase.from('duty_slot_holiday_overrides').select('*')
+    slotHolidayOverridesQuery
   ]);
 
   const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);

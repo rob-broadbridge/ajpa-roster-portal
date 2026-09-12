@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
-import { fetchDutyNotificationFailures, fetchRosterActivityAudit, fetchRosterData, retryDutyNotificationFailure } from './services/rosterService';
+import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchRosterActivityAudit, fetchRosterData, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
@@ -310,6 +310,29 @@ const hasShiftEnded = (occurrence, now = new Date()) => {
   return getAucklandTimestamp(now) > `${occurrence.date}T${occurrence.endTime}:00`;
 };
 
+const toLocalIsoDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// The generated calendar needs 90 days of history for My Shifts and 270 days
+// ahead for the 12-week view. Keep a buffer on either side so a signed-in
+// user can remain in the app across several weekly rollovers without another
+// full-history query.
+const getOperationalRosterWindow = (date = new Date()) => {
+  const monday = getWeekStartMonday(date);
+  const start = new Date(monday);
+  const end = new Date(monday);
+  start.setDate(start.getDate() - 120);
+  end.setDate(end.getDate() + 365);
+  return {
+    operationalStartDate: toLocalIsoDate(start),
+    operationalEndDate: toLocalIsoDate(end)
+  };
+};
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -464,6 +487,8 @@ export default function App() {
 
   // REGISTRAR MASTER DOWNLOAD CONFIRMATION MODAL STATE
   const [confirmDownloadModalOpen, setConfirmDownloadModalOpen] = useState(false);
+  const [archivePreparing, setArchivePreparing] = useState(false);
+  const [preparedFullArchiveData, setPreparedFullArchiveData] = useState(null);
 
   // SLOT TEMPLATE MODAL, VALIDATION & ACTION CONFIRMATION STATES
   const [slotModalOpen, setSlotModalOpen] = useState(false);
@@ -521,7 +546,7 @@ export default function App() {
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
     setPreferencesReadyForProfile(null);
-    const roster = await fetchRosterData(profile.id);
+    const roster = await fetchRosterData(profile.id, getOperationalRosterWindow());
     setUsers(roster.users); setRegions(roster.regions); setServiceDesks(roster.desks); setSlotTemplates(roster.slots);
     setFollowedDesks(roster.followedDesks); setSlotAssignments(roster.assignments);
     setLoggedStatistics(roster.statistics);
@@ -899,8 +924,45 @@ export default function App() {
     return serviceDesks.filter(d => d.status === 'Archived');
   }, [serviceDesks]);
 
+  const handlePrepareFullDataDownload = async () => {
+    setArchivePreparing(true);
+    try {
+      // Fetch before the confirmation screen. This lets the actual download
+      // begin directly from the user's Confirm click, which avoids browsers
+      // treating the eight-file archive as an unsolicited download.
+      setPreparedFullArchiveData(await fetchFullRosterArchiveData());
+      setConfirmDownloadModalOpen(true);
+    } catch (archiveError) {
+      alert(`Unable to prepare the complete data archive: ${archiveError.message}`);
+    } finally {
+      setArchivePreparing(false);
+    }
+  };
+
   const handleExecuteFullDataDownload = () => {
     setConfirmDownloadModalOpen(false);
+
+    let archiveAssignments;
+    let archiveSlotHolidayOverrides;
+    if (!preparedFullArchiveData) {
+      alert('The archive data is not ready. Please try Download Data again.');
+      return;
+    }
+
+    const slotsById = Object.fromEntries(slotTemplates.map(slot => [slot.id, slot]));
+    archiveAssignments = preparedFullArchiveData.assignments.reduce((all, assignment) => {
+      const slot = slotsById[assignment.slot_id];
+      if (!slot) return all;
+      const instanceKey = `${slot.deskId}_${slot.id}_${assignment.duty_date}`;
+      all[instanceKey] = [...(all[instanceKey] || []), assignment.profile_id];
+      return all;
+    }, {});
+    archiveSlotHolidayOverrides = preparedFullArchiveData.slotHolidayOverrides.map(override => ({
+      slotId: override.duty_slot_id,
+      date: override.duty_date,
+      isHoliday: override.is_holiday
+    }));
+    setPreparedFullArchiveData(null);
 
     const now = new Date();
     const YYYY = now.getFullYear();
@@ -939,14 +1001,14 @@ export default function App() {
     triggerDownload(`${timestamp}_3.csv`, convertToCsv(serviceDesks, ['id', 'code', 'name', 'address', 'region', 'primaryAdminId', 'secondaryAdminId', 'siteContactName', 'siteContactEmail', 'contactPerson', 'notes', 'status']));
     triggerDownload(`${timestamp}_4.csv`, convertToCsv(slotTemplates, ['id', 'deskId', 'dayOfWeek', 'startTime', 'endTime', 'minJps', 'targetJps', 'maxJps', 'status', 'effectiveFromDate']));
     
-    const assignmentsArray = Object.entries(slotAssignments).map(([instanceKey, assignedJpIds]) => ({
+    const assignmentsArray = Object.entries(archiveAssignments).map(([instanceKey, assignedJpIds]) => ({
       instanceKey,
       assignedJpIds: JSON.stringify(assignedJpIds)
     }));
     triggerDownload(`${timestamp}_5.csv`, convertToCsv(assignmentsArray, ['instanceKey', 'assignedJpIds']));
     triggerDownload(`${timestamp}_6.csv`, convertToCsv(loggedStatistics, ['id', 'jpId', 'jpName', 'warrantNumber', 'deskId', 'deskName', 'deskCode', 'region', 'slotId', 'occurrenceKey', 'date', 'startTime', 'endTime', 'noOfJpDuties', 'noOfClients', 'noOfHoursWorked', 'certifiedCopies', 'statutoryDeclarations', 'signatureWitnessed', 'affidavits', 'other', 'notes']));
     triggerDownload(`${timestamp}_7.csv`, convertToCsv(statutoryHolidays, ['id', 'date', 'description']));
-    triggerDownload(`${timestamp}_8.csv`, convertToCsv(slotHolidayOverrides, ['slotId', 'date', 'isHoliday']));
+    triggerDownload(`${timestamp}_8.csv`, convertToCsv(archiveSlotHolidayOverrides, ['slotId', 'date', 'isHoliday']));
   };
 
   const handleLoginSubmit = async (e) => {
@@ -3664,12 +3726,13 @@ export default function App() {
 
                   <div className="flex flex-wrap items-center gap-3">
                     <button 
-                      onClick={() => setConfirmDownloadModalOpen(true)}
-                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-extrabold shadow flex items-center space-x-1.5 transition cursor-pointer"
+                      onClick={handlePrepareFullDataDownload}
+                      disabled={archivePreparing}
+                      className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg text-xs font-extrabold shadow flex items-center space-x-1.5 transition cursor-pointer disabled:cursor-wait"
                       title="Export all application datasets into timestamped CSV files"
                     >
                       <Database className="w-4 h-4 text-emerald-300" />
-                      <span>Download Data (CSV Archive)</span>
+                      <span>{archivePreparing ? 'Preparing Archive…' : 'Download Data (CSV Archive)'}</span>
                     </button>
 
                     <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
