@@ -4,7 +4,7 @@ import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signO
 import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchRosterActivityAudit, fetchRosterData, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
-import { getNextMondayMidnight, getWeekStartMonday } from './utils/calendarDates';
+import { calendarDateFromIso, calendarDateToIso, daysBetweenIsoDates, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
@@ -37,7 +37,7 @@ const compareRecurringSlots = (firstSlot, secondSlot) => {
 
 // --- MASTER REGIONS LIST ---
 const INITIAL_REGIONS = [
-  { id: 'reg-1', name: 'Auckland East', code: 'AKL-E' }
+  { id: 'reg-1', name: 'Auckland East', code: 'AKL-E', timezone: DEFAULT_ROSTER_TIME_ZONE }
 ];
 
 // --- INITIAL USERS ---
@@ -241,7 +241,7 @@ const foldIcsLine = (line) => {
   return foldedLines.join('\r\n');
 };
 
-const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskName, deskAddress }) => {
+const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskName, deskAddress, timeZone = DEFAULT_ROSTER_TIME_ZONE }) => {
   const location = `${deskName}, ${deskAddress}`;
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
   const dateTime = (time) => `${date.replaceAll('-', '')}T${time.replaceAll(':', '').slice(0, 4)}00`;
@@ -252,7 +252,7 @@ const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskNa
     'PRODID:-//AJPA//Service Desk Management Platform//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-TIMEZONE:Pacific/Auckland',
+    `X-WR-TIMEZONE:${timeZone}`,
     'BEGIN:VTIMEZONE',
     'TZID:Pacific/Auckland',
     'X-LIC-LOCATION:Pacific/Auckland',
@@ -274,8 +274,8 @@ const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskNa
     'BEGIN:VEVENT',
     `UID:ajpa-duty-${profileId}-${slotId}-${date}@contact.broadbridge.co.nz`,
     `DTSTAMP:${stamp}`,
-    `DTSTART;TZID=Pacific/Auckland:${dateTime(startTime)}`,
-    `DTEND;TZID=Pacific/Auckland:${dateTime(endTime)}`,
+    `DTSTART;TZID=${timeZone}:${dateTime(startTime)}`,
+    `DTEND;TZID=${timeZone}:${dateTime(endTime)}`,
     `SUMMARY:${escapeIcsText(`JP duty - ${deskName}`)}`,
     `LOCATION:${escapeIcsText(location)}`,
     `DESCRIPTION:${escapeIcsText(`Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`)}`,
@@ -292,9 +292,9 @@ const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskNa
 // Duty times are Auckland times, irrespective of the device's own timezone.
 // A sortable local timestamp lets the action controls close at the correct
 // moment without relying on browser-specific date parsing.
-const getAucklandTimestamp = (date = new Date()) => {
+const getRosterTimestamp = (date = new Date(), timeZone = DEFAULT_ROSTER_TIME_ZONE) => {
   const parts = new Intl.DateTimeFormat('en-NZ', {
-    timeZone: 'Pacific/Auckland',
+    timeZone,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
   }).formatToParts(date).reduce((values, part) => {
@@ -307,14 +307,7 @@ const getAucklandTimestamp = (date = new Date()) => {
 
 const hasShiftEnded = (occurrence, now = new Date()) => {
   if (!occurrence?.date || !occurrence?.endTime) return false;
-  return getAucklandTimestamp(now) > `${occurrence.date}T${occurrence.endTime}:00`;
-};
-
-const toLocalIsoDate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getRosterTimestamp(now, occurrence.timeZone || DEFAULT_ROSTER_TIME_ZONE) > `${occurrence.date}T${occurrence.endTime}:00`;
 };
 
 // The generated calendar needs 90 days of history for My Shifts and 270 days
@@ -328,8 +321,8 @@ const getOperationalRosterWindow = (date = new Date()) => {
   start.setDate(start.getDate() - 120);
   end.setDate(end.getDate() + 365);
   return {
-    operationalStartDate: toLocalIsoDate(start),
-    operationalEndDate: toLocalIsoDate(end)
+    operationalStartDate: calendarDateToIso(start),
+    operationalEndDate: calendarDateToIso(end)
   };
 };
 
@@ -482,7 +475,7 @@ export default function App() {
 
   const [regionModalOpen, setRegionModalOpen] = useState(false);
   const [editingRegionId, setEditingRegionId] = useState(null);
-  const [regionForm, setRegionForm] = useState({ name: '', code: '' });
+  const [regionForm, setRegionForm] = useState({ name: '', code: '', timezone: DEFAULT_ROSTER_TIME_ZONE });
   const [pendingDeleteRegionId, setPendingDeleteRegionId] = useState(null);
 
   // REGISTRAR MASTER DOWNLOAD CONFIRMATION MODAL STATE
@@ -1446,9 +1439,11 @@ export default function App() {
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
 
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); 
+    const today = getTimeZoneDateString();
+    const currentPeriod = today.slice(0, 7);
+    const previousMonth = calendarDateFromIso(`${currentPeriod}-01`);
+    previousMonth.setMonth(previousMonth.getMonth() - 1);
+    const previousPeriod = calendarDateToIso(previousMonth).slice(0, 7);
 
     return loggedStatistics.filter(stat => {
       if (currentUser.role === 'Member' && stat.jpId !== currentUser.id) {
@@ -1467,36 +1462,23 @@ export default function App() {
         return false;
       }
 
-      const statDate = new Date(stat.date);
-      const statYear = statDate.getFullYear();
-      const statMonth = statDate.getMonth();
+      const statPeriod = stat.date.slice(0, 7);
 
       if (statsDatePreset === 'CURRENT_AND_PREVIOUS') {
-        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-        const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-        const isCurrentMonth = statYear === currentYear && statMonth === currentMonth;
-        const isPrevMonth = statYear === prevYear && statMonth === prevMonth;
-        if (!isCurrentMonth && !isPrevMonth) return false;
+        if (statPeriod !== currentPeriod && statPeriod !== previousPeriod) return false;
       } 
       else if (statsDatePreset === 'CURRENT_MONTH') {
-        if (statYear !== currentYear || statMonth !== currentMonth) return false;
+        if (statPeriod !== currentPeriod) return false;
       } 
       else if (statsDatePreset === 'LAST_MONTH') {
-        const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-        const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-        if (statYear !== prevYear || statMonth !== prevMonth) return false;
+        if (statPeriod !== previousPeriod) return false;
       } 
       else if (statsDatePreset === 'LAST_30_DAYS') {
-        const diffTime = today.getTime() - statDate.getTime();
-        const diffDays = diffTime / (1000 * 3600 * 24);
+        const diffDays = daysBetweenIsoDates(today, stat.date);
         if (diffDays < 0 || diffDays > 30) return false;
       } 
       else if (statsDatePreset === 'CUSTOM') {
-        const from = new Date(customFromDate);
-        const to = new Date(customToDate);
-        to.setHours(23, 59, 59, 999);
-        if (statDate < from || statDate > to) return false;
+        if (stat.date < customFromDate || stat.date > customToDate) return false;
       }
 
       return true;
@@ -1748,6 +1730,7 @@ export default function App() {
               minJps: template.minJps,
               targetJps: template.targetJps,
               maxJps: template.maxJps,
+              timeZone: parentDesk.timeZone || DEFAULT_ROSTER_TIME_ZONE,
               assignedJpIds,
               isHoliday,
               holidayDescription: statutoryHoliday?.description || ''
@@ -1762,7 +1745,7 @@ export default function App() {
 
   // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
   const myShiftsFilterDescriptor = useMemo(() => {
-    const today = new Date();
+    const today = calendarDateFromIso(getTimeZoneDateString());
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
 
@@ -1780,8 +1763,8 @@ export default function App() {
       end.setDate(end.getDate() + (28 + 6));
       return {
         label: `Showing my shifts for 5-week window: Prior Week + Calendar Weeks 1-4 (${formatDateStr(start)} to ${formatDateStr(end)})`,
-        startDateStr: start.toISOString().split('T')[0],
-        endDateStr: end.toISOString().split('T')[0]
+        startDateStr: calendarDateToIso(start),
+        endDateStr: calendarDateToIso(end)
       };
     } 
     else if (myShiftsPreset === 'THIS_MONTH') {
@@ -1789,8 +1772,8 @@ export default function App() {
       const end = new Date(currentYear, currentMonth + 1, 0);
       return {
         label: `Showing my shifts for This Month (${formatDateStr(start)} to ${formatDateStr(end)})`,
-        startDateStr: start.toISOString().split('T')[0],
-        endDateStr: end.toISOString().split('T')[0]
+        startDateStr: calendarDateToIso(start),
+        endDateStr: calendarDateToIso(end)
       };
     } 
     else if (myShiftsPreset === 'LAST_MONTH') {
@@ -1800,8 +1783,8 @@ export default function App() {
       const end = new Date(prevYear, prevMonth + 1, 0);
       return {
         label: `Showing my shifts for Last Month (${formatDateStr(start)} to ${formatDateStr(end)})`,
-        startDateStr: start.toISOString().split('T')[0],
-        endDateStr: end.toISOString().split('T')[0]
+        startDateStr: calendarDateToIso(start),
+        endDateStr: calendarDateToIso(end)
       };
     } 
     else if (myShiftsPreset === 'NEXT_MONTH') {
@@ -1811,13 +1794,13 @@ export default function App() {
       const end = new Date(nextYear, nextMonth + 1, 0);
       return {
         label: `Showing my shifts for Next Month (${formatDateStr(start)} to ${formatDateStr(end)})`,
-        startDateStr: start.toISOString().split('T')[0],
-        endDateStr: end.toISOString().split('T')[0]
+        startDateStr: calendarDateToIso(start),
+        endDateStr: calendarDateToIso(end)
       };
     } 
     else if (myShiftsPreset === 'CUSTOM') {
-      const start = new Date(myShiftsCustomFrom);
-      const end = new Date(myShiftsCustomTo);
+      const start = calendarDateFromIso(myShiftsCustomFrom);
+      const end = calendarDateFromIso(myShiftsCustomTo);
       return {
         label: `Showing my shifts for Custom Date Range (${formatDateStr(start)} to ${formatDateStr(end)})`,
         startDateStr: myShiftsCustomFrom,
@@ -2053,6 +2036,7 @@ export default function App() {
       endTime: occurrence.endTime,
       deskName: desk.name || 'Service Desk',
       deskAddress: desk.address || 'Auckland, New Zealand',
+      timeZone: occurrence.timeZone || desk.timeZone || DEFAULT_ROSTER_TIME_ZONE,
     });
 
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
@@ -2115,13 +2099,13 @@ export default function App() {
 
   const handleOpenAddRegionModal = () => {
     setEditingRegionId(null);
-    setRegionForm({ name: '', code: '' });
+    setRegionForm({ name: '', code: '', timezone: DEFAULT_ROSTER_TIME_ZONE });
     setRegionModalOpen(true);
   };
 
   const handleOpenEditRegionModal = (r) => {
     setEditingRegionId(r.id);
-    setRegionForm({ name: r.name, code: r.code });
+    setRegionForm({ name: r.name, code: r.code, timezone: r.timezone || DEFAULT_ROSTER_TIME_ZONE });
     setRegionModalOpen(true);
   };
 
@@ -2129,7 +2113,7 @@ export default function App() {
     e.preventDefault();
     if (editingRegionId) {
       const oldRegion = regions.find(r => r.id === editingRegionId);
-      const { error } = await supabase.from('regions').update({ name: regionForm.name, code: regionForm.code }).eq('id', editingRegionId);
+      const { error } = await supabase.from('regions').update({ name: regionForm.name, code: regionForm.code, timezone: regionForm.timezone }).eq('id', editingRegionId);
       if (error) { alert(`Unable to save region: ${error.message}`); return; }
       setRegions(prev => prev.map(r => r.id === editingRegionId ? { ...r, ...regionForm } : r));
       
@@ -2137,7 +2121,7 @@ export default function App() {
         setServiceDesks(prev => prev.map(d => d.region === oldRegion.name ? { ...d, region: regionForm.name } : d));
       }
     } else {
-      const { data: newReg, error } = await supabase.from('regions').insert({ name: regionForm.name, code: regionForm.code }).select().single();
+      const { data: newReg, error } = await supabase.from('regions').insert({ name: regionForm.name, code: regionForm.code, timezone: regionForm.timezone }).select().single();
       if (error) { alert(`Unable to add region: ${error.message}`); return; }
       setRegions(prev => [...prev, newReg]);
       setSelectedDeskRegions(prev => [...prev, newReg.name]);
@@ -5669,6 +5653,11 @@ export default function App() {
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Short Code</label>
                 <input type="text" required value={regionForm.code} onChange={(e) => setRegionForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))} className="w-full border rounded p-2 font-mono uppercase" placeholder="e.g. AKL-E" />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Timezone</label>
+                <input type="text" required value={regionForm.timezone} onChange={(e) => setRegionForm(prev => ({ ...prev, timezone: e.target.value }))} className="w-full border rounded p-2 font-mono" placeholder="e.g. Pacific/Auckland" />
+                <p className="mt-1 text-[10px] text-slate-500">Use an IANA timezone name, for example Pacific/Auckland or Australia/Sydney.</p>
               </div>
 
               <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">

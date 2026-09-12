@@ -94,7 +94,7 @@ export async function fetchRosterData(profileId, { operationalStartDate, operati
   const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
     supabase.from('profiles').select('*').order('full_name'),
     supabase.from('regions').select('*').order('name'),
-    supabase.from('service_desks').select('*, regions(name)').order('name'),
+    supabase.from('service_desks').select('*, regions(name, timezone)').order('name'),
     supabase.from('duty_slots').select('*').eq('status', 'Active'),
     supabase.from('desk_follows').select('desk_id').eq('profile_id', profileId),
     assignmentsQuery,
@@ -108,8 +108,8 @@ export async function fetchRosterData(profileId, { operationalStartDate, operati
   if (failure) throw failure.error;
 
   const users = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status, reminderFrequency: member.desk_admin_reminder_frequency || 'NONE', reminderStartDate: member.desk_admin_reminder_start_date || '', reminderWeeks: member.desk_admin_reminder_weeks || 4 }));
-  const regions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code }));
-  const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status }));
+  const regions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code, timezone: region.timezone || 'Pacific/Auckland' }));
+  const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', timeZone: desk.regions?.timezone || 'Pacific/Auckland', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status }));
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const slots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
   const userMap = Object.fromEntries(users.map(user => [user.id, user]));
