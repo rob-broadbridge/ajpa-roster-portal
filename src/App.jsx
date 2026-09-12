@@ -4,6 +4,7 @@ import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signO
 import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchRosterActivityAudit, fetchRosterData, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
+import { IANA_TIME_ZONES } from './config/timezones';
 import { calendarDateFromIso, calendarDateToIso, daysBetweenIsoDates, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
@@ -477,6 +478,15 @@ export default function App() {
   const [editingRegionId, setEditingRegionId] = useState(null);
   const [regionForm, setRegionForm] = useState({ name: '', code: '', timezone: DEFAULT_ROSTER_TIME_ZONE });
   const [pendingDeleteRegionId, setPendingDeleteRegionId] = useState(null);
+
+  const regionTimeZoneOptions = useMemo(() => [...new Set([
+    ...IANA_TIME_ZONES,
+    regionForm.timezone || DEFAULT_ROSTER_TIME_ZONE
+  ])].sort((first, second) => {
+    if (first === DEFAULT_ROSTER_TIME_ZONE) return -1;
+    if (second === DEFAULT_ROSTER_TIME_ZONE) return 1;
+    return first.localeCompare(second);
+  }), [regionForm.timezone]);
 
   // REGISTRAR MASTER DOWNLOAD CONFIRMATION MODAL STATE
   const [confirmDownloadModalOpen, setConfirmDownloadModalOpen] = useState(false);
@@ -5656,8 +5666,10 @@ export default function App() {
               </div>
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Timezone</label>
-                <input type="text" required value={regionForm.timezone} onChange={(e) => setRegionForm(prev => ({ ...prev, timezone: e.target.value }))} className="w-full border rounded p-2 font-mono" placeholder="e.g. Pacific/Auckland" />
-                <p className="mt-1 text-[10px] text-slate-500">Use an IANA timezone name, for example Pacific/Auckland or Australia/Sydney.</p>
+                <select required value={regionForm.timezone} onChange={(e) => setRegionForm(prev => ({ ...prev, timezone: e.target.value }))} className="w-full border rounded p-2 font-mono bg-white">
+                  {regionTimeZoneOptions.map(timeZone => <option key={timeZone} value={timeZone}>{timeZone}</option>)}
+                </select>
+                <p className="mt-1 text-[10px] text-slate-500">Standard IANA timezone names. Type the first letters while the list is open to jump to a timezone.</p>
               </div>
 
               <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
