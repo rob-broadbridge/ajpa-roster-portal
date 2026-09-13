@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const aucklandParts = (date = new Date()) => {
+const timeZoneParts = (timeZone: string, date = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-NZ', {
-    timeZone: 'Pacific/Auckland',
+    timeZone,
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(date);
   const value = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
@@ -27,11 +27,6 @@ Deno.serve(async (request) => {
 
   const body = await request.json().catch(() => ({}));
   const force = body?.force === true;
-  const now = aucklandParts();
-  // New weekly/fortnightly reports are created only at local midnight. The
-  // hourly invocations also process any previously failed report that has
-  // reached its retry time.
-  const canCreateNewReminders = force || (now.hour === '00' && now.minute === '00');
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
   const { data: admins, error: adminsError } = await supabase
@@ -41,33 +36,45 @@ Deno.serve(async (request) => {
     .in('desk_admin_reminder_frequency', ['WEEKLY', 'FORTNIGHTLY']);
   if (adminsError) throw adminsError;
 
-  const dueAdmins = canCreateNewReminders ? (admins ?? []).filter((admin) => {
-    if (!admin.desk_admin_reminder_start_date || !admin.email) return false;
-    const elapsedDays = daysBetween(admin.desk_admin_reminder_start_date, now.date);
-    const interval = admin.desk_admin_reminder_frequency === 'FORTNIGHTLY' ? 14 : 7;
-    return elapsedDays >= 0 && elapsedDays % interval === 0;
-  }) : [];
-
   const { data: desks, error: desksError } = await supabase
     .from('service_desks')
-    .select('id, code, name, primary_admin_id, secondary_admin_id')
+    .select('id, code, name, primary_admin_id, secondary_admin_id, regions(timezone)')
     .eq('status', 'Active');
   if (desksError) throw desksError;
 
   const { data: retries, error: retriesError } = await supabase
     .from('desk_admin_reminder_deliveries')
-    .select('profile_id, report_start_date, report_end_date, profiles(id, full_name, email)')
+    .select('profile_id, timezone, report_start_date, report_end_date, profiles(id, full_name, email)')
     .eq('status', 'PENDING')
     .lte('next_attempt_at', new Date().toISOString());
   if (retriesError) throw retriesError;
 
-  const candidates = [
-    ...dueAdmins.map((admin) => {
+  const normalCandidates: Array<{
+    admin: { id: string; full_name: string | null; email: string | null; desk_admin_reminder_frequency: string | null; desk_admin_reminder_start_date: string | null; desk_admin_reminder_weeks: number | null };
+    timeZone: string;
+    reportStartDate: string;
+    reportEndDate: string;
+  }> = [];
+  for (const admin of admins ?? []) {
+    if (!admin.desk_admin_reminder_start_date || !admin.email) continue;
+    const managedDesks = (desks ?? []).filter((desk) => desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id);
+    const timeZones = [...new Set(managedDesks.map((desk) => desk.regions?.timezone || 'Pacific/Auckland'))];
+    for (const timeZone of timeZones) {
+      const localNow = timeZoneParts(timeZone);
+      if (!force && (localNow.hour !== '00' || localNow.minute !== '00')) continue;
+      const elapsedDays = daysBetween(admin.desk_admin_reminder_start_date, localNow.date);
+      const interval = admin.desk_admin_reminder_frequency === 'FORTNIGHTLY' ? 14 : 7;
+      if (elapsedDays < 0 || elapsedDays % interval !== 0) continue;
       const weeks = Math.max(1, Math.min(52, Number(admin.desk_admin_reminder_weeks) || 4));
-      return { admin, reportStartDate: now.date, reportEndDate: addDays(now.date, weeks * 7 - 1) };
-    }),
+      normalCandidates.push({ admin, timeZone, reportStartDate: localNow.date, reportEndDate: addDays(localNow.date, weeks * 7 - 1) });
+    }
+  }
+
+  const candidates = [
+    ...normalCandidates,
     ...(retries ?? []).map((retry) => ({
       admin: Array.isArray(retry.profiles) ? retry.profiles[0] : retry.profiles,
+      timeZone: retry.timezone || 'Pacific/Auckland',
       reportStartDate: retry.report_start_date,
       reportEndDate: retry.report_end_date
     }))
@@ -79,10 +86,14 @@ Deno.serve(async (request) => {
   for (const candidate of candidates) {
     const admin = candidate.admin;
     if (!admin?.id || !admin.email) continue;
-    const candidateKey = `${admin.id}_${candidate.reportStartDate}_${candidate.reportEndDate}`;
+    const timeZone = candidate.timeZone || 'Pacific/Auckland';
+    const candidateKey = `${admin.id}_${timeZone}_${candidate.reportStartDate}_${candidate.reportEndDate}`;
     if (processed.has(candidateKey)) continue;
     processed.add(candidateKey);
-    const managedDesks = (desks ?? []).filter((desk) => desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id);
+    const managedDesks = (desks ?? []).filter((desk) =>
+      (desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id)
+      && (desk.regions?.timezone || 'Pacific/Auckland') === timeZone
+    );
     if (!managedDesks.length) continue;
 
     const reportStartDate = candidate.reportStartDate;
@@ -90,7 +101,7 @@ Deno.serve(async (request) => {
     const weeks = Math.max(1, Math.ceil((daysBetween(reportStartDate, endDate) + 1) / 7));
     const { data: deliveryId, error: claimError } = await supabase.rpc('claim_desk_admin_reminder_delivery', {
       p_profile_id: admin.id,
-      p_timezone: 'Pacific/Auckland',
+      p_timezone: timeZone,
       p_report_start_date: reportStartDate,
       p_report_end_date: endDate
     });
@@ -173,5 +184,5 @@ Deno.serve(async (request) => {
     }
   }
 
-  return Response.json({ sent, skipped, date: now.date, createdNewReports: canCreateNewReminders });
+  return Response.json({ sent, skipped, createdNewReports: normalCandidates.length });
 });

@@ -1,10 +1,11 @@
 # Desk Admin roster reminders
 
-This Edge Function is called hourly by Supabase Cron. New weekly and
-fortnightly reports are created only at midnight in `Pacific/Auckland`, so
-preferences continue to run at midnight through daylight-saving changes.
-Queued retries are processed on the later hourly checks when their retry time
-is reached.
+This Edge Function is called every 15 minutes by Supabase Cron. New weekly
+and fortnightly reports are created only at midnight in each Service Desk
+region's configured IANA time zone, so preferences continue to run at local
+midnight through daylight-saving changes. A Desk Admin who manages desks in
+different time zones receives a separate report for each time zone. Queued
+retries are processed on the later checks when their retry time is reached.
 
 Each Desk Admin/reporting-period email is recorded before it is sent. This
 prevents duplicate reminders if the hourly check overlaps with a manual test
