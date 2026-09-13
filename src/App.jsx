@@ -6,7 +6,7 @@ import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS, INITIAL_REGIONS, INITIAL_SERVICE_DESKS, INITIAL_SLOT_TEMPLATES, INITIAL_USERS } from './config/demoRosterData';
 import { IANA_TIME_ZONES } from './config/timezones';
-import { calendarDateFromIso, calendarDateToIso, daysBetweenIsoDates, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
+import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, daysBetweenIsoDates, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
 import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
@@ -23,6 +23,11 @@ import {
   Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Database,
   Eye, EyeOff
 } from 'lucide-react';
+
+const createDefaultActivityLogDateRange = () => {
+  const toDate = getTimeZoneDateString(new Date(), DEFAULT_ROSTER_TIME_ZONE);
+  return { fromDate: addDaysToIsoDate(toDate, -30), toDate };
+};
 
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
@@ -56,6 +61,11 @@ export default function App() {
   const [slotHolidayOverrides, setSlotHolidayOverrides] = useState([]);
   const [rosterActivityAudit, setRosterActivityAudit] = useState([]);
   const [rosterActivityAuditError, setRosterActivityAuditError] = useState('');
+  const [activityLogRange, setActivityLogRange] = useState('LAST_250');
+  const [activityLogCustomModalOpen, setActivityLogCustomModalOpen] = useState(false);
+  const [activityLogCustomFrom, setActivityLogCustomFrom] = useState(() => createDefaultActivityLogDateRange().fromDate);
+  const [activityLogCustomTo, setActivityLogCustomTo] = useState(() => createDefaultActivityLogDateRange().toDate);
+  const [activityLogLoading, setActivityLogLoading] = useState(false);
   const [dutyNotificationFailures, setDutyNotificationFailures] = useState([]);
   const [dutyNotificationFailuresError, setDutyNotificationFailuresError] = useState('');
   const [dutyNotificationFailuresLoading, setDutyNotificationFailuresLoading] = useState(false);
@@ -257,6 +267,8 @@ export default function App() {
 
     if (profile.role === 'Admin' || profile.role === 'Registrar') {
       try {
+        setActivityLogRange('LAST_250');
+        setActivityLogCustomModalOpen(false);
         setRosterActivityAudit(await fetchRosterActivityAudit());
         setRosterActivityAuditError('');
       } catch (auditError) {
@@ -1246,6 +1258,119 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadActivityLogCsv = () => {
+    if (rosterActivityAudit.length === 0) {
+      alert('There is no Activity Log data available to export.');
+      return;
+    }
+
+    const csvCell = (value) => {
+      const text = value === null || value === undefined ? '' : String(value);
+      // Prevent spreadsheet applications from interpreting an audit value as a formula.
+      const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safeText.replace(/"/g, '""')}"`;
+    };
+
+    const actionLabel = (activity) => {
+      if (activity.eventType === 'DUTY_REGISTERED') return 'Registered for shift';
+      if (activity.eventType === 'DUTY_WITHDRAWN') return 'Withdrew from shift';
+      if (activity.eventType === 'RULE_CREATED') return `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule created`;
+      return `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule removed`;
+    };
+
+    const rows = rosterActivityAudit.map((activity) => {
+      const actor = userMap[activity.actorProfileId];
+      const subject = userMap[activity.subjectProfileId];
+      const account = activity.actorProfileId
+        ? actor?.fullName || 'Unavailable account'
+        : 'Automated recurring roster process';
+      const ruleDetail = activity.ruleType
+        ? `${activity.ruleType.replaceAll('_', ' ').toLowerCase()}${activity.ruleCount ? ` · ${activity.ruleCount} slot${activity.ruleCount === 1 ? '' : 's'}` : ''}`
+        : 'Single shift';
+      const occurredAtAuckland = activity.occurredAt
+        ? new Date(activity.occurredAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' })
+        : '';
+
+      return [
+        activity.id,
+        activity.occurredAt || '',
+        occurredAtAuckland,
+        account,
+        activity.actorProfileId || '',
+        actionLabel(activity),
+        subject?.fullName || 'Deleted or unavailable profile',
+        activity.subjectProfileId || '',
+        activity.deskCode || '',
+        activity.deskName || '',
+        activity.dutyDate || activity.ruleStartDate || '',
+        activity.startTime || '',
+        activity.endTime || '',
+        activity.ruleAction || '',
+        activity.ruleType || '',
+        activity.ruleCount || '',
+        activity.ruleStartDate || '',
+        activity.ruleUntilDate || '',
+        ruleDetail
+      ].map(csvCell).join(',');
+    });
+
+    const headers = [
+      'Activity ID', 'Occurred At (UTC)', 'Occurred At (Auckland)', 'Account', 'Account ID',
+      'Action', 'JP Affected', 'JP Affected ID', 'Desk Code', 'Service Desk', 'Duty / Rule Date',
+      'Start Time', 'End Time', 'Rule Action', 'Rule Type', 'Rule Count', 'Rule Start Date',
+      'Rule Until Date', 'Rule Detail'
+    ];
+    const blob = new Blob([[headers.map(csvCell).join(','), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const downloadTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const downloadUrl = URL.createObjectURL(blob);
+    link.href = downloadUrl;
+    link.setAttribute('download', `AJPA_Roster_Activity_Log_${downloadTimestamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    // Let the browser begin the download before releasing the temporary URL.
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
+  };
+
+  const refreshActivityLog = async ({ range = activityLogRange, fromDate = activityLogCustomFrom, toDate = activityLogCustomTo } = {}) => {
+    const request = range === 'LAST_1000'
+      ? { limit: 1000 }
+      : range === 'DATE_RANGE'
+        ? { limit: 1000, fromDate, toDate }
+        : { limit: 250 };
+
+    setActivityLogLoading(true);
+    try {
+      setRosterActivityAudit(await fetchRosterActivityAudit(request));
+      setRosterActivityAuditError('');
+    } catch (auditError) {
+      console.warn('Unable to refresh the Activity Log:', auditError.message);
+      setRosterActivityAudit([]);
+      setRosterActivityAuditError(auditError.message);
+    } finally {
+      setActivityLogLoading(false);
+    }
+  };
+
+  const handleActivityLogRangeChange = async (range) => {
+    if (range === 'DATE_RANGE') {
+      setActivityLogCustomModalOpen(true);
+      return;
+    }
+
+    setActivityLogRange(range);
+    await refreshActivityLog({ range });
+  };
+
+  const handleApplyActivityLogDateRange = async ({ fromDate, toDate }) => {
+    setActivityLogCustomFrom(fromDate);
+    setActivityLogCustomTo(toDate);
+    setActivityLogRange('DATE_RANGE');
+    setActivityLogCustomModalOpen(false);
+    await refreshActivityLog({ range: 'DATE_RANGE', fromDate, toDate });
   };
 
   const handleOpenEditStatModal = (statRecord) => {
@@ -3281,16 +3406,64 @@ export default function App() {
             {/* AUDIT LOG: restricted in both the interface and Supabase RLS. */}
             {activeTab === 'activity-audit' && canViewActivityAudit && (
               <div className="space-y-6">
-                <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-2">
-                  <span className="bg-sky-100 text-sky-900 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Desk Admin & Registrar access</span>
-                  <h2 className="text-xl font-extrabold text-slate-900">Roster Activity Log</h2>
-                  <p className="text-xs text-slate-500">The latest 250 registration, withdrawal, and recurring-rule changes. Entries are recorded by the database and cannot be edited in the portal.</p>
+                <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <span className="bg-sky-100 text-sky-900 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Desk Admin & Registrar access</span>
+                    <h2 className="text-xl font-extrabold text-slate-900">Roster Activity Log</h2>
+                    <p className="text-xs text-slate-500">
+                      {activityLogRange === 'LAST_1000'
+                        ? 'The latest 1,000 registration, withdrawal, and recurring-rule changes.'
+                        : activityLogRange === 'DATE_RANGE'
+                          ? `Activity from ${activityLogCustomFrom} to ${activityLogCustomTo} (up to 1,000 rows).`
+                          : 'The latest 250 registration, withdrawal, and recurring-rule changes.'}{' '}
+                      Entries are recorded by the database and cannot be edited in the portal.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="text-xs font-extrabold text-slate-700 flex flex-col gap-1">
+                      Filter
+                      <select
+                        value={activityLogRange}
+                        onChange={(event) => handleActivityLogRangeChange(event.target.value)}
+                        disabled={activityLogLoading}
+                        className="bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-900 cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        <option value="LAST_250">Last 250</option>
+                        <option value="LAST_1000">Last 1,000</option>
+                        <option value="DATE_RANGE">Date Range…</option>
+                      </select>
+                    </label>
+                    {activityLogRange === 'DATE_RANGE' && (
+                      <button
+                        type="button"
+                        onClick={() => setActivityLogCustomModalOpen(true)}
+                        disabled={activityLogLoading}
+                        className="px-3 py-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 text-xs font-extrabold cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      >
+                        Change dates
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleDownloadActivityLogCsv}
+                      disabled={activityLogLoading || rosterActivityAudit.length === 0 || Boolean(rosterActivityAuditError)}
+                      className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-300 disabled:text-slate-500 text-white px-4 py-2 rounded-lg text-xs font-extrabold shadow flex items-center space-x-1.5 transition cursor-pointer disabled:cursor-not-allowed"
+                      title="Download the currently loaded Activity Log rows as a CSV file"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Activity Log CSV</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
                   {rosterActivityAuditError ? (
                     <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-lg text-xs font-bold">
                       The activity log is not available yet. Run the Activity Audit Log SQL migration, then sign out and back in. Detail: {rosterActivityAuditError}
+                    </div>
+                  ) : activityLogLoading ? (
+                    <div className="p-8 text-center text-slate-500 font-bold bg-slate-50 rounded-xl border border-slate-200">
+                      Loading Activity Log…
                     </div>
                   ) : rosterActivityAudit.length === 0 ? (
                     <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-xl border border-slate-200">
@@ -3348,6 +3521,18 @@ export default function App() {
                   )}
                 </div>
               </div>
+            )}
+
+            {activityLogCustomModalOpen && (
+              <CustomDateRangeModal
+                applyLabel="Apply Activity Log Range"
+                fromDate={activityLogCustomFrom}
+                onClose={() => setActivityLogCustomModalOpen(false)}
+                onApply={handleApplyActivityLogDateRange}
+                requireCompleteDateRange
+                title="Activity Log Date Range"
+                toDate={activityLogCustomTo}
+              />
             )}
 
             {/* TAB 5: REGISTRAR GOVERNANCE PORTAL */}

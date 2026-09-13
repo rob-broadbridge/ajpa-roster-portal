@@ -6,11 +6,19 @@ export default function CustomDateRangeModal({
   fromDate,
   onApply,
   onClose,
+  requireCompleteDateRange = false,
   title,
   toDate
 }) {
   const [draftFromDate, setDraftFromDate] = useState(fromDate);
   const [draftToDate, setDraftToDate] = useState(toDate);
+  const hasIncompleteDateRange = requireCompleteDateRange && (!draftFromDate || !draftToDate);
+  const hasInvalidDateRange = Boolean(draftFromDate && draftToDate && draftToDate < draftFromDate);
+  const validationMessage = hasIncompleteDateRange
+    ? 'Choose both a From Date and a To Date.'
+    : hasInvalidDateRange
+      ? 'To Date cannot be earlier than From Date.'
+      : '';
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -43,8 +51,18 @@ export default function CustomDateRangeModal({
           </div>
         </div>
 
+        {validationMessage && (
+          <p className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+            {validationMessage}
+          </p>
+        )}
+
         <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
-          <button onClick={() => onApply({ fromDate: draftFromDate, toDate: draftToDate })} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-amber-400 cursor-pointer">
+          <button
+            onClick={() => onApply({ fromDate: draftFromDate, toDate: draftToDate })}
+            disabled={Boolean(validationMessage)}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-amber-400 cursor-pointer disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+          >
             {applyLabel}
           </button>
         </div>

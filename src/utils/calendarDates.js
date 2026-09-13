@@ -43,6 +43,24 @@ export function addDaysToIsoDate(isoDate, days) {
   return calendarDateToIso(date);
 }
 
+/** Returns the UTC instant represented by a date and time in an IANA timezone. */
+export function timeZoneDateTimeToUtcIso(isoDate, time = '00:00:00', timeZone = DEFAULT_ROSTER_TIME_ZONE) {
+  const [year, month, day] = String(isoDate).split('-').map(Number);
+  const [hour = 0, minute = 0, second = 0] = String(time).split(':').map(Number);
+  const expectedUtcMilliseconds = Date.UTC(year, month - 1, day, hour, minute, second);
+  let candidate = new Date(expectedUtcMilliseconds);
+
+  // Read the timezone's actual offset at the target instant twice. The second
+  // pass covers daylight-saving transitions such as Pacific/Auckland's.
+  for (let pass = 0; pass < 2; pass += 1) {
+    const { year: actualYear, month: actualMonth, day: actualDay, hour: actualHour, minute: actualMinute, second: actualSecond } = numericTimeZoneParts(candidate, timeZone);
+    const actualAsUtcMilliseconds = Date.UTC(actualYear, actualMonth - 1, actualDay, actualHour, actualMinute, actualSecond);
+    candidate = new Date(candidate.getTime() + expectedUtcMilliseconds - actualAsUtcMilliseconds);
+  }
+
+  return candidate.toISOString();
+}
+
 export function daysBetweenIsoDates(laterDate, earlierDate) {
   const toUtc = (isoDate) => {
     const [year, month, day] = String(isoDate).split('-').map(Number);
