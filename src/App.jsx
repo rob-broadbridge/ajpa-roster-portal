@@ -13,6 +13,7 @@ import PlatformHeader from './components/PlatformHeader';
 import PortalAlerts from './components/PortalAlerts';
 import CustomDateRangeModal from './components/CustomDateRangeModal';
 import DestructiveConfirmationDialog from './components/DestructiveConfirmationDialog';
+import SlotActionConfirmationDialog from './components/SlotActionConfirmationDialog';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
@@ -4587,44 +4588,11 @@ export default function App() {
         </div>
       )}
 
-      {/* --- CONFIRMATION DIALOG FOR SLOT MAINTENANCE BUTTON ACTIONS --- */}
-      {slotActionConfirm && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center space-x-2 text-slate-900">
-              <AlertTriangle className={`w-6 h-6 shrink-0 ${slotActionConfirm === 'DELETE' ? 'text-rose-600' : 'text-amber-500'}`} />
-              <h3 className="text-lg font-black">
-                {slotActionConfirm === 'SAVE' && 'Confirm Save Changes'}
-                {slotActionConfirm === 'CANCEL' && 'Confirm Cancel Editing'}
-                {slotActionConfirm === 'DELETE' && 'Confirm Slot Deletion'}
-              </h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {slotActionConfirm === 'SAVE' && 'Are you sure you want to save changes to this shift slot template? This will update all future occurrences on the 12-week calendar.'}
-              {slotActionConfirm === 'CANCEL' && 'Are you sure you want to cancel? Any unsaved edits will be discarded.'}
-              {slotActionConfirm === 'DELETE' && 'Are you sure you want to permanently delete this shift slot template? Active calendar shifts generated from this slot will be removed.'}
-            </p>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button 
-                onClick={() => setSlotActionConfirm(null)} 
-                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
-              >
-                Go Back
-              </button>
-              <button 
-                onClick={handleConfirmSlotAction} 
-                className={`px-4 py-2 rounded-lg text-xs font-black shadow cursor-pointer ${
-                  slotActionConfirm === 'DELETE' ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-slate-900 hover:bg-slate-800 text-amber-400'
-                }`}
-              >
-                {slotActionConfirm === 'SAVE' && 'Yes, Save Changes'}
-                {slotActionConfirm === 'CANCEL' && 'Yes, Discard Changes'}
-                {slotActionConfirm === 'DELETE' && 'Yes, Delete Slot'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SlotActionConfirmationDialog
+        action={slotActionConfirm}
+        onCancel={() => setSlotActionConfirm(null)}
+        onConfirm={handleConfirmSlotAction}
+      />
 
       {/* --- EDITING EXISTING STATISTIC RECORD MODAL --- */}
       {editingStatRecord && (
