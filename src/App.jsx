@@ -242,41 +242,52 @@ const foldIcsLine = (line) => {
   return foldedLines.join('\r\n');
 };
 
+// Use absolute UTC event timestamps. This avoids relying on calendar clients
+// to interpret a custom VTIMEZONE block and is portable across Apple, Google
+// and Microsoft calendar applications.
+const localDateTimeToUtcIcs = (date, time, timeZone) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const expectedUtcMilliseconds = Date.UTC(year, month - 1, day, hour, minute, 0);
+  let candidate = new Date(expectedUtcMilliseconds);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
+
+  // A second pass accounts for the offset at the actual instant, including
+  // daylight-saving changes.
+  for (let pass = 0; pass < 2; pass += 1) {
+    const parts = formatter.formatToParts(candidate).reduce((values, part) => {
+      if (part.type !== 'literal') values[part.type] = Number(part.value);
+      return values;
+    }, {});
+    const actualAsUtcMilliseconds = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    candidate = new Date(candidate.getTime() + expectedUtcMilliseconds - actualAsUtcMilliseconds);
+  }
+
+  return candidate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+};
+
 const buildCalendarFile = ({ profileId, slotId, date, startTime, endTime, deskName, deskAddress, timeZone = DEFAULT_ROSTER_TIME_ZONE }) => {
   const location = `${deskName}, ${deskAddress}`;
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-  const dateTime = (time) => `${date.replaceAll('-', '')}T${time.replaceAll(':', '').slice(0, 4)}00`;
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const appointmentTimes = [
+    `DTSTART:${localDateTimeToUtcIcs(date, startTime, timeZone)}`,
+    `DTEND:${localDateTimeToUtcIcs(date, endTime, timeZone)}`
+  ];
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//AJPA//Service Desk Management Platform//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-TIMEZONE:${timeZone}`,
-    'BEGIN:VTIMEZONE',
-    'TZID:Pacific/Auckland',
-    'X-LIC-LOCATION:Pacific/Auckland',
-    'BEGIN:DAYLIGHT',
-    'TZOFFSETFROM:+1200',
-    'TZOFFSETTO:+1300',
-    'TZNAME:NZDT',
-    'DTSTART:19700927T020000',
-    'RRULE:FREQ=YEARLY;BYMONTH=9;BYDAY=-1SU',
-    'END:DAYLIGHT',
-    'BEGIN:STANDARD',
-    'TZOFFSETFROM:+1300',
-    'TZOFFSETTO:+1200',
-    'TZNAME:NZST',
-    'DTSTART:19700405T030000',
-    'RRULE:FREQ=YEARLY;BYMONTH=4;BYDAY=1SU',
-    'END:STANDARD',
-    'END:VTIMEZONE',
     'BEGIN:VEVENT',
     `UID:ajpa-duty-${profileId}-${slotId}-${date}@contact.broadbridge.co.nz`,
     `DTSTAMP:${stamp}`,
-    `DTSTART;TZID=${timeZone}:${dateTime(startTime)}`,
-    `DTEND;TZID=${timeZone}:${dateTime(endTime)}`,
+    ...appointmentTimes,
     `SUMMARY:${escapeIcsText(`JP duty - ${deskName}`)}`,
     `LOCATION:${escapeIcsText(location)}`,
     `DESCRIPTION:${escapeIcsText(`Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`)}`,

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-type Snapshot = { version: 1; member: { id: string; fullName: string; email: string }; slot: { id: string; startTime: string; endTime: string; minJps: number }; desk: { id: string; code: string; name: string; address: string }; deskAdminEmails: string[] };
+type Snapshot = { version: number; member: { id: string; fullName: string; email: string }; slot: { id: string; startTime: string; endTime: string; minJps: number }; desk: { id: string; code: string; name: string; address: string; timeZone?: string }; deskAdminEmails: string[] };
 type Notification = { id: string; profile_id: string; slot_id: string; duty_date: string; status: string; created_at: string; desk_admin_alert_required: boolean; member_cancellation_sent_at: string | null; desk_admin_alert_sent_at: string | null; payload_snapshot: Snapshot | null };
 
 const escapeIcsText = (value: string) => value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
@@ -9,15 +9,31 @@ const foldIcsLine = (line: string) => {
   for (const character of line) { if (current && encoder.encode(`${current}${character}`).length > 73) { folded.push(current); current = ` ${character}`; } else current += character; }
   folded.push(current); return folded.join('\r\n');
 };
-const toIcsDateTime = (date: string, time: string) => `${date.replaceAll('-', '')}T${time.replaceAll(':', '').slice(0, 4)}00`;
+const localDateTimeToUtcIcs = (date: string, time: string, timeZone: string) => {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const expectedUtcMilliseconds = Date.UTC(year, month - 1, day, hour, minute, 0);
+  let candidate = new Date(expectedUtcMilliseconds);
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  for (let pass = 0; pass < 2; pass += 1) {
+    const parts = formatter.formatToParts(candidate).reduce<Record<string, number>>((values, part) => {
+      if (part.type !== 'literal') values[part.type] = Number(part.value);
+      return values;
+    }, {});
+    const actualAsUtcMilliseconds = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    candidate = new Date(candidate.getTime() + expectedUtcMilliseconds - actualAsUtcMilliseconds);
+  }
+  return candidate.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+};
 const toBase64 = (value: string) => { const bytes = new TextEncoder().encode(value); let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); };
 const displayDate = (date: string) => new Intl.DateTimeFormat('en-NZ', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(`${date}T12:00:00Z`));
 
-const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, deskName, deskAddress, createdAt }: { profileId: string; slotId: string; dutyDate: string; startTime: string; endTime: string; deskName: string; deskAddress: string; createdAt: string }) => {
+const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, deskName, deskAddress, timeZone = 'Pacific/Auckland', createdAt }: { profileId: string; slotId: string; dutyDate: string; startTime: string; endTime: string; deskName: string; deskAddress: string; timeZone?: string; createdAt: string }) => {
   const location = `${deskName}, ${deskAddress}`;
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
   const stamp = new Date(createdAt).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//AJPA//Service Desk Management Platform//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-TIMEZONE:Pacific/Auckland', 'BEGIN:VTIMEZONE', 'TZID:Pacific/Auckland', 'X-LIC-LOCATION:Pacific/Auckland', 'BEGIN:DAYLIGHT', 'TZOFFSETFROM:+1200', 'TZOFFSETTO:+1300', 'TZNAME:NZDT', 'DTSTART:19700927T020000', 'RRULE:FREQ=YEARLY;BYMONTH=9;BYDAY=-1SU', 'END:DAYLIGHT', 'BEGIN:STANDARD', 'TZOFFSETFROM:+1300', 'TZOFFSETTO:+1200', 'TZNAME:NZST', 'DTSTART:19700405T030000', 'RRULE:FREQ=YEARLY;BYMONTH=4;BYDAY=1SU', 'END:STANDARD', 'END:VTIMEZONE', 'BEGIN:VEVENT', `UID:ajpa-duty-${profileId}-${slotId}-${dutyDate}@contact.broadbridge.co.nz`, `DTSTAMP:${stamp}`, `DTSTART;TZID=Pacific/Auckland:${toIcsDateTime(dutyDate, startTime)}`, `DTEND;TZID=Pacific/Auckland:${toIcsDateTime(dutyDate, endTime)}`, `SUMMARY:${escapeIcsText(`JP duty - ${deskName}`)}`, `LOCATION:${escapeIcsText(location)}`, `DESCRIPTION:${escapeIcsText(`Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`)}`, 'STATUS:CONFIRMED', 'SEQUENCE:0', 'TRANSP:OPAQUE', 'END:VEVENT', 'END:VCALENDAR'];
+  const appointmentTimes = [`DTSTART:${localDateTimeToUtcIcs(dutyDate, startTime, timeZone)}`, `DTEND:${localDateTimeToUtcIcs(dutyDate, endTime, timeZone)}`];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//AJPA//Service Desk Management Platform//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT', `UID:ajpa-duty-${profileId}-${slotId}-${dutyDate}@contact.broadbridge.co.nz`, `DTSTAMP:${stamp}`, ...appointmentTimes, `SUMMARY:${escapeIcsText(`JP duty - ${deskName}`)}`, `LOCATION:${escapeIcsText(location)}`, `DESCRIPTION:${escapeIcsText(`Confirmed JP duty at ${deskName}.\nAddress: ${deskAddress}\nMap: ${mapLink}`)}`, 'STATUS:CONFIRMED', 'SEQUENCE:0', 'TRANSP:OPAQUE', 'END:VEVENT', 'END:VCALENDAR'];
   return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
 };
 
@@ -44,12 +60,12 @@ Deno.serve(async (request) => {
     ]);
     if (memberResult.error) throw memberResult.error;
     if (slotResult.error) throw slotResult.error;
-    const { data: desk, error: deskError } = await supabase.from('service_desks').select('id, code, name, address, primary_admin_id, secondary_admin_id').eq('id', slotResult.data.desk_id).single();
+    const { data: desk, error: deskError } = await supabase.from('service_desks').select('id, code, name, address, primary_admin_id, secondary_admin_id, regions(timezone)').eq('id', slotResult.data.desk_id).single();
     if (deskError) throw deskError;
     const adminIds = [...new Set([desk.primary_admin_id, desk.secondary_admin_id].filter(Boolean))];
     const { data: admins, error: adminsError } = adminIds.length ? await supabase.from('profiles').select('email').in('id', adminIds).eq('status', 'Approved') : { data: [], error: null };
     if (adminsError) throw adminsError;
-    const snapshot: Snapshot = { version: 1, member: { id: memberResult.data.id, fullName: memberResult.data.full_name || 'JP Member', email: memberResult.data.email }, slot: { id: slotResult.data.id, startTime: slotResult.data.start_time.slice(0, 5), endTime: slotResult.data.end_time.slice(0, 5), minJps: slotResult.data.min_jps }, desk: { id: desk.id, code: desk.code || 'JP', name: desk.name, address: desk.address || 'Auckland, New Zealand' }, deskAdminEmails: [...new Set((admins ?? []).map((admin) => admin.email?.trim().toLowerCase()).filter(Boolean))] };
+    const snapshot: Snapshot = { version: 2, member: { id: memberResult.data.id, fullName: memberResult.data.full_name || 'JP Member', email: memberResult.data.email }, slot: { id: slotResult.data.id, startTime: slotResult.data.start_time.slice(0, 5), endTime: slotResult.data.end_time.slice(0, 5), minJps: slotResult.data.min_jps }, desk: { id: desk.id, code: desk.code || 'JP', name: desk.name, address: desk.address || 'Auckland, New Zealand', timeZone: desk.regions?.timezone || 'Pacific/Auckland' }, deskAdminEmails: [...new Set((admins ?? []).map((admin) => admin.email?.trim().toLowerCase()).filter(Boolean))] };
     const { error: snapshotError } = await supabase.from('duty_assignment_notifications').update({ payload_snapshot: snapshot, updated_at: new Date().toISOString() }).eq('id', notification.id);
     if (snapshotError) throw snapshotError;
     return snapshot;
@@ -71,7 +87,7 @@ Deno.serve(async (request) => {
           skipped += 1; continue;
         }
         const snapshot = await getSnapshot(notification);
-        const calendarInvite = buildCalendarInvite({ profileId: snapshot.member.id, slotId: snapshot.slot.id, dutyDate: notification.duty_date, startTime: snapshot.slot.startTime, endTime: snapshot.slot.endTime, deskName: snapshot.desk.name, deskAddress: snapshot.desk.address, createdAt: notification.created_at });
+        const calendarInvite = buildCalendarInvite({ profileId: snapshot.member.id, slotId: snapshot.slot.id, dutyDate: notification.duty_date, startTime: snapshot.slot.startTime, endTime: snapshot.slot.endTime, deskName: snapshot.desk.name, deskAddress: snapshot.desk.address, timeZone: snapshot.desk.timeZone || 'Pacific/Auckland', createdAt: notification.created_at });
         const response = await sendEmail({ to: [snapshot.member.email], subject: `JP duty confirmed — ${snapshot.desk.name}, ${notification.duty_date}`, text: `Hello ${snapshot.member.fullName},\n\nYour JP duty registration has been confirmed.\n\nJP duty - ${snapshot.desk.name}\nDate: ${notification.duty_date}\nTime: ${snapshot.slot.startTime} - ${snapshot.slot.endTime}\nLocation: ${snapshot.desk.name}, ${snapshot.desk.address}\n\nA calendar appointment is attached. Open the .ics file to add it to Google Calendar, Apple Calendar, or Microsoft Outlook. You can still download an appointment from the portal whenever you prefer.\n\nRegards,\nAJPA Roster Team`, attachments: [{ filename: `JP-duty-${notification.duty_date}-${snapshot.desk.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}.ics`, content: toBase64(calendarInvite), content_type: 'text/calendar; charset=utf-8; method=PUBLISH' }] }, `duty-confirmation-${notification.id}`);
         const { error: completeError } = await supabase.rpc('complete_duty_confirmation', { p_notification_id: notification.id, p_resend_confirmation_id: response.id ?? null });
         if (completeError) throw completeError;
