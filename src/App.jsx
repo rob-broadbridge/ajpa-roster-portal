@@ -12,6 +12,7 @@ import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
 import PortalAlerts from './components/PortalAlerts';
 import CustomDateRangeModal from './components/CustomDateRangeModal';
+import DestructiveConfirmationDialog from './components/DestructiveConfirmationDialog';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
@@ -4884,57 +4885,24 @@ export default function App() {
         </div>
       )}
 
-      {/* --- CONFIRMATION MODAL FOR DELETING SHIFT SLOT TEMPLATE --- */}
-      {pendingDeleteSlotId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center space-x-2 text-rose-700">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <h3 className="text-lg font-black">Confirm Shift Slot Deletion</h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to delete this shift slot template? This will remove its recurring shift occurrences from the 12-week calendar view.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setPendingDeleteSlotId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
-                Cancel
-              </button>
-              <button onClick={confirmDeleteSlot} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
-                Delete Shift Slot
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DestructiveConfirmationDialog
+        confirmLabel="Delete Shift Slot"
+        isOpen={Boolean(pendingDeleteSlotId)}
+        message="Are you sure you want to delete this shift slot template? This will remove its recurring shift occurrences from the 12-week calendar view."
+        onCancel={() => setPendingDeleteSlotId(null)}
+        onConfirm={confirmDeleteSlot}
+        title="Confirm Shift Slot Deletion"
+      />
 
-      {/* --- CONFIRMATION MODAL FOR DELETING STAT ENTRY --- */}
-      {confirmDeleteStatId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center space-x-2 text-rose-700">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <h3 className="text-lg font-black">Confirm Statistics Log Deletion</h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to permanently delete this statistics record? This action cannot be undone and will update the master association logs immediately.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button 
-                onClick={() => setConfirmDeleteStatId(null)} 
-                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
-              >
-                No / Keep Record
-              </button>
-              <button 
-                onClick={confirmDeleteStatRecord} 
-                className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer"
-              >
-                Yes / Permanently Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DestructiveConfirmationDialog
+        cancelLabel="No / Keep Record"
+        confirmLabel="Yes / Permanently Delete"
+        isOpen={Boolean(confirmDeleteStatId)}
+        message="Are you sure you want to permanently delete this statistics record? This action cannot be undone and will update the master association logs immediately."
+        onCancel={() => setConfirmDeleteStatId(null)}
+        onConfirm={confirmDeleteStatRecord}
+        title="Confirm Statistics Log Deletion"
+      />
 
       <CustomDateRangeModal
         applyLabel="Apply Date Range"
@@ -5267,28 +5235,14 @@ export default function App() {
         </div>
       )}
 
-      {/* --- CONFIRMATION MODAL FOR DELETING USER --- */}
-      {pendingDeleteUserId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center space-x-2 text-rose-700">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <h3 className="text-lg font-black">Confirm Member Deletion</h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to delete this JP member profile? Their registrations and logged data will be removed from future views.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setPendingDeleteUserId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
-                Cancel
-              </button>
-              <button onClick={confirmDeleteUser} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
-                Delete Member
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DestructiveConfirmationDialog
+        confirmLabel="Delete Member"
+        isOpen={Boolean(pendingDeleteUserId)}
+        message="Are you sure you want to delete this JP member profile? Their registrations and logged data will be removed from future views."
+        onCancel={() => setPendingDeleteUserId(null)}
+        onConfirm={confirmDeleteUser}
+        title="Confirm Member Deletion"
+      />
 
       {/* --- ADD / EDIT REGION MODAL --- */}
       {regionModalOpen && (
@@ -5324,51 +5278,23 @@ export default function App() {
         </div>
       )}
 
-      {/* --- CONFIRMATION MODAL FOR DELETING REGION --- */}
-      {pendingDeleteRegionId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center space-x-2 text-rose-700">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <h3 className="text-lg font-black">Confirm Region Deletion</h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to delete this master region?
-            </p>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setPendingDeleteRegionId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
-                Cancel
-              </button>
-              <button onClick={confirmDeleteRegion} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
-                Delete Region
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DestructiveConfirmationDialog
+        confirmLabel="Delete Region"
+        isOpen={Boolean(pendingDeleteRegionId)}
+        message="Are you sure you want to delete this master region?"
+        onCancel={() => setPendingDeleteRegionId(null)}
+        onConfirm={confirmDeleteRegion}
+        title="Confirm Region Deletion"
+      />
 
-      {/* --- CONFIRMATION MODAL FOR DELETING SERVICE DESK --- */}
-      {pendingDeleteDeskId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex items-center space-x-2 text-rose-700">
-              <AlertTriangle className="w-6 h-6 shrink-0" />
-              <h3 className="text-lg font-black">Confirm Service Desk Archival</h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to archive this service desk location? It will be moved to the Archived Desks list and its shifts will be hidden from active calendar views.
-            </p>
-            <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setPendingDeleteDeskId(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
-                Cancel
-              </button>
-              <button onClick={confirmDeleteDesk} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer">
-                Archive Desk
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DestructiveConfirmationDialog
+        confirmLabel="Archive Desk"
+        isOpen={Boolean(pendingDeleteDeskId)}
+        message="Are you sure you want to archive this service desk location? It will be moved to the Archived Desks list and its shifts will be hidden from active calendar views."
+        onCancel={() => setPendingDeleteDeskId(null)}
+        onConfirm={confirmDeleteDesk}
+        title="Confirm Service Desk Archival"
+      />
 
       {/* --- SIGN UP MODAL --- */}
       {signUpModalOpen && (
