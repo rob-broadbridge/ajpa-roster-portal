@@ -1125,10 +1125,6 @@ export default function App() {
     try {
       await requestPasswordReset(resetEmail, window.location.origin);
     } catch (resetRequestError) {
-      if (resetRequestError.message === 'NO_REGISTERED_ACCOUNT') {
-        alert('No account was found for that email address. Please check the address and try again, or register for access.');
-        return;
-      }
       alert(`Unable to send reset email: ${resetRequestError.message}`);
       return;
     }
@@ -5886,9 +5882,9 @@ export default function App() {
             {resetLinkSent ? (
               <div className="bg-sky-50 border border-sky-200 text-sky-900 p-4 rounded-xl text-xs font-bold space-y-3 text-center animate-fade-in">
                 <Mail className="w-8 h-8 text-sky-600 mx-auto" />
-                <p className="text-sm font-black text-sky-950">Reset Email Sent!</p>
+                <p className="text-sm font-black text-sky-950">Password Reset Requested</p>
                 <p className="font-normal text-slate-600 leading-relaxed">
-                  A password-reset link has been sent to <b>{resetEmail}</b>. Open that link from your email to choose a new password.
+                  If an approved account exists for this address, a password-reset link will be sent. Check your inbox and spam folder, then open the link to choose a new password.
                 </p>
               </div>
             ) : (

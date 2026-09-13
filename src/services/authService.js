@@ -57,14 +57,9 @@ export async function getCurrentApprovedUser() {
 
 export async function requestPasswordReset(email, redirectTo) {
   const normalisedEmail = email.trim().toLowerCase();
-  const { data: accountExists, error: accountCheckError } = await supabase
-    .rpc('is_registered_email', { email_to_check: normalisedEmail });
-
-  if (accountCheckError) throw new Error(accountCheckError.message);
-  if (!accountExists) {
-    throw new Error('NO_REGISTERED_ACCOUNT');
-  }
-
+  // Supabase deliberately gives the same response for an existing and a
+  // non-existing address. Do not add a profile lookup here: it would let a
+  // visitor discover which people have accounts in the portal.
   const { error } = await supabase.auth.resetPasswordForEmail(normalisedEmail, { redirectTo });
   if (error) throw new Error(error.message);
 }
