@@ -8,6 +8,7 @@ import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS,
 import { IANA_TIME_ZONES } from './config/timezones';
 import { calendarDateFromIso, calendarDateToIso, daysBetweenIsoDates, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
+import PortalNavigation from './components/PortalNavigation';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
@@ -2304,52 +2305,12 @@ export default function App() {
         ) : (
           /* --- AUTHENTICATED PORTAL VIEW --- */
           <>
-            {/* NAVIGATION TABS WITH HELP TAB */}
-            <div className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 mb-6 flex flex-wrap gap-2">
-              <button onClick={() => setActiveTab('calendar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'calendar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <Calendar className="w-4 h-4" />
-                <span>Calendar (12 Wks)</span>
-              </button>
-
-              <button onClick={() => setActiveTab('my-shifts')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'my-shifts' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <UserCheck className="w-4 h-4" />
-                <span>My Shifts</span>
-              </button>
-
-              <button onClick={() => setActiveTab('statistics')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'statistics' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <BarChart2 className="w-4 h-4" />
-                <span>Statistics</span>
-              </button>
-
-              <button onClick={() => setActiveTab('service-desks')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'service-desks' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <MapPin className="w-4 h-4" />
-                <span>Service Desks</span>
-              </button>
-
-              <button onClick={() => setActiveTab('my-profile')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'my-profile' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <Users className="w-4 h-4" />
-                <span>My Profile</span>
-              </button>
-
-              {canViewActivityAudit && (
-                <button onClick={() => setActiveTab('activity-audit')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'activity-audit' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                  <FileText className="w-4 h-4" />
-                  <span>Activity Log</span>
-                </button>
-              )}
-
-              {currentUser.role === 'Registrar' && (
-                <button onClick={() => setActiveTab('registrar')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'registrar' ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'}`}>
-                  <Award className="w-4 h-4" />
-                  <span>Registrar Portal</span>
-                </button>
-              )}
-
-              <button onClick={() => setActiveTab('help')} className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer ${activeTab === 'help' ? 'bg-amber-500 text-slate-950 shadow' : 'bg-slate-900 text-amber-400 hover:bg-slate-800'}`}>
-                <HelpCircle className="w-4 h-4" />
-                <span>Help</span>
-              </button>
-            </div>
+            <PortalNavigation
+              activeTab={activeTab}
+              canViewActivityAudit={canViewActivityAudit}
+              currentUser={currentUser}
+              onSelectTab={setActiveTab}
+            />
 
             {/* TAB 1: CALENDAR VIEW */}
             {activeTab === 'calendar' && (
