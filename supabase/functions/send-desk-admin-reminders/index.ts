@@ -61,6 +61,18 @@ Deno.serve(async (request) => {
 
     const weeks = Math.max(1, Math.min(52, Number(admin.desk_admin_reminder_weeks) || 4));
     const endDate = addDays(now.date, weeks * 7 - 1);
+    const { data: deliveryId, error: claimError } = await supabase.rpc('claim_desk_admin_reminder_delivery', {
+      p_profile_id: admin.id,
+      p_timezone: 'Pacific/Auckland',
+      p_report_start_date: now.date,
+      p_report_end_date: endDate
+    });
+    if (claimError) throw claimError;
+    // The row is unique per Desk Admin and reporting period. It prevents a
+    // manual test or an overlapping scheduler call from sending duplicates.
+    if (!deliveryId) continue;
+
+    try {
     const deskIds = managedDesks.map((desk) => desk.id);
     const [slotsResult, assignmentsResult, holidaysResult, overridesResult] = await Promise.all([
       supabase.from('duty_slots').select('id, desk_id, day_of_week, start_time, end_time, min_jps, effective_from').in('desk_id', deskIds).eq('status', 'Active'),
@@ -112,11 +124,26 @@ Deno.serve(async (request) => {
       : 'AJPA roster reminder: all your slots meet minimum staffing';
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type': 'application/json', 'Idempotency-Key': `desk-admin-reminder-${deliveryId}` },
       body: JSON.stringify({ from: Deno.env.get('RESEND_FROM_EMAIL'), to: [admin.email], subject, text })
     });
     if (!response.ok) throw new Error(`Resend rejected reminder email: ${await response.text()}`);
+    const resendResponse = await response.json().catch(() => ({})) as { id?: string };
+    const { error: completeError } = await supabase.rpc('complete_desk_admin_reminder_delivery', {
+      p_delivery_id: deliveryId,
+      p_resend_email_id: resendResponse.id ?? null
+    });
+    if (completeError) throw completeError;
     sent += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Desk Admin reminder ${deliveryId} failed:`, error);
+      const { error: releaseError } = await supabase.rpc('release_desk_admin_reminder_delivery', {
+        p_delivery_id: deliveryId,
+        p_error: message
+      });
+      if (releaseError) console.error('Unable to schedule Desk Admin reminder retry:', releaseError.message);
+    }
   }
 
   return Response.json({ sent, date: now.date });

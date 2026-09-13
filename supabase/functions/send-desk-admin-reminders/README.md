@@ -4,6 +4,11 @@ This Edge Function is called hourly by Supabase Cron. It only sends email when
 the current time is midnight in `Pacific/Auckland`, so weekly and fortnightly
 preferences continue to run at midnight through daylight-saving changes.
 
+Each Desk Admin/reporting-period email is recorded before it is sent. This
+prevents duplicate reminders if the hourly check overlaps with a manual test
+or is retried. Transient sending failures are retried automatically, without
+stopping reminders for other Desk Admins.
+
 It uses the existing Edge Function secrets:
 
 - `RESEND_API_KEY`
