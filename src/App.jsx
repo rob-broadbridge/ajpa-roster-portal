@@ -1974,8 +1974,37 @@ export default function App() {
     setUserModalOpen(false);
   };
 
-  const confirmDeleteUser = () => {
-    setUsers(prev => prev.filter(u => u.id !== pendingDeleteUserId));
+  const confirmDeleteUser = async () => {
+    const memberId = pendingDeleteUserId;
+    if (!memberId) return;
+
+    if (memberId === currentUser?.id) {
+      alert('You cannot delete the account you are currently signed in with. Ask another Registrar to maintain this account if required.');
+      setPendingDeleteUserId(null);
+      return;
+    }
+
+    // Do not change the visible list until Supabase has confirmed the profile
+    // was actually deleted. A delete blocked by row-level security or a related
+    // record must leave the screen consistent with the database.
+    const { data, error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', memberId)
+      .select('id');
+
+    if (error) {
+      alert(`Unable to delete member: ${error.message}`);
+      setPendingDeleteUserId(null);
+      return;
+    }
+    if (!data || data.length !== 1) {
+      alert('The member was not deleted. Refresh the member list and try again, or check that your Registrar access is still active.');
+      setPendingDeleteUserId(null);
+      return;
+    }
+
+    setUsers(previous => previous.filter(user => user.id !== memberId));
     setPendingDeleteUserId(null);
   };
 
