@@ -11,6 +11,7 @@ import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperati
 import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
 import PortalAlerts from './components/PortalAlerts';
+import CustomDateRangeModal from './components/CustomDateRangeModal';
 import { 
   Calendar, MapPin, Users, UserCheck, ShieldAlert, 
   Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
@@ -4310,46 +4311,19 @@ export default function App() {
         </div>
       )}
 
-      {/* --- MY SHIFTS CUSTOM DATE RANGE MODAL WINDOW --- */}
-      {myShiftsCustomModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Interrogate My Shifts (Custom Date Range)</h3>
-              <button onClick={() => setMyShiftsCustomModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">From Date</label>
-                <input 
-                  type="date" 
-                  value={myShiftsCustomFrom} 
-                  onChange={(e) => setMyShiftsCustomFrom(e.target.value)} 
-                  className="w-full border rounded p-2 font-bold bg-white" 
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">To Date</label>
-                <input 
-                  type="date" 
-                  value={myShiftsCustomTo} 
-                  onChange={(e) => setMyShiftsCustomTo(e.target.value)} 
-                  className="w-full border rounded p-2 font-bold bg-white" 
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
-              <button onClick={() => setMyShiftsCustomModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-amber-400 cursor-pointer">
-                Apply Custom Range
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CustomDateRangeModal
+        applyLabel="Apply Custom Range"
+        fromDate={myShiftsCustomFrom}
+        isOpen={myShiftsCustomModalOpen}
+        onClose={() => setMyShiftsCustomModalOpen(false)}
+        onApply={({ fromDate, toDate }) => {
+          setMyShiftsCustomFrom(fromDate);
+          setMyShiftsCustomTo(toDate);
+          setMyShiftsCustomModalOpen(false);
+        }}
+        title="Interrogate My Shifts (Custom Date Range)"
+        toDate={myShiftsCustomTo}
+      />
 
       {/* --- MASTER SYSTEM DATA CSV EXPORT CONFIRMATION MODAL --- */}
       {confirmDownloadModalOpen && (
@@ -4962,46 +4936,19 @@ export default function App() {
         </div>
       )}
 
-      {/* --- CUSTOM DATE RANGE MODAL WINDOW --- */}
-      {customDateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Select Custom Date Range</h3>
-              <button onClick={() => setCustomDateModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">From Date</label>
-                <input 
-                  type="date" 
-                  value={customFromDate} 
-                  onChange={(e) => setCustomFromDate(e.target.value)} 
-                  className="w-full border rounded p-2 font-bold bg-white" 
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">To Date</label>
-                <input 
-                  type="date" 
-                  value={customToDate} 
-                  onChange={(e) => setCustomToDate(e.target.value)} 
-                  className="w-full border rounded p-2 font-bold bg-white" 
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
-              <button onClick={() => setCustomDateModalOpen(false)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-900 text-amber-400 cursor-pointer">
-                Apply Date Range
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CustomDateRangeModal
+        applyLabel="Apply Date Range"
+        fromDate={customFromDate}
+        isOpen={customDateModalOpen}
+        onClose={() => setCustomDateModalOpen(false)}
+        onApply={({ fromDate, toDate }) => {
+          setCustomFromDate(fromDate);
+          setCustomToDate(toDate);
+          setCustomDateModalOpen(false);
+        }}
+        title="Select Custom Date Range"
+        toDate={customToDate}
+      />
 
       {/* --- LOG STATS MODAL WINDOW FOR JP DUTY SHIFTS --- */}
       {logStatsOccurrence && (
