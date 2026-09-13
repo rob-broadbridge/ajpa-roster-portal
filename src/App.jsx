@@ -15,11 +15,11 @@ import CustomDateRangeModal from './components/CustomDateRangeModal';
 import DestructiveConfirmationDialog from './components/DestructiveConfirmationDialog';
 import SlotActionConfirmationDialog from './components/SlotActionConfirmationDialog';
 import { 
-  Calendar, MapPin, Users, UserCheck, ShieldAlert, 
-  Plus, Search, Filter, Download, ChevronLeft, ChevronRight, ChevronDown,
+  Calendar, MapPin, Users, UserCheck,
+  Plus, Filter, Download, ChevronDown,
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
-  Phone, Mail, Award, Check, X, Lock, Key, ArrowLeft, Send,
-  Edit2, Trash2, RotateCcw, Archive, Ban, CalendarPlus, Info, HelpCircle, Star,
+  Mail, Award, Check, X, Lock, Key,
+  Edit2, Trash2, Ban, CalendarPlus, HelpCircle, Star,
   Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Database,
   Eye, EyeOff
 } from 'lucide-react';
@@ -50,7 +50,7 @@ export default function App() {
   const [followedDesks, setFollowedDesks] = useState(INITIAL_FOLLOWED_DESKS);
 
   const [slotAssignments, setSlotAssignments] = useState(INITIAL_ASSIGNMENTS);
-  const [cancelledSlotInstances, setCancelledSlotInstances] = useState([]);
+  const [cancelledSlotInstances, _setCancelledSlotInstances] = useState([]);
   const [loggedStatistics, setLoggedStatistics] = useState(INITIAL_LOGGED_STATISTICS);
   const [statutoryHolidays, setStatutoryHolidays] = useState([]);
   const [slotHolidayOverrides, setSlotHolidayOverrides] = useState([]);
@@ -1408,7 +1408,7 @@ export default function App() {
     }, {});
   }, [slotHolidayOverrides]);
 
-  const canManageHolidayForDesk = (deskId) => {
+  const canManageHolidayForDesk = (_deskId) => {
     if (!currentUser) return false;
     return currentUser.role === 'Registrar' || currentUser.role === 'Admin';
   };
@@ -1606,7 +1606,7 @@ export default function App() {
       const [endH, endM] = occ.endTime.split(':').map(Number);
       const diff = (endH * 60 + endM) - (startH * 60 + startM);
       if (diff > 0) defaultHours = parseFloat((diff / 60).toFixed(2));
-    } catch (err) {}
+    } catch {}
 
     setStatsForm({
       noOfJpDuties: calculateJpDuties(defaultHours),
@@ -4313,19 +4313,20 @@ export default function App() {
         </div>
       )}
 
-      <CustomDateRangeModal
-        applyLabel="Apply Custom Range"
-        fromDate={myShiftsCustomFrom}
-        isOpen={myShiftsCustomModalOpen}
-        onClose={() => setMyShiftsCustomModalOpen(false)}
-        onApply={({ fromDate, toDate }) => {
-          setMyShiftsCustomFrom(fromDate);
-          setMyShiftsCustomTo(toDate);
-          setMyShiftsCustomModalOpen(false);
-        }}
-        title="Interrogate My Shifts (Custom Date Range)"
-        toDate={myShiftsCustomTo}
-      />
+      {myShiftsCustomModalOpen && (
+        <CustomDateRangeModal
+          applyLabel="Apply Custom Range"
+          fromDate={myShiftsCustomFrom}
+          onClose={() => setMyShiftsCustomModalOpen(false)}
+          onApply={({ fromDate, toDate }) => {
+            setMyShiftsCustomFrom(fromDate);
+            setMyShiftsCustomTo(toDate);
+            setMyShiftsCustomModalOpen(false);
+          }}
+          title="Interrogate My Shifts (Custom Date Range)"
+          toDate={myShiftsCustomTo}
+        />
+      )}
 
       {/* --- MASTER SYSTEM DATA CSV EXPORT CONFIRMATION MODAL --- */}
       {confirmDownloadModalOpen && (
@@ -4872,19 +4873,20 @@ export default function App() {
         title="Confirm Statistics Log Deletion"
       />
 
-      <CustomDateRangeModal
-        applyLabel="Apply Date Range"
-        fromDate={customFromDate}
-        isOpen={customDateModalOpen}
-        onClose={() => setCustomDateModalOpen(false)}
-        onApply={({ fromDate, toDate }) => {
-          setCustomFromDate(fromDate);
-          setCustomToDate(toDate);
-          setCustomDateModalOpen(false);
-        }}
-        title="Select Custom Date Range"
-        toDate={customToDate}
-      />
+      {customDateModalOpen && (
+        <CustomDateRangeModal
+          applyLabel="Apply Date Range"
+          fromDate={customFromDate}
+          onClose={() => setCustomDateModalOpen(false)}
+          onApply={({ fromDate, toDate }) => {
+            setCustomFromDate(fromDate);
+            setCustomToDate(toDate);
+            setCustomDateModalOpen(false);
+          }}
+          title="Select Custom Date Range"
+          toDate={customToDate}
+        />
+      )}
 
       {/* --- LOG STATS MODAL WINDOW FOR JP DUTY SHIFTS --- */}
       {logStatsOccurrence && (

@@ -1,10 +1,9 @@
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 export default function CustomDateRangeModal({
   applyLabel,
   fromDate,
-  isOpen,
   onApply,
   onClose,
   title,
@@ -12,14 +11,6 @@ export default function CustomDateRangeModal({
 }) {
   const [draftFromDate, setDraftFromDate] = useState(fromDate);
   const [draftToDate, setDraftToDate] = useState(toDate);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setDraftFromDate(fromDate);
-    setDraftToDate(toDate);
-  }, [fromDate, isOpen, toDate]);
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
