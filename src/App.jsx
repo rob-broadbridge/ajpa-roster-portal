@@ -432,7 +432,7 @@ export default function App() {
   const [calendarDayFilter, setCalendarDayFilter] = useState({ ...DEFAULT_DAY_FILTER });
 
   // MY SHIFTS TAB FILTERS
-  const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_5WEEKS');
+  const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_13_WEEKS');
   const [myShiftsDeskFilter, setMyShiftsDeskFilter] = useState('ALL');
   const [myShiftsCustomModalOpen, setMyShiftsCustomModalOpen] = useState(false);
   const [myShiftsCustomFrom, setMyShiftsCustomFrom] = useState('2026-08-31');
@@ -442,7 +442,7 @@ export default function App() {
   const [statsRegionFilter, setStatsRegionFilter] = useState('ALL');
   const [statsDeskFilter, setStatsDeskFilter] = useState('ALL');
   const [statsJpFilter, setStatsJpFilter] = useState('ALL');
-  const [statsDatePreset, setStatsDatePreset] = useState('CURRENT_AND_PREVIOUS'); 
+  const [statsDatePreset, setStatsDatePreset] = useState('LAST_30_DAYS');
   const [customDateModalOpen, setCustomDateModalOpen] = useState(false);
   const [customFromDate, setCustomFromDate] = useState('2026-08-01');
   const [customToDate, setCustomToDate] = useState('2026-09-30');
@@ -621,12 +621,12 @@ export default function App() {
     setCalendarRegionFilter('ALL');
     setCalendarTimeOfDayFilter({ ...DEFAULT_TIME_OF_DAY_FILTER });
     setCalendarDayFilter({ ...DEFAULT_DAY_FILTER });
-    setMyShiftsPreset('DEFAULT_5WEEKS');
+    setMyShiftsPreset('DEFAULT_13_WEEKS');
     setMyShiftsDeskFilter('ALL');
     setStatsRegionFilter('ALL');
     setStatsDeskFilter('ALL');
     setStatsJpFilter(profile.role === 'Member' ? profile.id : 'ALL');
-    setStatsDatePreset('CURRENT_AND_PREVIOUS');
+    setStatsDatePreset('LAST_30_DAYS');
 
     if (roster.preferencesError) {
       // Do not prevent sign-in if Stage 4A has not yet been run in Supabase.
@@ -1801,7 +1801,18 @@ export default function App() {
       return `${dd}-${mm}-${yyyy}`;
     };
 
-    if (myShiftsPreset === 'DEFAULT_5WEEKS') {
+    if (myShiftsPreset === 'DEFAULT_13_WEEKS') {
+      const start = new Date(currentWeek1Monday);
+      start.setDate(start.getDate() - 7);
+      const end = new Date(currentWeek1Monday);
+      end.setDate(end.getDate() + (84 - 1));
+      return {
+        label: `Showing my shifts for 13-week window: Prior Week + Calendar Weeks 1-12 (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: calendarDateToIso(start),
+        endDateStr: calendarDateToIso(end)
+      };
+    }
+    else if (myShiftsPreset === 'DEFAULT_5WEEKS') {
       const start = new Date(currentWeek1Monday);
       start.setDate(start.getDate() - 7);
       const end = new Date(currentWeek1Monday);
@@ -1812,6 +1823,16 @@ export default function App() {
         endDateStr: calendarDateToIso(end)
       };
     } 
+    else if (myShiftsPreset === 'NEXT_4_WEEKS') {
+      const start = new Date(currentWeek1Monday);
+      const end = new Date(currentWeek1Monday);
+      end.setDate(end.getDate() + (28 - 1));
+      return {
+        label: `Showing my shifts for Calendar Weeks 1-4 (${formatDateStr(start)} to ${formatDateStr(end)})`,
+        startDateStr: calendarDateToIso(start),
+        endDateStr: calendarDateToIso(end)
+      };
+    }
     else if (myShiftsPreset === 'THIS_MONTH') {
       const start = new Date(currentYear, currentMonth, 1);
       const end = new Date(currentYear, currentMonth + 1, 0);
@@ -1863,7 +1884,12 @@ export default function App() {
       if (!occ.assignedJpIds.includes(currentUser.id)) return false;
       if (myShiftsDeskFilter !== 'ALL' && occ.deskId !== myShiftsDeskFilter) return false;
       return occ.date >= myShiftsFilterDescriptor.startDateStr && occ.date <= myShiftsFilterDescriptor.endDateStr;
-    }).sort((a, b) => a.date.localeCompare(b.date));
+    }).sort((first, second) => (
+      first.date.localeCompare(second.date)
+      || first.startTime.localeCompare(second.startTime)
+      || first.endTime.localeCompare(second.endTime)
+      || first.deskName.localeCompare(second.deskName)
+    ));
   }, [generatedOccurrences, currentUser, myShiftsFilterDescriptor, myShiftsDeskFilter]);
 
   const loggedStatisticKeys = useMemo(() => new Set(
@@ -3332,7 +3358,9 @@ export default function App() {
                       }}
                       className="bg-white border border-slate-300 rounded px-2 py-1 font-bold text-slate-900 cursor-pointer shadow-xs"
                     >
-                      <option value="DEFAULT_5WEEKS">Prior Week + Calendar Wks 1-4 (Default)</option>
+                      <option value="DEFAULT_13_WEEKS">Prior Week + Calendar Wks 1-12 (Default)</option>
+                      <option value="DEFAULT_5WEEKS">Prior Week + Calendar Wks 1-4</option>
+                      <option value="NEXT_4_WEEKS">Calendar Wks 1-4</option>
                       <option value="THIS_MONTH">This Month</option>
                       <option value="LAST_MONTH">Last Month</option>
                       <option value="NEXT_MONTH">Next Month</option>
@@ -3546,10 +3574,10 @@ export default function App() {
                         }}
                         className="w-full bg-white border border-slate-300 rounded p-1.5 font-bold text-slate-900 cursor-pointer"
                       >
-                        <option value="CURRENT_AND_PREVIOUS">Current & Previous Month (Default)</option>
+                        <option value="LAST_30_DAYS">Last 30 Days (Default)</option>
+                        <option value="CURRENT_AND_PREVIOUS">Current & Previous Month</option>
                         <option value="CURRENT_MONTH">Current Month Only</option>
                         <option value="LAST_MONTH">Last Month Only</option>
-                        <option value="LAST_30_DAYS">Last 30 Days</option>
                         <option value="CUSTOM">Custom Timeframe...</option>
                       </select>
                     </div>
