@@ -3330,7 +3330,11 @@ export default function App() {
                             return (
                               <tr key={activity.id} className="hover:bg-sky-50/60">
                                 <td className="p-2.5 whitespace-nowrap font-mono text-[11px] text-slate-700">{occurredAt}</td>
-                                <td className="p-2.5 font-bold text-slate-900">{actor?.fullName || 'System / unknown account'}</td>
+                                <td className="p-2.5 font-bold text-slate-900">{
+                                  activity.actorProfileId
+                                    ? actor?.fullName || 'Unavailable account'
+                                    : 'Automated recurring roster process'
+                                }</td>
                                 <td className="p-2.5 font-bold text-slate-800">{actionLabel}</td>
                                 <td className="p-2.5 text-slate-700">{subject?.fullName || 'Deleted or unavailable profile'}</td>
                                 <td className="p-2.5 text-slate-700"><span className="bg-slate-900 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-black mr-1">{activity.deskCode || 'JP'}</span>{activity.deskName || 'Archived desk'}</td>
