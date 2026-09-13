@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
-import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchRosterActivityAudit, fetchRosterData, retryDutyNotificationFailure } from './services/rosterService';
+import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { IANA_TIME_ZONES } from './config/timezones';
@@ -374,6 +374,9 @@ export default function App() {
   const [dutyNotificationFailuresError, setDutyNotificationFailuresError] = useState('');
   const [dutyNotificationFailuresLoading, setDutyNotificationFailuresLoading] = useState(false);
   const [retryingDutyNotificationId, setRetryingDutyNotificationId] = useState(null);
+  const [rosterOperationalHealth, setRosterOperationalHealth] = useState(null);
+  const [rosterOperationalHealthError, setRosterOperationalHealthError] = useState('');
+  const [rosterOperationalHealthLoading, setRosterOperationalHealthLoading] = useState(false);
 
   // REGISTRATION & WITHDRAWAL MODAL STATES
   const [registerModalOcc, setRegisterModalOcc] = useState(null);
@@ -593,9 +596,21 @@ export default function App() {
         setDutyNotificationFailures([]);
         setDutyNotificationFailuresError(notificationError.message);
       }
+      try {
+        setRosterOperationalHealth(await fetchRosterOperationalHealth());
+        setRosterOperationalHealthError('');
+      } catch (healthError) {
+        // Stage 13 adds an operational summary only. A missing migration must
+        // never block the Registrar's normal roster-management work.
+        console.warn('Roster operational health could not be loaded:', healthError.message);
+        setRosterOperationalHealth(null);
+        setRosterOperationalHealthError(healthError.message);
+      }
     } else {
       setDutyNotificationFailures([]);
       setDutyNotificationFailuresError('');
+      setRosterOperationalHealth(null);
+      setRosterOperationalHealthError('');
     }
 
     // Reset to the familiar defaults first. The saved values below then take
@@ -654,6 +669,19 @@ export default function App() {
       setDutyNotificationFailuresError(notificationError.message);
     } finally {
       setDutyNotificationFailuresLoading(false);
+    }
+  };
+
+  const handleRefreshRosterOperationalHealth = async () => {
+    if (currentUser?.role !== 'Registrar') return;
+    setRosterOperationalHealthLoading(true);
+    try {
+      setRosterOperationalHealth(await fetchRosterOperationalHealth());
+      setRosterOperationalHealthError('');
+    } catch (healthError) {
+      setRosterOperationalHealthError(healthError.message);
+    } finally {
+      setRosterOperationalHealthLoading(false);
     }
   };
 
@@ -3857,6 +3885,64 @@ export default function App() {
                 {/* SUBTAB: EMAIL DELIVERY (Registrar-only) */}
                 {registrarSubTab === 'email-delivery' && currentUser.role === 'Registrar' && (
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-base">Operational Health</h3>
+                          <p className="text-xs text-slate-500 mt-1">A Registrar-only summary of scheduled email processes. It contains counts and job status, never email content.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRefreshRosterOperationalHealth}
+                          disabled={rosterOperationalHealthLoading}
+                          className="px-3 py-2 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 text-amber-400 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          {rosterOperationalHealthLoading ? 'Checking…' : 'Refresh Health'}
+                        </button>
+                      </div>
+
+                      {rosterOperationalHealthError ? (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-lg text-xs font-bold">
+                          Operational health is not available. Run the Stage 13 SQL migration, then sign out and back in. Detail: {rosterOperationalHealthError}
+                        </div>
+                      ) : rosterOperationalHealth && (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                              { label: 'Duty notifications', value: rosterOperationalHealth.dutyNotifications },
+                              { label: 'Desk Admin reminders', value: rosterOperationalHealth.deskAdminReminders }
+                            ].map(item => (
+                              <div key={item.label} className={`rounded-lg border p-3 ${item.value.failed ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                                <p className="text-xs font-bold text-slate-800">{item.label}</p>
+                                <p className={`text-sm font-extrabold mt-1 ${item.value.failed ? 'text-rose-700' : 'text-emerald-700'}`}>{item.value.failed} failed</p>
+                                <p className="text-[11px] text-slate-600 mt-0.5">{item.value.waiting} waiting or retrying</p>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[11px] text-slate-500">“Waiting or retrying” includes the normal five-minute confirmation delay. It only needs attention if it remains waiting unexpectedly or becomes failed.</p>
+                          <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                            <table className="w-full min-w-[680px] text-left text-xs border-collapse">
+                              <thead><tr className="bg-slate-100 text-slate-700 uppercase font-black tracking-wider"><th className="p-2.5">Scheduled process</th><th className="p-2.5">Schedule</th><th className="p-2.5">Last run</th><th className="p-2.5">Status</th></tr></thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {rosterOperationalHealth.schedules.map(schedule => {
+                                  const statusIsHealthy = schedule.active && (!schedule.lastStatus || schedule.lastStatus === 'succeeded');
+                                  return (
+                                    <tr key={schedule.jobName}>
+                                      <td className="p-2.5 font-bold text-slate-800">{schedule.jobName}</td>
+                                      <td className="p-2.5 font-mono text-slate-600">{schedule.schedule || 'Not scheduled'}</td>
+                                      <td className="p-2.5 text-slate-600">{schedule.lastStartedAt ? new Date(schedule.lastStartedAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' }) : 'No run recorded yet'}</td>
+                                      <td className={`p-2.5 font-bold ${statusIsHealthy ? 'text-emerald-700' : 'text-rose-700'}`}>{!schedule.active ? 'Inactive or missing' : schedule.lastStatus || 'Awaiting first run'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          {rosterOperationalHealth.checkedAt && <p className="text-[10px] text-slate-400 text-right">Checked {new Date(rosterOperationalHealth.checkedAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' })}</p>}
+                        </>
+                      )}
+                    </div>
+
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <h3 className="font-bold text-slate-900 text-base">Duty Email Delivery</h3>
@@ -4380,7 +4466,8 @@ export default function App() {
                           <span>5. Monitor & Retry Failed Duty Emails</span>
                         </h4>
                         <ol className="list-decimal pl-5 space-y-1 font-medium leading-relaxed">
-                          <li>Go to <b>Registrar Portal &rarr; Email Delivery</b>. The tab is empty unless an email has failed all five automatic delivery attempts.</li>
+                          <li>Go to <b>Registrar Portal &rarr; Email Delivery</b>. Operational Health shows scheduled-process status and counts for waiting or failed duty emails and Desk Admin reminders.</li>
+                          <li>The failed-duty-email list is empty unless an email has failed all five automatic delivery attempts.</li>
                           <li>Read the error detail and correct the cause first — for example, a Resend sender-domain or email-address issue.</li>
                           <li>Use <b>Retry Email</b> to return the item to the secure delivery queue. The system checks that the booking still exists before a confirmation email is sent.</li>
                         </ol>

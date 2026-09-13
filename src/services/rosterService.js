@@ -52,6 +52,40 @@ export async function fetchDutyNotificationFailures(limit = 100) {
   }));
 }
 
+// The database function returns only operational summary information. It is
+// independently restricted to Registrars, so this never exposes notification
+// contents, email addresses, or delivery payloads to the browser.
+export async function fetchRosterOperationalHealth() {
+  const { data, error } = await supabase.rpc('get_roster_operational_health');
+
+  if (error) throw error;
+
+  const dutyNotifications = data?.duty_notifications || {};
+  const deskAdminReminders = data?.desk_admin_reminders || {};
+  const schedules = data?.schedules || {};
+
+  return {
+    dutyNotifications: {
+      failed: Number(dutyNotifications.failed) || 0,
+      waiting: Number(dutyNotifications.waiting) || 0
+    },
+    deskAdminReminders: {
+      failed: Number(deskAdminReminders.failed) || 0,
+      waiting: Number(deskAdminReminders.waiting) || 0
+    },
+    schedules: Object.entries(schedules).map(([jobName, job]) => ({
+      jobName,
+      schedule: job?.schedule || '',
+      active: Boolean(job?.active),
+      lastStatus: job?.last_status || '',
+      lastStartedAt: job?.last_started_at || null,
+      lastFinishedAt: job?.last_finished_at || null,
+      lastMessage: job?.last_message || ''
+    })),
+    checkedAt: data?.checked_at || null
+  };
+}
+
 export async function retryDutyNotificationFailure(notificationId) {
   const { data, error } = await supabase.rpc('retry_failed_duty_notification', {
     p_notification_id: notificationId
