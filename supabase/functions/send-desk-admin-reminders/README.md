@@ -1,8 +1,10 @@
 # Desk Admin roster reminders
 
-This Edge Function is called hourly by Supabase Cron. It only sends email when
-the current time is midnight in `Pacific/Auckland`, so weekly and fortnightly
+This Edge Function is called hourly by Supabase Cron. New weekly and
+fortnightly reports are created only at midnight in `Pacific/Auckland`, so
 preferences continue to run at midnight through daylight-saving changes.
+Queued retries are processed on the later hourly checks when their retry time
+is reached.
 
 Each Desk Admin/reporting-period email is recorded before it is sent. This
 prevents duplicate reminders if the hourly check overlaps with a manual test

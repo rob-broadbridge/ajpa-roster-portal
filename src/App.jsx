@@ -2917,7 +2917,7 @@ export default function App() {
 
                                               <button 
                                                 type="button" 
-                                                onClick={(e) => generateIcsFile(occ, e)} 
+                                                onClick={(e) => generateIcsFile(occ, e)}
                                                 disabled={shiftFinished}
                                                 className={`py-1 px-1 rounded font-black text-[9px] uppercase shadow-xs flex items-center justify-center space-x-0.5 transition ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'}`}
                                                 title={shiftFinished ? 'This shift has finished' : 'Add to Device Calendar'}
