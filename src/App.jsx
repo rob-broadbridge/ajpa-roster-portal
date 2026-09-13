@@ -5761,7 +5761,10 @@ export default function App() {
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Timezone</label>
                 <select required value={regionForm.timezone} onChange={(e) => setRegionForm(prev => ({ ...prev, timezone: e.target.value }))} className="w-full border rounded p-2 font-mono bg-white">
-                  {regionTimeZoneOptions.map(timeZone => <option key={timeZone} value={timeZone}>{timeZone}</option>)}
+                  <option value={DEFAULT_ROSTER_TIME_ZONE}>Pacific/Auckland — New Zealand (default)</option>
+                  {regionTimeZoneOptions
+                    .filter(timeZone => timeZone !== DEFAULT_ROSTER_TIME_ZONE)
+                    .map(timeZone => <option key={timeZone} value={timeZone}>{timeZone}</option>)}
                 </select>
                 <p className="mt-1 text-[10px] text-slate-500">Standard IANA timezone names. Type the first letters while the list is open to jump to a timezone.</p>
               </div>
