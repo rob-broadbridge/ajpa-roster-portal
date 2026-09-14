@@ -84,6 +84,7 @@ export default function App() {
   const [registerUntilDate, setRegisterUntilDate] = useState('2026-12-31');
 
   const [withdrawModalOcc, setWithdrawModalOcc] = useState(null);
+  const [pastWithdrawalConfirmationOcc, setPastWithdrawalConfirmationOcc] = useState(null);
   const [withdrawOption, setWithdrawOption] = useState('SINGLE'); // 'SINGLE', 'NEXT_N', 'UNTIL_DATE', 'ALL_FUTURE'
   const [withdrawCountN, setWithdrawCountN] = useState(4);
   const [withdrawUntilDate, setWithdrawUntilDate] = useState('2026-12-31');
@@ -459,6 +460,7 @@ export default function App() {
       setRegisterModalOcc(null);
       setPastRegistrationConfirmationOcc(null);
       setWithdrawModalOcc(null);
+      setPastWithdrawalConfirmationOcc(null);
       setDetailedSlotModal(null);
       setLogStatsOccurrence(null);
       setActiveTab('calendar');
@@ -486,6 +488,7 @@ export default function App() {
       else if (myShiftsCustomModalOpen) setMyShiftsCustomModalOpen(false);
       else if (customDateModalOpen) setCustomDateModalOpen(false);
       else if (pastRegistrationConfirmationOcc) setPastRegistrationConfirmationOcc(null);
+      else if (pastWithdrawalConfirmationOcc) setPastWithdrawalConfirmationOcc(null);
       else if (registerModalOcc) setRegisterModalOcc(null);
       else if (withdrawModalOcc) setWithdrawModalOcc(null);
       else if (detailedSlotModal) setDetailedSlotModal(null);
@@ -516,6 +519,7 @@ export default function App() {
     logStatsOccurrence,
     myShiftsCustomModalOpen,
     pastRegistrationConfirmationOcc,
+    pastWithdrawalConfirmationOcc,
     pendingArchiveUserId,
     pendingDeleteDeskId,
     pendingDeleteRegionId,
@@ -2007,7 +2011,7 @@ export default function App() {
   const handleOpenWithdrawModal = (occ, e) => {
     if (e) e.stopPropagation();
     if (isOccurrenceFinished(occ)) {
-      alert('This shift has already finished and can no longer be withdrawn from.');
+      setPastWithdrawalConfirmationOcc(occ);
       return;
     }
     setWithdrawModalOcc(occ);
@@ -2017,21 +2021,15 @@ export default function App() {
   };
 
   // EXECUTE WITHDRAWAL LOGIC
-  const handleExecuteWithdraw = async () => {
-    if (!withdrawModalOcc || !currentUser) return;
-    if (isOccurrenceFinished(withdrawModalOcc)) {
-      alert('This shift has already finished and can no longer be withdrawn from.');
-      setWithdrawModalOcc(null);
-      return;
-    }
-
+  const executeWithdrawal = async (occurrence, scope, countN = null, untilDate = null) => {
+    if (!occurrence || !currentUser) return;
     const { error } = await supabase.rpc('apply_duty_assignment_change', {
       p_action: 'WITHDRAW',
-      p_slot_id: withdrawModalOcc.slotId,
-      p_start_date: withdrawModalOcc.date,
-      p_scope: withdrawOption,
-      p_count_n: withdrawOption === 'NEXT_N' ? (parseInt(withdrawCountN, 10) || 1) : null,
-      p_until_date: withdrawOption === 'UNTIL_DATE' ? withdrawUntilDate : null
+      p_slot_id: occurrence.slotId,
+      p_start_date: occurrence.date,
+      p_scope: scope,
+      p_count_n: scope === 'NEXT_N' ? (parseInt(countN, 10) || 1) : null,
+      p_until_date: scope === 'UNTIL_DATE' ? untilDate : null
     });
     if (error) {
       alert(`Unable to withdraw: ${error.message}`);
@@ -2040,6 +2038,17 @@ export default function App() {
 
     await loadSupabaseRoster(currentUser);
     setWithdrawModalOcc(null);
+  };
+
+  const handleExecuteWithdraw = async () => {
+    await executeWithdrawal(withdrawModalOcc, withdrawOption, withdrawCountN, withdrawUntilDate);
+  };
+
+  const handleConfirmPastWithdrawal = async () => {
+    const occurrence = pastWithdrawalConfirmationOcc;
+    setPastWithdrawalConfirmationOcc(null);
+    // A historical correction is always limited to the selected occurrence.
+    await executeWithdrawal(occurrence, 'SINGLE');
   };
 
   const generateIcsFile = (occurrence, e) => {
@@ -2924,9 +2933,8 @@ export default function App() {
                                             <button 
                                               type="button" 
                                               onClick={(e) => handleOpenWithdrawModal(occ, e)} 
-                                              disabled={shiftFinished}
-                                              className={`w-full py-1 px-2 rounded font-black text-[10px] uppercase shadow-sm transition flex items-center justify-center space-x-1 ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'}`}
-                                              title={shiftFinished ? 'This shift has finished and can no longer be withdrawn from' : 'Withdraw from this shift'}
+                                              className="w-full py-1 px-2 rounded font-black text-[10px] uppercase shadow-sm transition flex items-center justify-center space-x-1 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                                              title={shiftFinished ? 'Withdraw from this completed shift' : 'Withdraw from this shift'}
                                             >
                                               <UserCheck className="w-3 h-3" />
                                               <span>Withdraw</span>
@@ -3371,7 +3379,7 @@ export default function App() {
                               <CalendarPlus className="w-3.5 h-3.5" />
                               <span>Add to Cal</span>
                             </button>
-                            <button onClick={(e) => handleOpenWithdrawModal(occ, e)} disabled={shiftFinished} title={shiftFinished ? 'This shift has finished and can no longer be withdrawn from' : 'Withdraw from this shift'} className={`px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs ${shiftFinished ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer'}`}>
+                            <button onClick={(e) => handleOpenWithdrawModal(occ, e)} title={shiftFinished ? 'Withdraw from this completed shift' : 'Withdraw from this shift'} className="px-3 py-1.5 rounded text-xs font-bold flex items-center space-x-1 shadow-xs bg-rose-600 hover:bg-rose-700 text-white cursor-pointer">
                               <UserX className="w-3.5 h-3.5" />
                               <span>Withdraw</span>
                             </button>
@@ -4352,7 +4360,7 @@ export default function App() {
                             <li><i>All three options are selected by default.</i></li>
                           </ul>
                         </li>
-                        <li><b>Past shifts:</b> If a selected shift has already ended, a confirmation appears before it is recorded. Select <b>OK, Register</b> to create a one-off historical registration, or <b>Cancel</b> to leave it unchanged. Past registrations do not create a recurring rule, calendar appointment, or confirmation email.</li>
+                        <li><b>Past shifts:</b> If a selected shift has already ended, a confirmation appears before it is registered or withdrawn. These are one-off historical changes only: they do not create a recurring rule, calendar appointment, or email notification.</li>
                       </ul>
                     </div>
 
@@ -4614,6 +4622,46 @@ export default function App() {
                 className="px-5 py-2 rounded-lg text-xs font-extrabold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow cursor-pointer"
               >
                 OK, Register
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pastWithdrawalConfirmationOcc && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
+            <div className="flex items-start space-x-3 border-b border-slate-100 pb-3">
+              <div className="p-2 rounded-full bg-amber-100 text-amber-700 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-amber-700 uppercase tracking-wider">Past shift</p>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-0.5">Withdraw from a completed slot?</h3>
+              </div>
+            </div>
+            <div className="text-sm text-slate-700 leading-relaxed space-y-2">
+              <p>This slot has already happened:</p>
+              <p className="font-bold text-slate-900">
+                {activeDeskMap[pastWithdrawalConfirmationOcc.deskId]?.name}<br />
+                {pastWithdrawalConfirmationOcc.fullDayName}, {pastWithdrawalConfirmationOcc.formattedDate} ({pastWithdrawalConfirmationOcc.startTime} - {pastWithdrawalConfirmationOcc.endTime})
+              </p>
+              <p>Choose <b>OK, Withdraw</b> to remove this one past registration. This will not alter any other shift or send a cancellation email.</p>
+            </div>
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPastWithdrawalConfirmationOcc(null)}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPastWithdrawal}
+                className="px-5 py-2 rounded-lg text-xs font-extrabold bg-rose-600 text-white hover:bg-rose-700 shadow cursor-pointer"
+              >
+                OK, Withdraw
               </button>
             </div>
           </div>
