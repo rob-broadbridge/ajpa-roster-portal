@@ -111,6 +111,8 @@ export default function App() {
   const [resetScreenOpen, setResetScreenOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resetError, setResetError] = useState('');
 
 
@@ -460,6 +462,67 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleBrowserBack);
   }, [isAuthenticated]);
 
+  // Escape consistently dismisses the active portal dialog, including
+  // confirmation prompts and date-range windows. It never confirms an action.
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key !== 'Escape') return;
+
+      if (pendingDeleteDeskId) setPendingDeleteDeskId(null);
+      else if (pendingDeleteRegionId) setPendingDeleteRegionId(null);
+      else if (pendingArchiveUserId) setPendingArchiveUserId(null);
+      else if (confirmDeleteStatId) setConfirmDeleteStatId(null);
+      else if (pendingDeleteSlotId) setPendingDeleteSlotId(null);
+      else if (slotActionConfirm) setSlotActionConfirm(null);
+      else if (confirmDownloadModalOpen) setConfirmDownloadModalOpen(false);
+      else if (activityLogCustomModalOpen) setActivityLogCustomModalOpen(false);
+      else if (myShiftsCustomModalOpen) setMyShiftsCustomModalOpen(false);
+      else if (customDateModalOpen) setCustomDateModalOpen(false);
+      else if (pastRegistrationConfirmationOcc) setPastRegistrationConfirmationOcc(null);
+      else if (registerModalOcc) setRegisterModalOcc(null);
+      else if (withdrawModalOcc) setWithdrawModalOcc(null);
+      else if (detailedSlotModal) setDetailedSlotModal(null);
+      else if (logStatsOccurrence) setLogStatsOccurrence(null);
+      else if (editingStatRecord) setEditingStatRecord(null);
+      else if (slotModalOpen) setSlotModalOpen(false);
+      else if (userModalOpen) setUserModalOpen(false);
+      else if (regionModalOpen) setRegionModalOpen(false);
+      else if (createDeskModalOpen) setCreateDeskModalOpen(false);
+      else if (signUpModalOpen) {
+        setSignUpSuccessMsg(false);
+        setSignUpModalOpen(false);
+      } else if (forgotModalOpen) setForgotModalOpen(false);
+      else if (pendingMembersNoticeCount > 0) setPendingMembersNoticeCount(0);
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [
+    activityLogCustomModalOpen,
+    confirmDeleteStatId,
+    confirmDownloadModalOpen,
+    createDeskModalOpen,
+    customDateModalOpen,
+    detailedSlotModal,
+    editingStatRecord,
+    forgotModalOpen,
+    logStatsOccurrence,
+    myShiftsCustomModalOpen,
+    pastRegistrationConfirmationOcc,
+    pendingArchiveUserId,
+    pendingDeleteDeskId,
+    pendingDeleteRegionId,
+    pendingDeleteSlotId,
+    pendingMembersNoticeCount,
+    regionModalOpen,
+    registerModalOcc,
+    signUpModalOpen,
+    slotActionConfirm,
+    slotModalOpen,
+    userModalOpen,
+    withdrawModalOcc
+  ]);
+
   const handleToggleFollowDesk = async (deskId) => {
     if (!currentUser) return;
     const isFollowed = followedDesks.includes(deskId);
@@ -505,6 +568,8 @@ export default function App() {
         setAuthRestoring(false);
         setForgotModalOpen(false);
         setResetLinkSent(false);
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
         setResetScreenOpen(true);
       }
     });
@@ -780,6 +845,7 @@ export default function App() {
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginError('');
+    setShowPassword(false);
 
     let foundUser;
     try {
@@ -794,6 +860,7 @@ export default function App() {
     setIsAuthenticated(true);
     setLoginEmail('');
     setLoginPassword('');
+    setShowPassword(false);
 
     if (foundUser.role === 'Registrar') {
       const pendingCount = roster.users.filter(u => u.status === 'Pending').length;
@@ -918,6 +985,8 @@ export default function App() {
     setResetScreenOpen(false);
     setNewPassword('');
     setConfirmPassword('');
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setResetEmail('');
   };
 
@@ -931,6 +1000,7 @@ export default function App() {
     setCurrentUser(null);
     setPreferencesReadyForProfile(null);
     setShowUnauthHelp(false);
+    setShowPassword(false);
   };
 
   const handleSaveMyProfile = async (event) => {
@@ -2273,26 +2343,46 @@ export default function App() {
               <form onSubmit={handleSaveNewPassword} className="space-y-4 text-xs">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">New Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
-                    placeholder="At least 8 characters"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg pr-10 p-2.5 text-sm"
+                      placeholder="At least 8 characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                      title={showNewPassword ? 'Hide Password' : 'Show Password'}
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Confirm New Password</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm"
-                    placeholder="Re-enter new password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg pr-10 p-2.5 text-sm"
+                      placeholder="Re-enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+                      title={showConfirmPassword ? 'Hide Password' : 'Show Password'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button 
