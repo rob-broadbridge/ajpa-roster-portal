@@ -76,6 +76,7 @@ export default function App() {
 
   // REGISTRATION & WITHDRAWAL MODAL STATES
   const [registerModalOcc, setRegisterModalOcc] = useState(null);
+  const [pastRegistrationConfirmationOcc, setPastRegistrationConfirmationOcc] = useState(null);
   const [registerOption, setRegisterOption] = useState('SINGLE'); // 'SINGLE', 'NEXT_N', 'UNTIL_DATE', 'ALL_FUTURE'
   const [registerCountN, setRegisterCountN] = useState(4);
   const [registerUntilDate, setRegisterUntilDate] = useState('2026-12-31');
@@ -447,6 +448,7 @@ export default function App() {
     window.history.pushState(portalHistoryState, '', window.location.href);
     const handleBrowserBack = () => {
       setRegisterModalOcc(null);
+      setPastRegistrationConfirmationOcc(null);
       setWithdrawModalOcc(null);
       setDetailedSlotModal(null);
       setLogStatsOccurrence(null);
@@ -1853,6 +1855,10 @@ export default function App() {
       alert('This slot is marked as a Holiday and is not available for registration.');
       return;
     }
+    if (isOccurrenceFinished(occ)) {
+      setPastRegistrationConfirmationOcc(occ);
+      return;
+    }
     setRegisterModalOcc(occ);
     setRegisterOption('SINGLE');
     setRegisterCountN(4);
@@ -1860,20 +1866,20 @@ export default function App() {
   };
 
   // EXECUTE REGISTRATION LOGIC
-  const handleExecuteRegister = async () => {
-    if (!registerModalOcc || !currentUser) return;
-    if (registerModalOcc.isHoliday) {
+  const executeRegistration = async (occurrence, scope, countN = null, untilDate = null) => {
+    if (!occurrence || !currentUser) return;
+    if (occurrence.isHoliday) {
       alert('This slot is marked as a Holiday and cannot be registered for.');
       return;
     }
 
     const { error } = await supabase.rpc('apply_duty_assignment_change', {
       p_action: 'REGISTER',
-      p_slot_id: registerModalOcc.slotId,
-      p_start_date: registerModalOcc.date,
-      p_scope: registerOption,
-      p_count_n: registerOption === 'NEXT_N' ? (parseInt(registerCountN, 10) || 1) : null,
-      p_until_date: registerOption === 'UNTIL_DATE' ? registerUntilDate : null
+      p_slot_id: occurrence.slotId,
+      p_start_date: occurrence.date,
+      p_scope: scope,
+      p_count_n: scope === 'NEXT_N' ? (parseInt(countN, 10) || 1) : null,
+      p_until_date: scope === 'UNTIL_DATE' ? untilDate : null
     });
     if (error) {
       alert(`Unable to register: ${error.message}`);
@@ -1886,6 +1892,19 @@ export default function App() {
     setRegisterModalOcc(null);
     setRegistrationSuccessToast(true);
     setTimeout(() => setRegistrationSuccessToast(false), 6000);
+  };
+
+  // EXECUTE REGISTRATION LOGIC
+  const handleExecuteRegister = async () => {
+    await executeRegistration(registerModalOcc, registerOption, registerCountN, registerUntilDate);
+  };
+
+  const handleConfirmPastRegistration = async () => {
+    const occurrence = pastRegistrationConfirmationOcc;
+    setPastRegistrationConfirmationOcc(null);
+    // A historical duty is always an explicit, one-off record. It must never
+    // create a repeating rule based on an already-finished occurrence.
+    await executeRegistration(occurrence, 'SINGLE');
   };
 
   // OPEN WITHDRAWAL MODAL
@@ -4196,6 +4215,7 @@ export default function App() {
                             <li><i>All three options are selected by default.</i></li>
                           </ul>
                         </li>
+                        <li><b>Past shifts:</b> If a selected shift has already ended, a confirmation appears before it is recorded. Select <b>OK, Register</b> to create a one-off historical registration, or <b>Cancel</b> to leave it unchanged. Past registrations do not create a recurring rule, calendar appointment, or confirmation email.</li>
                       </ul>
                     </div>
 
@@ -4423,6 +4443,46 @@ export default function App() {
       </div>
 
       {/* --- SHIFT REGISTRATION OPTIONS MODAL --- */}
+      {pastRegistrationConfirmationOcc && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-amber-200">
+            <div className="flex items-start space-x-3 border-b border-slate-100 pb-3">
+              <div className="p-2 rounded-full bg-amber-100 text-amber-700 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-amber-700 uppercase tracking-wider">Past shift</p>
+                <h3 className="text-lg font-extrabold text-slate-900 mt-0.5">Register a completed slot?</h3>
+              </div>
+            </div>
+            <div className="text-sm text-slate-700 leading-relaxed space-y-2">
+              <p>This slot has already happened:</p>
+              <p className="font-bold text-slate-900">
+                {activeDeskMap[pastRegistrationConfirmationOcc.deskId]?.name}<br />
+                {pastRegistrationConfirmationOcc.fullDayName}, {pastRegistrationConfirmationOcc.formattedDate} ({pastRegistrationConfirmationOcc.startTime} - {pastRegistrationConfirmationOcc.endTime})
+              </p>
+              <p>Choose <b>OK, Register</b> to record this past duty. It will be registered only for this one slot and will not send a calendar appointment or email.</p>
+            </div>
+            <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPastRegistrationConfirmationOcc(null)}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPastRegistration}
+                className="px-5 py-2 rounded-lg text-xs font-extrabold bg-slate-900 text-amber-400 hover:bg-slate-800 shadow cursor-pointer"
+              >
+                OK, Register
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {registerModalOcc && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
