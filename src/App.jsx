@@ -29,13 +29,15 @@ const createDefaultActivityLogDateRange = () => {
   return { fromDate: addDaysToIsoDate(toDate, -30), toDate };
 };
 
+const normaliseCalendarWeeks = (value) => Math.max(4, Math.min(20, Math.round(Number(value) || 12)));
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authRestoring, setAuthRestoring] = useState(true);
   const [activeTab, setActiveTab] = useState('calendar');
-  const [profileForm, setProfileForm] = useState({ email: '', phone: '', reminderFrequency: 'NONE', reminderStartDate: '', reminderWeeks: 4 });
+  const [profileForm, setProfileForm] = useState({ email: '', phone: '', calendarWeeks: 12, reminderFrequency: 'NONE', reminderStartDate: '', reminderWeeks: 4 });
   const [profileSaveMessage, setProfileSaveMessage] = useState('');
   const [profileSaveError, setProfileSaveError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
@@ -129,6 +131,7 @@ export default function App() {
   // Day filter is especially useful on portrait phones: members can focus on
   // their preferred duty days without changing their followed desks.
   const [calendarDayFilter, setCalendarDayFilter] = useState({ ...DEFAULT_DAY_FILTER });
+  const [calendarDisplayWeeks, setCalendarDisplayWeeks] = useState(12);
 
   // MY SHIFTS TAB FILTERS
   const [myShiftsPreset, setMyShiftsPreset] = useState('DEFAULT_13_WEEKS');
@@ -324,6 +327,7 @@ export default function App() {
     setCalendarRegionFilter('ALL');
     setCalendarTimeOfDayFilter({ ...DEFAULT_TIME_OF_DAY_FILTER });
     setCalendarDayFilter({ ...DEFAULT_DAY_FILTER });
+    setCalendarDisplayWeeks(12);
     setMyShiftsPreset('DEFAULT_13_WEEKS');
     setMyShiftsDeskFilter('ALL');
     setStatsRegionFilter('ALL');
@@ -347,6 +351,9 @@ export default function App() {
       if (typeof calendar.region === 'string') setCalendarRegionFilter(calendar.region);
       if (calendar.time_of_day && typeof calendar.time_of_day === 'object') setCalendarTimeOfDayFilter(previous => ({ ...previous, ...calendar.time_of_day }));
       if (calendar.days && typeof calendar.days === 'object') setCalendarDayFilter(previous => ({ ...previous, ...calendar.days }));
+      if (Number.isInteger(calendar.weeks) || typeof calendar.weeks === 'string') {
+        setCalendarDisplayWeeks(normaliseCalendarWeeks(calendar.weeks));
+      }
       if (typeof myShifts.preset === 'string') setMyShiftsPreset(myShifts.preset);
       if (typeof myShifts.desk === 'string') setMyShiftsDeskFilter(myShifts.desk);
       if (typeof myShifts.from === 'string') setMyShiftsCustomFrom(myShifts.from);
@@ -594,7 +601,8 @@ export default function App() {
           member_desk_ids: memberCalendarDeskIds,
           region: calendarRegionFilter,
           time_of_day: calendarTimeOfDayFilter,
-          days: calendarDayFilter
+          days: calendarDayFilter,
+          weeks: calendarDisplayWeeks
         },
         my_shifts_filters: {
           preset: myShiftsPreset,
@@ -625,6 +633,7 @@ export default function App() {
     calendarRegionFilter,
     calendarTimeOfDayFilter,
     calendarDayFilter,
+    calendarDisplayWeeks,
     myShiftsPreset,
     myShiftsDeskFilter,
     myShiftsCustomFrom,
@@ -655,13 +664,14 @@ export default function App() {
     setProfileForm({
       email: currentUser.email || '',
       phone: currentUser.phone || '',
+      calendarWeeks: currentUser.calendarWeeks || calendarDisplayWeeks,
       reminderFrequency: currentUser.reminderFrequency || 'NONE',
       reminderStartDate: currentUser.reminderStartDate || '',
       reminderWeeks: currentUser.reminderWeeks || 4
     });
     setProfileSaveMessage('');
     setProfileSaveError('');
-  }, [currentUser]);
+  }, [currentUser, calendarDisplayWeeks]);
 
   const eligibleAdminsList = useMemo(() => {
     return users.filter(u => (u.role === 'Admin' || u.role === 'Registrar') && u.status === 'Approved');
@@ -1012,6 +1022,7 @@ export default function App() {
     const reminderFrequency = isCurrentUserDeskAdmin ? profileForm.reminderFrequency : 'NONE';
     const reminderStartDate = isCurrentUserDeskAdmin && reminderFrequency !== 'NONE' ? profileForm.reminderStartDate : null;
     const reminderWeeks = isCurrentUserDeskAdmin ? Math.max(1, Math.min(52, Number(profileForm.reminderWeeks) || 1)) : 4;
+    const calendarWeeks = normaliseCalendarWeeks(profileForm.calendarWeeks);
 
     if (!email) {
       setProfileSaveError('Please enter an email address.');
@@ -1043,15 +1054,30 @@ export default function App() {
       });
       if (profileError) throw profileError;
 
+      // Calendar length is a personal display preference, so it lives beside
+      // the member's existing filter preferences rather than in profiles.
+      await saveUserPreferences(currentUser.id, {
+        calendar_filters: {
+          desk: calendarDeskFilter,
+          member_desk_ids: memberCalendarDeskIds,
+          region: calendarRegionFilter,
+          time_of_day: calendarTimeOfDayFilter,
+          days: calendarDayFilter,
+          weeks: calendarWeeks
+        }
+      });
+
       setCurrentUser(previous => ({
         ...previous,
         email: emailChangePending ? previous.email : email,
         phone,
         reminderFrequency,
         reminderStartDate: reminderStartDate || '',
-        reminderWeeks
+        reminderWeeks,
+        calendarWeeks
       }));
-      setProfileForm(previous => ({ ...previous, phone, reminderFrequency, reminderStartDate: reminderStartDate || '', reminderWeeks }));
+      setCalendarDisplayWeeks(calendarWeeks);
+      setProfileForm(previous => ({ ...previous, phone, calendarWeeks, reminderFrequency, reminderStartDate: reminderStartDate || '', reminderWeeks }));
       setProfileSaveMessage(emailChangePending
         ? 'Profile saved. Confirm the email-change message sent to your new address to complete the email update.'
         : 'Your profile has been saved.');
@@ -1576,12 +1602,12 @@ export default function App() {
     return getWeekStartMonday();
   }, [calendarNow]);
 
-  const rolling12Weeks = useMemo(() => {
+  const rollingCalendarWeeks = useMemo(() => {
     const weeks = [];
     const dayNameMap = { 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 0: 'Sunday' };
     const baseMonday = new Date(currentWeek1Monday);
 
-    for (let w = 0; w < 12; w++) {
+    for (let w = 0; w < calendarDisplayWeeks; w++) {
       const weekStart = new Date(baseMonday);
       weekStart.setDate(baseMonday.getDate() + (w * 7));
 
@@ -1613,7 +1639,7 @@ export default function App() {
       });
     }
     return weeks;
-  }, [currentWeek1Monday]);
+  }, [calendarDisplayWeeks, currentWeek1Monday]);
 
   const statutoryHolidayByDate = useMemo(() => {
     return statutoryHolidays.reduce((byDate, holiday) => {
@@ -2453,13 +2479,13 @@ export default function App() {
                       Auckland JP Service Desk Roster & Governance Platform
                     </h2>
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      Welcome to the beta test roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view 12-week rolling service desk calendars, export device schedules, and log desk statistics.
+                      Welcome to the beta test roster management hub for Justices of the Peace across Auckland. Sign in to manage your duty shifts, view your personal rolling service desk calendar, export device schedules, and log desk statistics.
                     </p>
 
                     <div className="pt-2 grid grid-cols-2 gap-4 text-xs font-bold text-slate-700">
                       <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
                         <Calendar className="w-5 h-5 text-amber-600 shrink-0" />
-                        <span>12-Week Rolling Calendar</span>
+                        <span>Personal Rolling Calendar</span>
                       </div>
                       <div className="flex items-center space-x-2 bg-white p-3 rounded-xl border border-slate-200">
                         <MapPin className="w-5 h-5 text-sky-600 shrink-0" />
@@ -2579,6 +2605,7 @@ export default function App() {
           <>
             <PortalNavigation
               activeTab={activeTab}
+              calendarWeeks={calendarDisplayWeeks}
               canViewActivityAudit={canViewActivityAudit}
               currentUser={currentUser}
               onSelectTab={setActiveTab}
@@ -2589,7 +2616,7 @@ export default function App() {
               <div className="space-y-6">
                 <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">12-Week Rolling Calendar</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{calendarDisplayWeeks}-Week Rolling Calendar</h2>
                     <p className="text-xs text-slate-500 mt-1">
                       {currentUser.role === 'Member' ? 'Choose the followed desks and shift times you want to see.' : 'Filter calendar view by region, desk selection, and shift time of day.'}
                     </p>
@@ -2772,11 +2799,11 @@ export default function App() {
                 </div>
 
                 <div className="space-y-6">
-                  {rolling12Weeks.map(week => (
+                  {rollingCalendarWeeks.map(week => (
                     <div key={week.weekNumber} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-3">
                       <div className="flex justify-between items-center border-b border-slate-200 pb-2 bg-slate-900 text-white px-3 py-2 rounded-lg">
                         <span className="font-extrabold text-amber-400 text-sm uppercase tracking-wide">
-                          Week {week.weekNumber} of 12
+                          Week {week.weekNumber} of {calendarDisplayWeeks}
                         </span>
                         <span className="text-xs text-slate-300 font-bold">{week.startDate} to {week.endDate}</span>
                       </div>
@@ -3408,6 +3435,26 @@ export default function App() {
                     <div>
                       <label className="block font-bold text-slate-700 mb-1">Mobile phone</label>
                       <input type="tel" value={profileForm.phone} onChange={(event) => setProfileForm(previous => ({ ...previous, phone: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="e.g. 021 123 4567" />
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                    <div>
+                      <h3 className="font-extrabold text-slate-900">Calendar display</h3>
+                      <p className="text-[11px] text-slate-600 mt-1">Choose how far ahead your rolling calendar should show: 4 to 20 weeks (about 1 to 5 months).</p>
+                    </div>
+                    <div className="max-w-xs">
+                      <label className="block font-bold text-slate-700 mb-1">Number of weeks to display</label>
+                      <input
+                        type="number"
+                        min="4"
+                        max="20"
+                        step="1"
+                        required
+                        value={profileForm.calendarWeeks}
+                        onChange={(event) => setProfileForm(previous => ({ ...previous, calendarWeeks: event.target.value }))}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-white"
+                      />
                     </div>
                   </div>
 
@@ -4292,7 +4339,7 @@ export default function App() {
                         <span>2. Navigation & Calendar Filters</span>
                       </h4>
                       <ul className="list-disc pl-5 space-y-1 font-medium leading-relaxed">
-                        <li><b>Calendar (12 Wks):</b> Displays recurring shift slots for a 12-week rolling window automatically rolling over after midnight Sunday night.</li>
+                        <li><b>Calendar ({calendarDisplayWeeks} Wks):</b> Displays recurring shift slots for your selected rolling window. Choose 4 to 20 weeks in <b>My Profile</b>; the calendar automatically rolls over after midnight Sunday night.</li>
                         <li>The three compact filter rows show your current selections. Click <b>Location &amp; desks</b>, <b>Shift time</b>, or <b>Days</b> to expand and change that group.</li>
                         <li><b>Location &amp; desks:</b> Filter by region. JP Members can tick any combination of followed desks; select <b>All Followed Desks</b> to tick every desk they follow.</li>
                         <li><b>Days:</b> Select the days of the week you want to see. Use <b>Select all days</b> to restore the full week.</li>
@@ -4318,7 +4365,7 @@ export default function App() {
                         <li>Navigate to the <b>Service Desks</b> tab.</li>
                         <li>Locate your preferred desk tile (e.g. <i>Remuera Library</i>).</li>
                         <li>Click the <b>"+ Follow"</b> button. It will change to <b>"★ Following"</b>.</li>
-                        <li>Open <b>Calendar (12 Wks) &rarr; Location &amp; desks</b> to choose which of your followed desks are currently displayed.</li>
+                        <li>Open <b>Calendar ({calendarDisplayWeeks} Wks) &rarr; Location &amp; desks</b> to choose which of your followed desks are currently displayed.</li>
                       </ol>
                     </div>
 
@@ -4347,7 +4394,7 @@ export default function App() {
                           </ul>
                         </li>
                         <li>
-                          <b>Automatic Calendar Rollover Logic:</b> When the 12-week calendar rolls over at midnight Sunday night, cases configured with <i>Next n slots</i>, <i>Slots until and including dd/mm/yyyy</i>, and <i>All future slots</i> will automatically register or withdraw you for the newly rolled-in slots according to your rule logic.
+                          <b>Automatic Calendar Rollover Logic:</b> When your rolling calendar rolls over at midnight Sunday night, cases configured with <i>Next n slots</i>, <i>Slots until and including dd/mm/yyyy</i>, and <i>All future slots</i> will automatically register or withdraw you for the newly rolled-in slots according to your rule logic.
                         </li>
                         <li>
                           <b>My Shifts:</b> Use the <b>Date</b> and <b>Desk</b> filters to review your registered shifts across past, current, or future timeframes. <b>Log Stats</b> becomes available only after the shift has finished. At that point, calendar download and withdrawal are unavailable. Once statistics are logged, the disabled <b>Stats Logged</b> button directs you to the <b>Statistics</b> tab for any maintenance.
