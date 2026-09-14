@@ -19,7 +19,7 @@ import {
   Plus, Filter, Download, ChevronDown,
   CheckCircle2, AlertTriangle, FileText, UserPlus, 
   Mail, Award, Check, X, Lock, Key,
-  Edit2, Trash2, Ban, CalendarPlus, HelpCircle, Star,
+  Edit2, Trash2, Ban, CalendarPlus, HelpCircle, Star, Archive, Search,
   Globe, Shield, UserX, Building2, CheckSquare, Square, BarChart2, Clock, Database,
   Eye, EyeOff
 } from 'lucide-react';
@@ -182,7 +182,9 @@ export default function App() {
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
   const [userForm, setUserForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: '', password: 'password123', role: 'Member', isProvisional: false, status: 'Approved' });
-  const [pendingDeleteUserId, setPendingDeleteUserId] = useState(null);
+  const [pendingArchiveUserId, setPendingArchiveUserId] = useState(null);
+  const [memberDirectoryFilter, setMemberDirectoryFilter] = useState('ACTIVE');
+  const [memberDirectorySearch, setMemberDirectorySearch] = useState('');
 
   const [regionModalOpen, setRegionModalOpen] = useState(false);
   const [editingRegionId, setEditingRegionId] = useState(null);
@@ -638,6 +640,28 @@ export default function App() {
 
     return [...pending, ...nonPending];
   }, [users]);
+
+  const memberDirectoryCounts = useMemo(() => ({
+    active: users.filter(user => user.status === 'Approved' || user.status === 'Pending').length,
+    archived: users.filter(user => user.status === 'Archived').length,
+    all: users.length
+  }), [users]);
+
+  const visibleUsersForRegistrar = useMemo(() => {
+    const searchTerm = memberDirectorySearch.trim().toLocaleLowerCase();
+
+    return sortedUsersForRegistrar.filter(user => {
+      const matchesFilter = memberDirectoryFilter === 'ALL'
+        || (memberDirectoryFilter === 'ARCHIVED'
+          ? user.status === 'Archived'
+          : user.status === 'Approved' || user.status === 'Pending');
+      if (!matchesFilter) return false;
+      if (!searchTerm) return true;
+
+      return [user.fullName, user.warrantNumber, user.email, user.phone, user.role, user.status]
+        .some(value => String(value || '').toLocaleLowerCase().includes(searchTerm));
+    });
+  }, [memberDirectoryFilter, memberDirectorySearch, sortedUsersForRegistrar]);
 
   const activeDeskMap = useMemo(() => {
     return serviceDesks.reduce((acc, desk) => {
@@ -1964,6 +1988,15 @@ export default function App() {
   const handleSaveUserSubmit = async (e) => {
     e.preventDefault();
     if (editingUserId) {
+      const existingUser = users.find(user => user.id === editingUserId);
+      if (existingUser?.status !== 'Archived' && userForm.status === 'Archived') {
+        alert('Use Archive Member from the member list. It checks that the JP is not assigned as a Primary or Secondary Desk Admin.');
+        return;
+      }
+      if (existingUser?.status === 'Archived' && userForm.status !== 'Archived') {
+        alert('Use Restore from the Archived member list to reactivate a member.');
+        return;
+      }
       const { error } = await supabase.from('profiles').update({ full_name: userForm.fullName, phone: userForm.phone, warrant_number: userForm.warrantNumber, role: userForm.role, is_provisional: userForm.isProvisional, status: userForm.status }).eq('id', editingUserId);
       if (error) { alert(`Unable to save member: ${error.message}`); return; }
       setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm } : u));
@@ -1974,38 +2007,81 @@ export default function App() {
     setUserModalOpen(false);
   };
 
-  const confirmDeleteUser = async () => {
-    const memberId = pendingDeleteUserId;
-    if (!memberId) return;
+  const handleRequestArchiveUser = (memberId) => {
+    const member = users.find(user => user.id === memberId);
+    if (!member) return;
 
     if (memberId === currentUser?.id) {
-      alert('You cannot delete the account you are currently signed in with. Ask another Registrar to maintain this account if required.');
-      setPendingDeleteUserId(null);
+      alert('You cannot archive the account you are currently signed in with. Ask another Registrar to maintain this account if required.');
       return;
     }
 
-    // Do not change the visible list until Supabase has confirmed the profile
-    // was actually deleted. A delete blocked by row-level security or a related
-    // record must leave the screen consistent with the database.
+    const managedDesks = serviceDesks.filter(desk => desk.primaryAdminId === memberId || desk.secondaryAdminId === memberId);
+    if (managedDesks.length > 0) {
+      const deskNames = managedDesks.map(desk => desk.name).join(', ');
+      alert(`${member.fullName} cannot be archived because they are assigned as a Primary or Secondary Desk Admin for: ${deskNames}. Reassign or clear those Desk Admin roles first.`);
+      return;
+    }
+
+    setPendingArchiveUserId(memberId);
+  };
+
+  const confirmArchiveUser = async () => {
+    const memberId = pendingArchiveUserId;
+    if (!memberId) return;
+
+    if (memberId === currentUser?.id) {
+      alert('You cannot archive the account you are currently signed in with. Ask another Registrar to maintain this account if required.');
+      setPendingArchiveUserId(null);
+      return;
+    }
+
+    const managedDesks = serviceDesks.filter(desk => desk.primaryAdminId === memberId || desk.secondaryAdminId === memberId);
+    if (managedDesks.length > 0) {
+      const deskNames = managedDesks.map(desk => desk.name).join(', ');
+      alert(`This member is now assigned as a Primary or Secondary Desk Admin for: ${deskNames}. Reassign or clear those Desk Admin roles before archiving.`);
+      setPendingArchiveUserId(null);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('profiles')
-      .delete()
+      .update({ status: 'Archived' })
       .eq('id', memberId)
       .select('id');
 
     if (error) {
-      alert(`Unable to delete member: ${error.message}`);
-      setPendingDeleteUserId(null);
+      alert(`Unable to archive member: ${error.message}`);
+      setPendingArchiveUserId(null);
       return;
     }
     if (!data || data.length !== 1) {
-      alert('The member was not deleted. Refresh the member list and try again, or check that your Registrar access is still active.');
-      setPendingDeleteUserId(null);
+      alert('The member was not archived. Refresh the member list and check that your Registrar access is still active.');
+      setPendingArchiveUserId(null);
       return;
     }
 
-    setUsers(previous => previous.filter(user => user.id !== memberId));
-    setPendingDeleteUserId(null);
+    setUsers(previous => previous.map(user => user.id === memberId ? { ...user, status: 'Archived' } : user));
+    setPendingArchiveUserId(null);
+  };
+
+  const handleRestoreArchivedUser = async (memberId) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ status: 'Approved' })
+      .eq('id', memberId)
+      .select('id');
+
+    if (error) {
+      alert(`Unable to restore member: ${error.message}`);
+      return;
+    }
+    if (!data || data.length !== 1) {
+      alert('The member was not restored. Refresh the member list and check that your Registrar access is still active.');
+      return;
+    }
+
+    setUsers(previous => previous.map(user => user.id === memberId ? { ...user, status: 'Approved' } : user));
   };
 
   const handleOpenAddRegionModal = () => {
@@ -3613,12 +3689,37 @@ export default function App() {
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="font-bold text-slate-900 text-base">Association Members & Sign-up Queue</h3>
-                        <p className="text-xs text-slate-500">Approve pending applications or maintain active profiles. Pending members appear at the top, followed by members sorted by surname, first name, and JP number.</p>
+                        <p className="text-xs text-slate-500">Approve pending applications, maintain current profiles, or archive former members. Pending members appear at the top, followed by members sorted by surname, first name, and JP number.</p>
                       </div>
                       <button onClick={handleOpenAddUserModal} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
                         <UserPlus className="w-4 h-4" />
                         <span>Add New JP Member</span>
                       </button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-center gap-1 rounded-lg bg-white p-1 border border-slate-200 text-xs font-bold">
+                        <button type="button" onClick={() => setMemberDirectoryFilter('ACTIVE')} className={`px-3 py-1.5 rounded-md cursor-pointer ${memberDirectoryFilter === 'ACTIVE' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
+                          Active ({memberDirectoryCounts.active})
+                        </button>
+                        <button type="button" onClick={() => setMemberDirectoryFilter('ARCHIVED')} className={`px-3 py-1.5 rounded-md cursor-pointer ${memberDirectoryFilter === 'ARCHIVED' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
+                          Archived ({memberDirectoryCounts.archived})
+                        </button>
+                        <button type="button" onClick={() => setMemberDirectoryFilter('ALL')} className={`px-3 py-1.5 rounded-md cursor-pointer ${memberDirectoryFilter === 'ALL' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
+                          All ({memberDirectoryCounts.all})
+                        </button>
+                      </div>
+                      <label className="relative flex items-center w-full sm:w-80">
+                        <Search className="absolute left-3 w-4 h-4 text-slate-400 pointer-events-none" />
+                        <input
+                          type="search"
+                          value={memberDirectorySearch}
+                          onChange={(event) => setMemberDirectorySearch(event.target.value)}
+                          className="w-full border border-slate-300 rounded-lg py-2 pl-9 pr-3 text-xs font-bold text-slate-900 bg-white"
+                          placeholder="Search name, warrant, email or phone"
+                          aria-label="Search JP members"
+                        />
+                      </label>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -3634,7 +3735,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                          {sortedUsersForRegistrar.map(u => (
+                          {visibleUsersForRegistrar.map(u => (
                             <tr key={u.id} className={`hover:bg-slate-50 transition ${u.status === 'Pending' ? 'bg-amber-50/80 border-l-4 border-amber-500' : ''}`}>
                               <td className="p-3 font-mono font-bold text-slate-900">{u.warrantNumber}</td>
                               <td className="p-3 font-bold text-slate-900">
@@ -3658,6 +3759,10 @@ export default function App() {
                                 ) : u.status === 'Approved' ? (
                                   <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-bold text-[10px]">
                                     Active / Approved
+                                  </span>
+                                ) : u.status === 'Archived' ? (
+                                  <span className="bg-slate-200 text-slate-700 border border-slate-300 px-2 py-0.5 rounded font-bold text-[10px]">
+                                    Archived / Sign-in Disabled
                                   </span>
                                 ) : (
                                   <span className="bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded font-bold text-[10px]">
@@ -3683,13 +3788,22 @@ export default function App() {
                                       <span>Reject</span>
                                     </button>
                                   </div>
+                                ) : u.status === 'Archived' ? (
+                                  <>
+                                    <button onClick={() => handleOpenEditUserModal(u)} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 cursor-pointer" title="Edit archived JP details">
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => handleRestoreArchivedUser(u.id)} className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] cursor-pointer" title="Restore member access">
+                                      Restore
+                                    </button>
+                                  </>
                                 ) : (
                                   <>
                                     <button onClick={() => handleOpenEditUserModal(u)} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 cursor-pointer" title="Edit JP Details">
                                       <Edit2 className="w-3.5 h-3.5" />
                                     </button>
-                                    <button onClick={() => setPendingDeleteUserId(u.id)} className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded text-rose-700 cursor-pointer" title="Delete JP Member">
-                                      <Trash2 className="w-3.5 h-3.5" />
+                                    <button onClick={() => handleRequestArchiveUser(u.id)} className="p-1.5 bg-amber-50 hover:bg-amber-100 rounded text-amber-800 cursor-pointer" title="Archive JP Member">
+                                      <Archive className="w-3.5 h-3.5" />
                                     </button>
                                   </>
                                 )}
@@ -3699,6 +3813,11 @@ export default function App() {
                         </tbody>
                       </table>
                     </div>
+                    {visibleUsersForRegistrar.length === 0 && (
+                      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-xs font-bold text-slate-500">
+                        No members match the selected filter and search.
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -4264,7 +4383,9 @@ export default function App() {
                           <li>Navigate to <b>Registrar Portal &rarr; JP Members</b>.</li>
                           <li>Review new member registrations in the <b>Pending Approval</b> queue.</li>
                           <li>Click <b>"Approve"</b> to activate their account or <b>"Reject"</b> to deny access. Approval sends the new member an automated welcome email with the JP Member guidance.</li>
+                          <li>Use the Active, Archived, and All filters together with Search to locate a member by name, warrant number, email address, or phone number.</li>
                           <li>Click the edit icon next to any member to update warrant numbers, system roles (Member, Admin, Registrar), or provisional status.</li>
+                          <li>Archive a former member to disable sign-in while retaining their profile, historical statistics, and Activity Log references. A member assigned as a Primary or Secondary Desk Admin must be reassigned or cleared from those desks before they can be archived. Archived members can be restored.</li>
                         </ol>
                       </div>
 
@@ -5406,6 +5527,7 @@ export default function App() {
                     <option value="Approved">Approved</option>
                     <option value="Pending">Pending</option>
                     <option value="Rejected">Rejected</option>
+                    <option value="Archived">Archived</option>
                   </select>
                 </div>
               </div>
@@ -5424,12 +5546,12 @@ export default function App() {
       )}
 
       <DestructiveConfirmationDialog
-        confirmLabel="Delete Member"
-        isOpen={Boolean(pendingDeleteUserId)}
-        message="Are you sure you want to delete this JP member profile? Their registrations and logged data will be removed from future views."
-        onCancel={() => setPendingDeleteUserId(null)}
-        onConfirm={confirmDeleteUser}
-        title="Confirm Member Deletion"
+        confirmLabel="Archive Member"
+        isOpen={Boolean(pendingArchiveUserId)}
+        message="Archive this JP member? Their sign-in will be disabled and they will move out of the active member list. Their profile, history, statistics and Activity Log references will be retained."
+        onCancel={() => setPendingArchiveUserId(null)}
+        onConfirm={confirmArchiveUser}
+        title="Confirm Member Archival"
       />
 
       {/* --- ADD / EDIT REGION MODAL --- */}
