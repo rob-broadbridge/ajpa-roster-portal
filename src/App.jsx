@@ -31,13 +31,26 @@ const createDefaultActivityLogDateRange = () => {
 
 const normaliseCalendarWeeks = (value) => Math.max(4, Math.min(20, Math.round(Number(value) || 12)));
 
+// Warrant numbers are always stored and displayed as JP-12345.  The edit
+// fields keep only the numeric part, so members do not need to type the prefix.
+const warrantNumberDigits = (value = '') => String(value)
+  .trim()
+  .toUpperCase()
+  .replace(/^JP[\s-]*/i, '')
+  .replace(/\D/g, '');
+
+const normaliseWarrantNumber = (value = '') => {
+  const digits = warrantNumberDigits(value);
+  return digits ? `JP-${digits}` : '';
+};
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authRestoring, setAuthRestoring] = useState(true);
   const [activeTab, setActiveTab] = useState('calendar');
-  const [profileForm, setProfileForm] = useState({ email: '', phone: '', calendarWeeks: 12, reminderFrequency: 'NONE', reminderStartDate: '', reminderWeeks: 4 });
+  const [profileForm, setProfileForm] = useState({ email: '', phone: '', warrantNumber: '', calendarWeeks: 12, reminderFrequency: 'NONE', reminderStartDate: '', reminderWeeks: 4 });
   const [profileSaveMessage, setProfileSaveMessage] = useState('');
   const [profileSaveError, setProfileSaveError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
@@ -100,7 +113,7 @@ export default function App() {
 
   // Sign Up Modal State
   const [signUpModalOpen, setSignUpModalOpen] = useState(false);
-  const [signUpForm, setSignUpForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', confirmPassword: '', isProvisional: false });
+  const [signUpForm, setSignUpForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: '', password: '', confirmPassword: '', isProvisional: false });
   const [signUpSuccessMsg, setSignUpSuccessMsg] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
@@ -699,6 +712,7 @@ export default function App() {
     setProfileForm({
       email: currentUser.email || '',
       phone: currentUser.phone || '',
+      warrantNumber: warrantNumberDigits(currentUser.warrantNumber),
       calendarWeeks: currentUser.calendarWeeks || calendarDisplayWeeks,
       reminderFrequency: currentUser.reminderFrequency || 'NONE',
       reminderStartDate: currentUser.reminderStartDate || '',
@@ -951,7 +965,7 @@ export default function App() {
     setSignUpPasswordError('');
     const fullName = signUpForm.fullName.trim();
     const email = signUpForm.email.trim().toLowerCase();
-    const warrantNumber = signUpForm.warrantNumber.trim().toUpperCase();
+    const warrantNumber = normaliseWarrantNumber(signUpForm.warrantNumber);
     if (!fullName || !email || !warrantNumber) {
       alert('Please complete your name, email address, and warrant number.');
       return;
@@ -990,7 +1004,7 @@ export default function App() {
     setTimeout(() => {
       setSignUpSuccessMsg(false);
       setSignUpModalOpen(false);
-      setSignUpForm({ fullName: '', email: '', phone: '', warrantNumber: 'JP-', password: '', confirmPassword: '', isProvisional: false });
+      setSignUpForm({ fullName: '', email: '', phone: '', warrantNumber: '', password: '', confirmPassword: '', isProvisional: false });
       setSignUpPasswordError('');
     }, 2500);
   };
@@ -1054,6 +1068,7 @@ export default function App() {
 
     const email = profileForm.email.trim().toLowerCase();
     const phone = profileForm.phone.trim();
+    const warrantNumber = normaliseWarrantNumber(profileForm.warrantNumber);
     const reminderFrequency = isCurrentUserDeskAdmin ? profileForm.reminderFrequency : 'NONE';
     const reminderStartDate = isCurrentUserDeskAdmin && reminderFrequency !== 'NONE' ? profileForm.reminderStartDate : null;
     const reminderWeeks = isCurrentUserDeskAdmin ? Math.max(1, Math.min(52, Number(profileForm.reminderWeeks) || 1)) : 4;
@@ -1061,6 +1076,10 @@ export default function App() {
 
     if (!email) {
       setProfileSaveError('Please enter an email address.');
+      return;
+    }
+    if (!warrantNumber) {
+      setProfileSaveError('Please enter the numeric part of your JP warrant number.');
       return;
     }
     if (isCurrentUserDeskAdmin && reminderFrequency !== 'NONE' && !reminderStartDate) {
@@ -1083,6 +1102,7 @@ export default function App() {
 
       const { error: profileError } = await supabase.rpc('update_my_profile', {
         p_phone: phone,
+        p_warrant_number: warrantNumber,
         p_reminder_frequency: reminderFrequency,
         p_reminder_start_date: reminderStartDate,
         p_reminder_weeks: reminderWeeks
@@ -1106,13 +1126,15 @@ export default function App() {
         ...previous,
         email: emailChangePending ? previous.email : email,
         phone,
+        warrantNumber,
         reminderFrequency,
         reminderStartDate: reminderStartDate || '',
         reminderWeeks,
         calendarWeeks
       }));
       setCalendarDisplayWeeks(calendarWeeks);
-      setProfileForm(previous => ({ ...previous, phone, calendarWeeks, reminderFrequency, reminderStartDate: reminderStartDate || '', reminderWeeks }));
+      setUsers(previous => previous.map(user => user.id === currentUser.id ? { ...user, email: emailChangePending ? user.email : email, phone, warrantNumber } : user));
+      setProfileForm(previous => ({ ...previous, phone, warrantNumber: warrantNumberDigits(warrantNumber), calendarWeeks, reminderFrequency, reminderStartDate: reminderStartDate || '', reminderWeeks }));
       setProfileSaveMessage(emailChangePending
         ? 'Profile saved. Confirm the email-change message sent to your new address to complete the email update.'
         : 'Your profile has been saved.');
@@ -2197,7 +2219,7 @@ export default function App() {
       fullName: '',
       email: '',
       phone: '',
-      warrantNumber: 'JP-',
+      warrantNumber: '',
       password: 'password123',
       role: 'Member',
       isProvisional: false,
@@ -2212,7 +2234,7 @@ export default function App() {
       fullName: u.fullName,
       email: u.email,
       phone: u.phone,
-      warrantNumber: u.warrantNumber,
+      warrantNumber: warrantNumberDigits(u.warrantNumber),
       password: u.password || 'password123',
       role: u.role,
       isProvisional: u.isProvisional,
@@ -2223,6 +2245,11 @@ export default function App() {
 
   const handleSaveUserSubmit = async (e) => {
     e.preventDefault();
+    const warrantNumber = normaliseWarrantNumber(userForm.warrantNumber);
+    if (!warrantNumber) {
+      alert('Enter the numeric part of the JP warrant number.');
+      return;
+    }
     if (editingUserId) {
       const existingUser = users.find(user => user.id === editingUserId);
       if (existingUser?.status !== 'Archived' && userForm.status === 'Archived') {
@@ -2233,9 +2260,14 @@ export default function App() {
         alert('Use Restore from the Archived member list to reactivate a member.');
         return;
       }
-      const { error } = await supabase.from('profiles').update({ full_name: userForm.fullName, phone: userForm.phone, warrant_number: userForm.warrantNumber, role: userForm.role, is_provisional: userForm.isProvisional, status: userForm.status }).eq('id', editingUserId);
-      if (error) { alert(`Unable to save member: ${error.message}`); return; }
-      setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm } : u));
+      const { error } = await supabase.from('profiles').update({ full_name: userForm.fullName, phone: userForm.phone, warrant_number: warrantNumber, role: userForm.role, is_provisional: userForm.isProvisional, status: userForm.status }).eq('id', editingUserId);
+      if (error) {
+        alert(error.code === '23505'
+          ? 'This JP warrant number is already registered. Please check the number.'
+          : `Unable to save member: ${error.message}`);
+        return;
+      }
+      setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm, warrantNumber } : u));
     } else {
       alert('Create new accounts through the Supabase sign-up process. They will appear here as Pending for approval.');
       return;
@@ -3538,7 +3570,7 @@ export default function App() {
                 <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-2">
                   <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">My Profile</span>
                   <h2 className="text-xl font-extrabold text-slate-900">Your AJPA Portal Details</h2>
-                  <p className="text-xs text-slate-500">Keep your contact details current. Your role and warrant information are maintained by an AJPA Registrar.</p>
+                  <p className="text-xs text-slate-500">Keep your contact and warrant details current. Your role is maintained by an AJPA Registrar.</p>
                 </div>
 
                 <form onSubmit={handleSaveMyProfile} className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-5 text-xs">
@@ -3561,8 +3593,12 @@ export default function App() {
                       <input value={currentUser.fullName || ''} readOnly className="w-full border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600 bg-slate-100 cursor-not-allowed" />
                     </div>
                     <div>
-                      <label className="block font-bold text-slate-600 mb-1">Warrant number</label>
-                      <input value={currentUser.warrantNumber || ''} readOnly className="w-full border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600 bg-slate-100 cursor-not-allowed" />
+                      <label className="block font-bold text-slate-700 mb-1">Warrant number</label>
+                      <div className="flex rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:ring-2 focus-within:ring-amber-300">
+                        <span className="px-3 py-2.5 bg-slate-100 border-r border-slate-300 font-mono font-bold text-slate-700">JP-</span>
+                        <input type="text" required inputMode="numeric" pattern="[0-9]*" value={profileForm.warrantNumber} onChange={(event) => setProfileForm(previous => ({ ...previous, warrantNumber: warrantNumberDigits(event.target.value) }))} className="min-w-0 flex-1 p-2.5 text-sm font-mono outline-none" placeholder="12345" />
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">Enter the number only.</p>
                     </div>
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Portal role</label>
@@ -5941,7 +5977,10 @@ export default function App() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
-                  <input type="text" required value={userForm.warrantNumber} onChange={(e) => setUserForm(prev => ({ ...prev, warrantNumber: e.target.value }))} className="w-full border rounded p-2 font-mono" />
+                  <div className="flex rounded border overflow-hidden bg-white focus-within:ring-2 focus-within:ring-amber-300">
+                    <span className="px-2 py-2 bg-slate-100 border-r font-mono font-bold text-slate-700">JP-</span>
+                    <input type="text" required inputMode="numeric" pattern="[0-9]*" value={userForm.warrantNumber} onChange={(e) => setUserForm(prev => ({ ...prev, warrantNumber: warrantNumberDigits(e.target.value) }))} className="min-w-0 flex-1 p-2 font-mono outline-none" placeholder="12345" />
+                  </div>
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Role</label>
@@ -6091,14 +6130,20 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Warrant Number</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={signUpForm.warrantNumber}
-                      onChange={(e) => setSignUpForm(prev => ({ ...prev, warrantNumber: e.target.value }))}
-                      className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-mono"
-                      placeholder="e.g. JP-12345"
-                    />
+                    <div className="flex rounded-lg border border-slate-300 overflow-hidden bg-white focus-within:ring-2 focus-within:ring-amber-300">
+                      <span className="px-3 py-2.5 bg-slate-100 border-r border-slate-300 font-mono font-bold text-slate-700">JP-</span>
+                      <input
+                        type="text"
+                        required
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={signUpForm.warrantNumber}
+                        onChange={(e) => setSignUpForm(prev => ({ ...prev, warrantNumber: warrantNumberDigits(e.target.value) }))}
+                        className="min-w-0 flex-1 p-2.5 text-sm font-mono outline-none"
+                        placeholder="12345"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">Enter the number only.</p>
                   </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Mobile Phone</label>
