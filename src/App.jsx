@@ -180,6 +180,13 @@ export default function App() {
   });
   const [statsSuccessToast, setStatsSuccessToast] = useState(false);
   const [registrationSuccessToast, setRegistrationSuccessToast] = useState(false);
+  const [statisticsSubjectUser, setStatisticsSubjectUser] = useState(null);
+
+  // Desk Maintenance is deliberately separate from members' self-service
+  // calendar. Staff can only act for JPs at desks they administer.
+  const [deskMaintenanceSubTab, setDeskMaintenanceSubTab] = useState('assign-jps');
+  const [deskMaintenanceDeskFilter, setDeskMaintenanceDeskFilter] = useState('ALL');
+  const [deskMaintenanceMemberSelections, setDeskMaintenanceMemberSelections] = useState({});
 
   // Full Slot Details Modal State
   const [detailedSlotModal, setDetailedSlotModal] = useState(null);
@@ -274,7 +281,9 @@ export default function App() {
     setLoggedStatistics(roster.statistics);
     setStatutoryHolidays(roster.statutoryHolidays); setSlotHolidayOverrides(roster.slotHolidayOverrides);
 
-    if (profile.role === 'Admin' || profile.role === 'Registrar') {
+    const profileCanUseDeskMaintenance = profile.role === 'Registrar'
+      || roster.desks.some(desk => desk.primaryAdminId === profile.id || desk.secondaryAdminId === profile.id);
+    if (profileCanUseDeskMaintenance) {
       try {
         setActivityLogRange('LAST_250');
         setActivityLogCustomModalOpen(false);
@@ -654,14 +663,16 @@ export default function App() {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
 
-  const canViewActivityAudit = useMemo(() => {
-    return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
-  }, [currentUser]);
-
   const isCurrentUserDeskAdmin = useMemo(() => {
     if (!currentUser) return false;
     return serviceDesks.some(desk => desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id);
   }, [currentUser, serviceDesks]);
+
+  const canUseDeskMaintenance = useMemo(() => (
+    currentUser?.role === 'Registrar' || isCurrentUserDeskAdmin
+  ), [currentUser, isCurrentUserDeskAdmin]);
+
+  const canViewActivityAudit = canUseDeskMaintenance;
 
   useEffect(() => {
     if (!currentUser) return;
@@ -1529,28 +1540,38 @@ export default function App() {
     }
   };
 
-  const handleSaveEditedStatSubmit = (e) => {
+  const handleSaveEditedStatSubmit = async (e) => {
     e.preventDefault();
     if (!editingStatRecord) return;
-
-    setLoggedStatistics(prev => prev.map(item => {
-      if (item.id === editingStatRecord.id) {
-        return {
-          ...item,
-          ...editStatForm
-        };
+    const { error } = await supabase.rpc('save_duty_statistic_for_member', {
+      p_statistic_id: editingStatRecord.id,
+      p_member_id: editingStatRecord.jpId,
+      p_slot_id: editingStatRecord.slotId,
+      p_duty_date: editingStatRecord.date,
+      p_values: {
+        noOfClients: editStatForm.noOfClients,
+        noOfHoursWorked: editStatForm.noOfHoursWorked,
+        certifiedCopies: editStatForm.certifiedCopies,
+        statutoryDeclarations: editStatForm.statutoryDeclarations,
+        signatureWitnessed: editStatForm.signatureWitnessed,
+        affidavits: editStatForm.affidavits,
+        other: editStatForm.other,
+        notes: editStatForm.notes
       }
-      return item;
-    }));
+    });
+    if (error) { alert(`Unable to save statistics: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
 
     setEditingStatRecord(null);
     setStatsSuccessToast(true);
     setTimeout(() => setStatsSuccessToast(false), 3000);
   };
 
-  const confirmDeleteStatRecord = () => {
+  const confirmDeleteStatRecord = async () => {
     if (!confirmDeleteStatId) return;
-    setLoggedStatistics(prev => prev.filter(item => item.id !== confirmDeleteStatId));
+    const { error } = await supabase.rpc('delete_duty_statistic_for_member', { p_statistic_id: confirmDeleteStatId });
+    if (error) { alert(`Unable to delete statistics: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
     setConfirmDeleteStatId(null);
     setEditingStatRecord(null);
   };
@@ -1725,6 +1746,54 @@ export default function App() {
     return instances;
   }, [currentWeek1Monday, slotTemplates, cancelledSlotInstances, slotAssignments, activeDeskMap, statutoryHolidayByDate, slotHolidayOverrideByKey]);
 
+  const deskMaintenanceDeskIds = useMemo(() => {
+    if (!currentUser) return [];
+    if (currentUser.role === 'Registrar') return activeDesksList.map(desk => desk.id);
+    return activeDesksList
+      .filter(desk => desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id)
+      .map(desk => desk.id);
+  }, [currentUser, activeDesksList]);
+
+  const deskMaintenanceDesks = useMemo(() => activeDesksList
+    .filter(desk => deskMaintenanceDeskIds.includes(desk.id))
+    .sort((first, second) => first.name.localeCompare(second.name)), [activeDesksList, deskMaintenanceDeskIds]);
+
+  const deskMaintenanceOccurrences = useMemo(() => {
+    const today = getTimeZoneDateString();
+    const earliest = addDaysToIsoDate(today, -28);
+    const latest = addDaysToIsoDate(today, 84);
+    return generatedOccurrences
+      .filter(occ => deskMaintenanceDeskIds.includes(occ.deskId))
+      .filter(occ => deskMaintenanceDeskFilter === 'ALL' || occ.deskId === deskMaintenanceDeskFilter)
+      .filter(occ => occ.date >= earliest && occ.date <= latest)
+      .sort((first, second) => first.date.localeCompare(second.date)
+        || first.startTime.localeCompare(second.startTime)
+        || (activeDeskMap[first.deskId]?.name || '').localeCompare(activeDeskMap[second.deskId]?.name || ''));
+  }, [generatedOccurrences, deskMaintenanceDeskIds, deskMaintenanceDeskFilter, activeDeskMap]);
+
+  const activeMembersForDeskMaintenance = useMemo(() => users
+    .filter(user => user.status === 'Approved')
+    .sort((first, second) => first.fullName.localeCompare(second.fullName)), [users]);
+
+  const handleStaffAssignmentChange = async (occurrence, memberId, action) => {
+    if (!memberId) {
+      alert('Select a JP member first.');
+      return;
+    }
+    const member = userMap[memberId];
+    const verb = action === 'REGISTER' ? 'register' : 'withdraw';
+    if (!window.confirm(`Do you want to ${verb} ${member?.fullName || 'this JP member'} ${action === 'REGISTER' ? 'for' : 'from'} the selected shift?`)) return;
+    const { error } = await supabase.rpc('apply_duty_assignment_change_for_member', {
+      p_member_id: memberId,
+      p_action: action,
+      p_slot_id: occurrence.slotId,
+      p_duty_date: occurrence.date
+    });
+    if (error) { alert(`Unable to ${verb} JP member: ${error.message}`); return; }
+    await loadSupabaseRoster(currentUser);
+    await refreshActivityLog();
+  };
+
   // MY SHIFTS DATE RANGE & COMPUTED FILTERED LIST
   const myShiftsFilterDescriptor = useMemo(() => {
     const today = calendarDateFromIso(getTimeZoneDateString());
@@ -1833,23 +1902,25 @@ export default function App() {
     loggedStatistics.map(stat => `${stat.jpId}:${stat.slotId}:${stat.date}`)
   ), [loggedStatistics]);
 
-  const hasLoggedStatisticsForOccurrence = (occurrence) => (
-    Boolean(currentUser) && loggedStatisticKeys.has(`${currentUser.id}:${occurrence.slotId}:${occurrence.date}`)
+  const hasLoggedStatisticsForOccurrence = (occurrence, profileId = currentUser?.id) => (
+    Boolean(profileId) && loggedStatisticKeys.has(`${profileId}:${occurrence.slotId}:${occurrence.date}`)
   );
 
   const isOccurrenceFinished = (occurrence) => hasShiftEnded(occurrence, actionClock);
 
-  const handleOpenLogStatsModal = (occ, e) => {
+  const handleOpenLogStatsModal = (occ, e, subjectUser = currentUser) => {
     if (e) e.stopPropagation();
     if (!isOccurrenceFinished(occ)) {
       alert('Statistics can be logged after this shift has ended.');
       return;
     }
-    if (hasLoggedStatisticsForOccurrence(occ)) {
+    if (!subjectUser) return;
+    if (hasLoggedStatisticsForOccurrence(occ, subjectUser.id)) {
       alert('Statistics have already been logged for this shift. To maintain them, open the Statistics tab.');
       return;
     }
     setLogStatsOccurrence(occ);
+    setStatisticsSubjectUser(subjectUser);
 
     let defaultHours = 2.00;
     try {
@@ -1889,8 +1960,8 @@ export default function App() {
 
   const handleSaveStatsSubmit = async (e) => {
     e.preventDefault();
-    if (!logStatsOccurrence || !currentUser) return;
-    if (hasLoggedStatisticsForOccurrence(logStatsOccurrence)) {
+    if (!logStatsOccurrence || !currentUser || !statisticsSubjectUser) return;
+    if (hasLoggedStatisticsForOccurrence(logStatsOccurrence, statisticsSubjectUser.id)) {
       alert('Statistics have already been logged for this shift. To maintain them, open the Statistics tab.');
       setLogStatsOccurrence(null);
       return;
@@ -1900,9 +1971,9 @@ export default function App() {
 
     const newStatEntry = {
       id: `stat-${Date.now()}`,
-      jpId: currentUser.id,
-      jpName: currentUser.fullName,
-      warrantNumber: currentUser.warrantNumber,
+      jpId: statisticsSubjectUser.id,
+      jpName: statisticsSubjectUser.fullName,
+      warrantNumber: statisticsSubjectUser.warrantNumber,
       deskId: logStatsOccurrence.deskId,
       deskName: desk.name || 'Service Desk',
       deskCode: desk.code || 'JP',
@@ -1923,27 +1994,26 @@ export default function App() {
       notes: statsForm.notes
     };
 
-    const { data: savedStat, error } = await supabase.from('duty_statistics').insert({
-      slot_id: logStatsOccurrence.slotId,
-      duty_date: logStatsOccurrence.date,
-      profile_id: currentUser.id,
-      desk_name_snapshot: newStatEntry.deskName,
-      desk_code_snapshot: newStatEntry.deskCode,
-      start_time_snapshot: newStatEntry.startTime,
-      end_time_snapshot: newStatEntry.endTime,
-      no_of_jp_duties: newStatEntry.noOfJpDuties,
-      no_of_clients: newStatEntry.noOfClients,
-      no_of_hours_worked: newStatEntry.noOfHoursWorked,
-      certified_copies: newStatEntry.certifiedCopies,
-      statutory_declarations: newStatEntry.statutoryDeclarations,
-      signatures_witnessed: newStatEntry.signatureWitnessed,
-      affidavits: newStatEntry.affidavits,
-      other_duties: newStatEntry.other,
-      notes: newStatEntry.notes
-    }).select().single();
+    const { error } = await supabase.rpc('save_duty_statistic_for_member', {
+      p_statistic_id: null,
+      p_member_id: statisticsSubjectUser.id,
+      p_slot_id: logStatsOccurrence.slotId,
+      p_duty_date: logStatsOccurrence.date,
+      p_values: {
+        noOfClients: newStatEntry.noOfClients,
+        noOfHoursWorked: newStatEntry.noOfHoursWorked,
+        certifiedCopies: newStatEntry.certifiedCopies,
+        statutoryDeclarations: newStatEntry.statutoryDeclarations,
+        signatureWitnessed: newStatEntry.signatureWitnessed,
+        affidavits: newStatEntry.affidavits,
+        other: newStatEntry.other,
+        notes: newStatEntry.notes
+      }
+    });
     if (error) { alert(`Unable to save statistics: ${error.message}`); return; }
-    setLoggedStatistics(prev => [{ ...newStatEntry, id: savedStat.id, slotId: logStatsOccurrence.slotId, occurrenceKey: logStatsOccurrence.instanceKey }, ...prev]);
+    await loadSupabaseRoster(currentUser);
     setLogStatsOccurrence(null);
+    setStatisticsSubjectUser(null);
     setStatsSuccessToast(true);
     setTimeout(() => setStatsSuccessToast(false), 4000);
   };
@@ -2252,13 +2322,28 @@ export default function App() {
   const handleCreateDeskSubmit = async (e) => {
     e.preventDefault();
 
-    if (newDeskForm.primaryAdminId && newDeskForm.primaryAdminId === newDeskForm.secondaryAdminId) {
+    if (!newDeskForm.primaryAdminId) {
+      alert('Select a valid Primary Desk Admin before saving this Service Desk.');
+      return;
+    }
+    if (newDeskForm.primaryAdminId === newDeskForm.secondaryAdminId) {
       alert('Primary Admin and Secondary Admin cannot be the same person.');
       return;
     }
 
     const region = regions.find(item => item.name === newDeskForm.region) || regions[0];
-    const { error } = await supabase.from('service_desks').insert({ code: newDeskForm.code.toUpperCase(), name: newDeskForm.name, address: newDeskForm.address, region_id: region.id, primary_admin_id: newDeskForm.primaryAdminId || null, secondary_admin_id: newDeskForm.secondaryAdminId || null, site_contact_name: newDeskForm.siteContactName || '', site_contact_email: newDeskForm.siteContactEmail || '', contact_person: newDeskForm.contactPerson || '', notes: newDeskForm.notes || '' });
+    const { error } = await supabase.rpc('create_service_desk_for_current_user', {
+      p_code: newDeskForm.code,
+      p_name: newDeskForm.name,
+      p_address: newDeskForm.address,
+      p_region_id: region.id,
+      p_primary_admin_id: newDeskForm.primaryAdminId,
+      p_secondary_admin_id: newDeskForm.secondaryAdminId || null,
+      p_site_contact_name: newDeskForm.siteContactName || '',
+      p_site_contact_email: newDeskForm.siteContactEmail || '',
+      p_contact_person: newDeskForm.contactPerson || '',
+      p_notes: newDeskForm.notes || ''
+    });
     if (error) { alert(`Unable to create service desk: ${error.message}`); return; }
     await loadSupabaseRoster(currentUser);
     setCreateDeskModalOpen(false);
@@ -2267,13 +2352,22 @@ export default function App() {
       name: '', 
       address: '', 
       region: regions[0]?.name || 'Auckland East', 
-      primaryAdminId: '', 
+      primaryAdminId: currentUser?.id || '',
       secondaryAdminId: '', 
       siteContactName: '', 
       siteContactEmail: '', 
       contactPerson: '', 
       notes: '' 
     });
+  };
+
+  const handleOpenCreateDeskModal = () => {
+    setNewDeskForm({
+      code: '', name: '', address: '', region: regions[0]?.name || 'Auckland East',
+      primaryAdminId: currentUser?.id || '', secondaryAdminId: '',
+      siteContactName: '', siteContactEmail: '', contactPerson: '', notes: ''
+    });
+    setCreateDeskModalOpen(true);
   };
 
   const handleStartEditDesk = (desk) => {
@@ -2295,13 +2389,17 @@ export default function App() {
   const handleSaveDeskDirectly = async (e) => {
     e.preventDefault();
 
-    if (editDeskForm.primaryAdminId && editDeskForm.primaryAdminId === editDeskForm.secondaryAdminId) {
+    if (!editDeskForm.primaryAdminId) {
+      alert('A Service Desk must always have a valid Primary Desk Admin.');
+      return;
+    }
+    if (editDeskForm.primaryAdminId === editDeskForm.secondaryAdminId) {
       alert('Primary Admin and Secondary Admin cannot be the same person.');
       return;
     }
 
     const region = regions.find(item => item.name === editDeskForm.region) || regions[0];
-    const { error } = await supabase.from('service_desks').update({ code: editDeskForm.code.toUpperCase(), name: editDeskForm.name, address: editDeskForm.address, region_id: region.id, primary_admin_id: editDeskForm.primaryAdminId || null, secondary_admin_id: editDeskForm.secondaryAdminId || null, site_contact_name: editDeskForm.siteContactName || '', site_contact_email: editDeskForm.siteContactEmail || '', contact_person: editDeskForm.contactPerson || '', notes: editDeskForm.notes || '' }).eq('id', editingDeskId);
+    const { error } = await supabase.from('service_desks').update({ code: editDeskForm.code.toUpperCase(), name: editDeskForm.name, address: editDeskForm.address, region_id: region.id, primary_admin_id: editDeskForm.primaryAdminId, secondary_admin_id: editDeskForm.secondaryAdminId || null, site_contact_name: editDeskForm.siteContactName || '', site_contact_email: editDeskForm.siteContactEmail || '', contact_person: editDeskForm.contactPerson || '', notes: editDeskForm.notes || '' }).eq('id', editingDeskId);
     if (error) { alert(`Unable to save service desk: ${error.message}`); return; }
     await loadSupabaseRoster(currentUser);
     setEditingDeskId(null);
@@ -2615,7 +2713,7 @@ export default function App() {
             <PortalNavigation
               activeTab={activeTab}
               calendarWeeks={calendarDisplayWeeks}
-              canViewActivityAudit={canViewActivityAudit}
+              canUseDeskMaintenance={canUseDeskMaintenance}
               currentUser={currentUser}
               onSelectTab={setActiveTab}
             />
@@ -2985,8 +3083,8 @@ export default function App() {
                         </button>
                       </div>
 
-                      {canManage && (
-                        <button type="button" onClick={() => setCreateDeskModalOpen(true)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
+                      {canUseDeskMaintenance && (
+                        <button type="button" onClick={handleOpenCreateDeskModal} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
                           <Plus className="w-4 h-4" />
                           <span>Create Service Desk</span>
                         </button>
@@ -3088,11 +3186,11 @@ export default function App() {
                                     <div>
                                       <label className="block font-extrabold text-slate-800 mb-1">Primary Desk Admin</label>
                                       <select 
+                                        required
                                         value={editDeskForm.primaryAdminId} 
                                         onChange={(e) => setEditDeskForm(prev => ({ ...prev, primaryAdminId: e.target.value }))} 
                                         className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                                       >
-                                        <option value="">-- Select Primary Desk Admin --</option>
                                         {eligibleAdminsList.map(u => (
                                           <option key={u.id} value={u.id}>{u.fullName} ({u.role} - {u.warrantNumber})</option>
                                         ))}
@@ -3672,8 +3770,57 @@ export default function App() {
               </div>
             )}
 
-            {/* AUDIT LOG: restricted in both the interface and Supabase RLS. */}
-            {activeTab === 'activity-audit' && canViewActivityAudit && (
+            {/* DESK MAINTENANCE: staff actions are independently permission checked by Supabase. */}
+            {activeTab === 'desk-maintenance' && canUseDeskMaintenance && (
+              <div className="space-y-6">
+                <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-900">Desk Maintenance</h2>
+                    <p className="text-xs text-slate-500 mt-1">Register JPs, maintain their completed-shift statistics, and review desk activity. Desk Admins only see Service Desks assigned to them.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                    {[['assign-jps', 'Assign JPs'], ['jp-stats', 'JP Stats'], ['activity', 'Activity Log']].map(([key, label]) => (
+                      <button key={key} type="button" onClick={() => setDeskMaintenanceSubTab(key)} className={`px-4 py-2 rounded-lg text-xs font-extrabold cursor-pointer ${deskMaintenanceSubTab === key ? 'bg-slate-900 text-amber-400 shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {deskMaintenanceSubTab !== 'activity' && (
+                  <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-end gap-3">
+                    <label className="text-xs font-extrabold text-slate-700 flex flex-col gap-1">Service Desk
+                      <select value={deskMaintenanceDeskFilter} onChange={(event) => setDeskMaintenanceDeskFilter(event.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-900">
+                        <option value="ALL">All authorised Service Desks</option>
+                        {deskMaintenanceDesks.map(desk => <option key={desk.id} value={desk.id}>{desk.name} [{desk.code}]</option>)}
+                      </select>
+                    </label>
+                    <span className="text-[11px] text-slate-500 pb-2">Showing completed shifts from the past four weeks and upcoming shifts for the next 12 weeks.</span>
+                  </div>
+                )}
+
+                {deskMaintenanceSubTab === 'assign-jps' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 sm:p-5 border-b border-slate-100"><h3 className="font-extrabold text-slate-900">Assign JPs to shifts</h3><p className="text-xs text-slate-500 mt-1">Each action applies to one selected shift. A normal registration confirmation email is queued for the JP member.</p></div>
+                    <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead><tr className="bg-slate-900 text-white uppercase font-black tracking-wider"><th className="p-2.5">Shift</th><th className="p-2.5">Service Desk</th><th className="p-2.5">Registered JPs</th><th className="p-2.5">Assign JP</th></tr></thead><tbody className="divide-y divide-slate-200">
+                      {deskMaintenanceOccurrences.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No shifts match this desk filter.</td></tr> : deskMaintenanceOccurrences.map(occ => {
+                        const selectedMemberId = deskMaintenanceMemberSelections[occ.instanceKey] || '';
+                        const availableMembers = activeMembersForDeskMaintenance.filter(member => !occ.assignedJpIds.includes(member.id));
+                        return <tr key={occ.instanceKey} className="hover:bg-sky-50/50"><td className="p-2.5 whitespace-nowrap font-bold text-slate-800">{occ.date}<div className="text-[10px] text-slate-500">{occ.startTime}–{occ.endTime}{isOccurrenceFinished(occ) ? ' · completed' : ''}</div></td><td className="p-2.5"><span className="bg-slate-900 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-black mr-1">{activeDeskMap[occ.deskId]?.code || 'JP'}</span>{activeDeskMap[occ.deskId]?.name}</td><td className="p-2.5">{occ.assignedJpIds.length ? <div className="flex flex-wrap gap-1">{occ.assignedJpIds.map(memberId => <button type="button" key={memberId} onClick={() => handleStaffAssignmentChange(occ, memberId, 'WITHDRAW')} className="bg-rose-50 border border-rose-200 text-rose-800 rounded px-1.5 py-1 font-bold hover:bg-rose-100 cursor-pointer" title="Withdraw this JP member">{userMap[memberId]?.fullName || 'Unavailable JP'} ×</button>)}</div> : <span className="text-slate-400 italic">None</span>}</td><td className="p-2.5"><div className="flex gap-2"><select value={selectedMemberId} onChange={(event) => setDeskMaintenanceMemberSelections(previous => ({ ...previous, [occ.instanceKey]: event.target.value }))} className="min-w-48 border border-slate-300 rounded px-2 py-1.5 bg-white"><option value="">Select JP member…</option>{availableMembers.map(member => <option key={member.id} value={member.id}>{member.fullName}{member.warrantNumber ? ` (${member.warrantNumber})` : ''}</option>)}</select><button type="button" disabled={!selectedMemberId || occ.isHoliday || occ.assignedJpIds.length >= occ.maxJps} onClick={() => handleStaffAssignmentChange(occ, selectedMemberId, 'REGISTER')} className="px-3 py-1.5 rounded font-extrabold bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-500 text-white cursor-pointer disabled:cursor-not-allowed">Register</button></div>{occ.isHoliday && <div className="text-[10px] text-slate-500 mt-1">Desk closed</div>}{occ.assignedJpIds.length >= occ.maxJps && <div className="text-[10px] text-rose-600 mt-1">Maximum JP number reached</div>}</td></tr>;
+                      })}</tbody></table></div>
+                  </div>
+                )}
+
+                {deskMaintenanceSubTab === 'jp-stats' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 sm:p-5 border-b border-slate-100"><h3 className="font-extrabold text-slate-900">JP shift statistics</h3><p className="text-xs text-slate-500 mt-1">Statistics can be logged or maintained only after a registered JP’s shift has ended.</p></div>
+                    <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead><tr className="bg-slate-900 text-white uppercase font-black tracking-wider"><th className="p-2.5">Shift</th><th className="p-2.5">Service Desk</th><th className="p-2.5">JP Member</th><th className="p-2.5">Action</th></tr></thead><tbody className="divide-y divide-slate-200">
+                      {deskMaintenanceOccurrences.filter(occ => isOccurrenceFinished(occ)).flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))).length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No completed registered shifts match this desk filter.</td></tr> : deskMaintenanceOccurrences.filter(occ => isOccurrenceFinished(occ)).flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))).map(({ occ, memberId }) => { const existing = loggedStatistics.find(stat => stat.jpId === memberId && stat.slotId === occ.slotId && stat.date === occ.date); const member = userMap[memberId]; return <tr key={`${occ.instanceKey}-${memberId}`} className="hover:bg-sky-50/50"><td className="p-2.5 whitespace-nowrap font-bold">{occ.date}<div className="text-[10px] text-slate-500">{occ.startTime}–{occ.endTime}</div></td><td className="p-2.5">{activeDeskMap[occ.deskId]?.name}</td><td className="p-2.5 font-bold">{member?.fullName || 'Unavailable JP'}<div className="text-[10px] text-slate-400">{member?.warrantNumber || ''}</div></td><td className="p-2.5"><button type="button" onClick={() => existing ? handleOpenEditStatModal(existing) : handleOpenLogStatsModal(occ, null, member)} className={`px-3 py-1.5 rounded font-extrabold cursor-pointer ${existing ? 'bg-sky-100 text-sky-900 hover:bg-sky-200' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>{existing ? 'Maintain stats' : 'Log stats'}</button></td></tr>; })}</tbody></table></div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ACTIVITY LOG: the database returns all rows to Registrars, or only assigned desks to Desk Admins. */}
+            {activeTab === 'desk-maintenance' && canViewActivityAudit && deskMaintenanceSubTab === 'activity' && (
               <div className="space-y-6">
                 <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-2">
@@ -5385,11 +5532,11 @@ export default function App() {
                 <div>
                   <label className="block font-extrabold text-slate-800 mb-1">Primary Desk Admin</label>
                   <select 
+                    required
                     value={newDeskForm.primaryAdminId} 
                     onChange={(e) => setNewDeskForm(prev => ({ ...prev, primaryAdminId: e.target.value }))} 
                     className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                   >
-                    <option value="">-- Select Primary Admin --</option>
                     {eligibleAdminsList.map(u => (
                       <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
                     ))}
@@ -5495,6 +5642,7 @@ export default function App() {
                   <span>📅 {logStatsOccurrence.formattedDate}</span>
                   <span>⏰ {logStatsOccurrence.startTime} - {logStatsOccurrence.endTime}</span>
                 </div>
+                {statisticsSubjectUser && <div className="text-[11px] text-slate-700">JP Member: <b>{statisticsSubjectUser.fullName}</b> {statisticsSubjectUser.warrantNumber ? `(${statisticsSubjectUser.warrantNumber})` : ''}</div>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

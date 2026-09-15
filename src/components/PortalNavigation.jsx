@@ -13,7 +13,7 @@ const standardTabClassName = (isActive) => `flex items-center space-x-2 px-4 py-
   isActive ? 'bg-slate-900 text-amber-400' : 'text-slate-600 hover:bg-slate-100'
 }`;
 
-export default function PortalNavigation({ activeTab, calendarWeeks = 12, canViewActivityAudit, currentUser, onSelectTab }) {
+export default function PortalNavigation({ activeTab, calendarWeeks = 12, canUseDeskMaintenance, currentUser, onSelectTab }) {
   return (
     <nav className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 mb-6 flex flex-wrap gap-2" aria-label="Portal navigation">
       <button onClick={() => onSelectTab('calendar')} className={standardTabClassName(activeTab === 'calendar')}>
@@ -41,10 +41,10 @@ export default function PortalNavigation({ activeTab, calendarWeeks = 12, canVie
         <span>My Profile</span>
       </button>
 
-      {canViewActivityAudit && (
-        <button onClick={() => onSelectTab('activity-audit')} className={standardTabClassName(activeTab === 'activity-audit')}>
+      {canUseDeskMaintenance && (
+        <button onClick={() => onSelectTab('desk-maintenance')} className={standardTabClassName(activeTab === 'desk-maintenance')}>
           <FileText className="w-4 h-4" />
-          <span>Activity Log</span>
+          <span>Desk Maintenance</span>
         </button>
       )}
 

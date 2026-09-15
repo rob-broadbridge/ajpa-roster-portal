@@ -1,22 +1,11 @@
 import { supabase } from '../supabaseClient';
-import { addDaysToIsoDate, timeZoneDateTimeToUtcIso } from '../utils/calendarDates';
 
 export async function fetchRosterActivityAudit({ limit = 250, fromDate = null, toDate = null } = {}) {
-  let query = supabase
-    .from('roster_activity_audit')
-    .select('*')
-    .order('occurred_at', { ascending: false });
-
-  if (fromDate) {
-    query = query.gte('occurred_at', timeZoneDateTimeToUtcIso(fromDate));
-  }
-  if (toDate) {
-    // Use the next Auckland midnight as an exclusive boundary, so the entire
-    // selected final day is included even across daylight-saving changes.
-    query = query.lt('occurred_at', timeZoneDateTimeToUtcIso(addDaysToIsoDate(toDate, 1)));
-  }
-
-  const { data, error } = await query.limit(limit);
+  const { data, error } = await supabase.rpc('get_roster_activity_audit_for_current_user', {
+    p_limit: limit,
+    p_from_date: fromDate || null,
+    p_to_date: toDate || null
+  });
 
   if (error) throw error;
 
