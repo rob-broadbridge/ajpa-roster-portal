@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
-import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
+import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS, INITIAL_REGIONS, INITIAL_SERVICE_DESKS, INITIAL_SLOT_TEMPLATES, INITIAL_USERS } from './config/demoRosterData';
@@ -187,6 +187,10 @@ export default function App() {
   const [deskMaintenanceSubTab, setDeskMaintenanceSubTab] = useState('assign-jps');
   const [deskMaintenanceDeskFilter, setDeskMaintenanceDeskFilter] = useState('ALL');
   const [deskMaintenanceMemberSelections, setDeskMaintenanceMemberSelections] = useState({});
+  const [deskMaintenanceStatsFilter, setDeskMaintenanceStatsFilter] = useState('LAST_4_WEEKS');
+  const [incompleteDutyStatistics, setIncompleteDutyStatistics] = useState([]);
+  const [incompleteDutyStatisticsError, setIncompleteDutyStatisticsError] = useState('');
+  const [incompleteDutyStatisticsLoading, setIncompleteDutyStatisticsLoading] = useState(false);
 
   // Full Slot Details Modal State
   const [detailedSlotModal, setDetailedSlotModal] = useState(null);
@@ -296,9 +300,25 @@ export default function App() {
         setRosterActivityAudit([]);
         setRosterActivityAuditError(auditError.message);
       }
+      try {
+        setIncompleteDutyStatisticsLoading(true);
+        setIncompleteDutyStatistics(await fetchIncompleteDutyStatistics());
+        setIncompleteDutyStatisticsError('');
+      } catch (statisticsError) {
+        // The default four-week view stays usable until this optional
+        // staff-only historical query has been installed in Supabase.
+        console.warn('Incomplete duty statistics could not be loaded:', statisticsError.message);
+        setIncompleteDutyStatistics([]);
+        setIncompleteDutyStatisticsError(statisticsError.message);
+      } finally {
+        setIncompleteDutyStatisticsLoading(false);
+      }
     } else {
       setRosterActivityAudit([]);
       setRosterActivityAuditError('');
+      setIncompleteDutyStatistics([]);
+      setIncompleteDutyStatisticsError('');
+      setIncompleteDutyStatisticsLoading(false);
     }
 
     if (profile.role === 'Registrar') {
@@ -1907,6 +1927,28 @@ export default function App() {
   );
 
   const isOccurrenceFinished = (occurrence) => hasShiftEnded(occurrence, actionClock);
+
+  const deskMaintenanceRecentStatisticRows = useMemo(() => deskMaintenanceOccurrences
+    .filter(occ => isOccurrenceFinished(occ))
+    .flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))), [deskMaintenanceOccurrences, actionClock]);
+
+  const deskMaintenanceIncompleteStatisticRows = useMemo(() => incompleteDutyStatistics
+    .filter(item => deskMaintenanceDeskFilter === 'ALL' || item.deskId === deskMaintenanceDeskFilter)
+    .map(item => ({
+      occ: {
+        deskId: item.deskId,
+        slotId: item.slotId,
+        date: item.dutyDate,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        instanceKey: `${item.deskId}_${item.slotId}_${item.dutyDate}`
+      },
+      memberId: item.memberId,
+      memberName: item.memberName,
+      warrantNumber: item.warrantNumber,
+      deskName: item.deskName,
+      deskCode: item.deskCode
+    })), [incompleteDutyStatistics, deskMaintenanceDeskFilter]);
 
   const handleOpenLogStatsModal = (occ, e, subjectUser = currentUser) => {
     if (e) e.stopPropagation();
@@ -3793,7 +3835,15 @@ export default function App() {
                         {deskMaintenanceDesks.map(desk => <option key={desk.id} value={desk.id}>{desk.name} [{desk.code}]</option>)}
                       </select>
                     </label>
-                    <span className="text-[11px] text-slate-500 pb-2">Showing completed shifts from the past four weeks and upcoming shifts for the next 12 weeks.</span>
+                    {deskMaintenanceSubTab === 'jp-stats' && (
+                      <label className="text-xs font-extrabold text-slate-700 flex flex-col gap-1">Show
+                        <select value={deskMaintenanceStatsFilter} onChange={(event) => setDeskMaintenanceStatsFilter(event.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-900">
+                          <option value="LAST_4_WEEKS">Last 4 weeks</option>
+                          <option value="INCOMPLETE">Incomplete slots</option>
+                        </select>
+                      </label>
+                    )}
+                    <span className="text-[11px] text-slate-500 pb-2">{deskMaintenanceSubTab === 'jp-stats' && deskMaintenanceStatsFilter === 'INCOMPLETE' ? 'All past registered shifts that do not yet have statistics.' : 'Showing completed shifts from the past four weeks and upcoming shifts for the next 12 weeks.'}</span>
                   </div>
                 )}
 
@@ -3811,9 +3861,12 @@ export default function App() {
 
                 {deskMaintenanceSubTab === 'jp-stats' && (
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-4 sm:p-5 border-b border-slate-100"><h3 className="font-extrabold text-slate-900">JP shift statistics</h3><p className="text-xs text-slate-500 mt-1">Statistics can be logged or maintained only after a registered JP’s shift has ended.</p></div>
+                    <div className="p-4 sm:p-5 border-b border-slate-100"><h3 className="font-extrabold text-slate-900">JP shift statistics</h3><p className="text-xs text-slate-500 mt-1">{deskMaintenanceStatsFilter === 'INCOMPLETE' ? 'Every past registered shift without a statistics record. Use this list to complete outstanding statistics.' : 'Completed registered shifts from the last four weeks. Statistics can be logged or maintained after a shift has ended.'}</p></div>
+                    {deskMaintenanceStatsFilter === 'INCOMPLETE' && incompleteDutyStatisticsError ? (
+                      <div className="m-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-900">The incomplete-statistics list is not available yet. Run the accompanying Supabase migration, then refresh this page. Detail: {incompleteDutyStatisticsError}</div>
+                    ) : null}
                     <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead><tr className="bg-slate-900 text-white uppercase font-black tracking-wider"><th className="p-2.5">Shift</th><th className="p-2.5">Service Desk</th><th className="p-2.5">JP Member</th><th className="p-2.5">Action</th></tr></thead><tbody className="divide-y divide-slate-200">
-                      {deskMaintenanceOccurrences.filter(occ => isOccurrenceFinished(occ)).flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))).length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No completed registered shifts match this desk filter.</td></tr> : deskMaintenanceOccurrences.filter(occ => isOccurrenceFinished(occ)).flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))).map(({ occ, memberId }) => { const existing = loggedStatistics.find(stat => stat.jpId === memberId && stat.slotId === occ.slotId && stat.date === occ.date); const member = userMap[memberId]; return <tr key={`${occ.instanceKey}-${memberId}`} className="hover:bg-sky-50/50"><td className="p-2.5 whitespace-nowrap font-bold">{occ.date}<div className="text-[10px] text-slate-500">{occ.startTime}–{occ.endTime}</div></td><td className="p-2.5">{activeDeskMap[occ.deskId]?.name}</td><td className="p-2.5 font-bold">{member?.fullName || 'Unavailable JP'}<div className="text-[10px] text-slate-400">{member?.warrantNumber || ''}</div></td><td className="p-2.5"><button type="button" onClick={() => existing ? handleOpenEditStatModal(existing) : handleOpenLogStatsModal(occ, null, member)} className={`px-3 py-1.5 rounded font-extrabold cursor-pointer ${existing ? 'bg-sky-100 text-sky-900 hover:bg-sky-200' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>{existing ? 'Maintain stats' : 'Log stats'}</button></td></tr>; })}</tbody></table></div>
+                      {(deskMaintenanceStatsFilter === 'INCOMPLETE' ? deskMaintenanceIncompleteStatisticRows : deskMaintenanceRecentStatisticRows).length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">{deskMaintenanceStatsFilter === 'INCOMPLETE' ? (incompleteDutyStatisticsLoading ? 'Loading incomplete shifts…' : 'No incomplete registered shifts match this desk filter.') : 'No completed registered shifts match this desk filter.'}</td></tr> : (deskMaintenanceStatsFilter === 'INCOMPLETE' ? deskMaintenanceIncompleteStatisticRows : deskMaintenanceRecentStatisticRows).map(({ occ, memberId, memberName, warrantNumber, deskName, deskCode }) => { const existing = loggedStatistics.find(stat => stat.jpId === memberId && stat.slotId === occ.slotId && stat.date === occ.date); const member = userMap[memberId] || (memberName ? { id: memberId, fullName: memberName, warrantNumber } : null); return <tr key={`${occ.instanceKey}-${memberId}`} className="hover:bg-sky-50/50"><td className="p-2.5 whitespace-nowrap font-bold">{occ.date}<div className="text-[10px] text-slate-500">{occ.startTime}–{occ.endTime}</div></td><td className="p-2.5">{deskName || activeDeskMap[occ.deskId]?.name}<span className="ml-1 text-[10px] text-slate-400">{deskCode ? `[${deskCode}]` : ''}</span></td><td className="p-2.5 font-bold">{member?.fullName || 'Unavailable JP'}<div className="text-[10px] text-slate-400">{member?.warrantNumber || ''}</div></td><td className="p-2.5"><button type="button" onClick={() => existing ? handleOpenEditStatModal(existing) : handleOpenLogStatsModal(occ, null, member)} className={`px-3 py-1.5 rounded font-extrabold cursor-pointer ${existing ? 'bg-sky-100 text-sky-900 hover:bg-sky-200' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>{existing ? 'Maintain stats' : 'Log stats'}</button></td></tr>; })}</tbody></table></div>
                   </div>
                 )}
               </div>

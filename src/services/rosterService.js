@@ -52,6 +52,28 @@ export async function fetchDutyNotificationFailures(limit = 100) {
   }));
 }
 
+// This database function returns only statistics that the signed-in Registrar
+// or assigned Desk Admin is permitted to maintain. Keeping the historical
+// query in the database avoids loading the full assignment history into the
+// browser merely to find incomplete records.
+export async function fetchIncompleteDutyStatistics() {
+  const { data, error } = await supabase.rpc('get_incomplete_duty_statistics_for_current_user');
+  if (error) throw error;
+
+  return (data ?? []).map(item => ({
+    memberId: item.member_id,
+    memberName: item.member_name,
+    warrantNumber: item.warrant_number || '',
+    slotId: item.slot_id,
+    dutyDate: item.duty_date,
+    deskId: item.desk_id,
+    deskName: item.desk_name,
+    deskCode: item.desk_code,
+    startTime: item.start_time?.slice(0, 5) || '',
+    endTime: item.end_time?.slice(0, 5) || ''
+  }));
+}
+
 // The database function returns only operational summary information. It is
 // independently restricted to Registrars, so this never exposes notification
 // contents, email addresses, or delivery payloads to the browser.
