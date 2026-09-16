@@ -18,7 +18,7 @@ export default function PortalNavigation({ activeTab, calendarWeeks = 12, canUse
     <nav className="bg-white rounded-xl shadow-sm p-2 border border-slate-200 mb-6 flex flex-wrap gap-2" aria-label="Portal navigation">
       <button onClick={() => onSelectTab('calendar')} className={standardTabClassName(activeTab === 'calendar')}>
         <Calendar className="w-4 h-4" />
-        <span>Calendar ({calendarWeeks} Wks)</span>
+        <span>Roster ({calendarWeeks} Wks)</span>
       </button>
 
       <button onClick={() => onSelectTab('my-shifts')} className={standardTabClassName(activeTab === 'my-shifts')}>

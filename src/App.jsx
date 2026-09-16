@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { getCurrentApprovedUser, requestPasswordReset, signInApprovedUser, signOutUser, updatePassword } from './services/authService';
+import { getCurrentSessionUser, requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
 import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
@@ -107,6 +107,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [pendingApprovalUser, setPendingApprovalUser] = useState(null);
 
   // PENDING MEMBERS REGISTRAR POPUP
   const [pendingMembersNoticeCount, setPendingMembersNoticeCount] = useState(0);
@@ -467,8 +468,14 @@ export default function App() {
       }
 
       try {
-        const restoredUser = await getCurrentApprovedUser();
+        const restoredUser = await getCurrentSessionUser();
         if (!restoredUser || !isMounted) return;
+
+        if (restoredUser.status !== 'Approved') {
+          if (restoredUser.status === 'Pending') setPendingApprovalUser(restoredUser);
+          else await signOutUser();
+          return;
+        }
 
         const roster = await loadSupabaseRoster(restoredUser);
         if (!isMounted) return;
@@ -908,11 +915,24 @@ export default function App() {
 
     let foundUser;
     try {
-      foundUser = await signInApprovedUser(loginEmail, loginPassword);
+      foundUser = await signInPortalUser(loginEmail, loginPassword);
     } catch (loginError) {
       setLoginError(loginError.message);
       return;
     }
+    if (foundUser.status !== 'Approved') {
+      setLoginEmail('');
+      setLoginPassword('');
+      setShowPassword(false);
+      if (foundUser.status === 'Pending') {
+        setPendingApprovalUser(foundUser);
+      } else {
+        await signOutUser();
+        setLoginError('This account is not currently available. Please contact an AJPA Registrar.');
+      }
+      return;
+    }
+
     let roster;
     try { roster = await loadSupabaseRoster(foundUser); } catch (loadError) { await supabase.auth.signOut(); setLoginError(`Unable to load roster data: ${loadError.message}`); return; }
     setCurrentUser(foundUser);
@@ -958,6 +978,17 @@ export default function App() {
     setPendingMembersNoticeCount(0);
     setActiveTab('registrar');
     setRegistrarSubTab('members');
+  };
+
+  const handlePendingApprovalReturnToLogin = async () => {
+    try {
+      await signOutUser();
+    } catch (signOutError) {
+      console.warn('Unable to fully sign out pending account:', signOutError.message);
+    }
+    setPendingApprovalUser(null);
+    setLoginPassword('');
+    setShowPassword(false);
   };
 
   const handleSignUpSubmit = async (e) => {
@@ -2529,7 +2560,30 @@ export default function App() {
             <p className="text-xs text-slate-500">Please wait while the AJPA Roster Portal securely reloads your account.</p>
           </div>
         ) : !isAuthenticated ? (
-          resetScreenOpen ? (
+          pendingApprovalUser ? (
+            <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
+              <div className="text-center space-y-3">
+                <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <span className="inline-block bg-amber-100 text-amber-900 text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider">Email address confirmed</span>
+                <h2 className="text-2xl font-black text-slate-900">Your access is being approved</h2>
+                <p className="text-sm text-slate-600 leading-relaxed">Your email address has been confirmed. An AJPA Registrar is now reviewing your access before you can continue to the portal.</p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 text-xs">
+                <div><span className="font-bold text-slate-500">Name:</span> <span className="font-extrabold text-slate-900">{pendingApprovalUser.fullName}</span></div>
+                <div><span className="font-bold text-slate-500">JP number:</span> <span className="font-mono font-extrabold text-slate-900">{pendingApprovalUser.warrantNumber}</span></div>
+                <div><span className="font-bold text-slate-500">Email:</span> <span className="font-bold text-slate-900 break-all">{pendingApprovalUser.email}</span></div>
+              </div>
+
+              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-xs text-sky-900 leading-relaxed">
+                You will receive an email when your access has been approved. Once approved, simply sign in with this email address and your password — you will not need to complete the sign-up process again.
+              </div>
+
+              <button type="button" onClick={handlePendingApprovalReturnToLogin} className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-bold text-sm shadow transition cursor-pointer">Return to Sign In</button>
+            </div>
+          ) : resetScreenOpen ? (
             /* PASSWORD RESET PAGE FROM EMAIL LINK */
             <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
               <div className="text-center space-y-2">
@@ -2631,7 +2685,7 @@ export default function App() {
                       </h3>
                       <ol className="list-decimal pl-5 space-y-1.5 leading-relaxed font-medium">
                         <li>Click the <b>"Click here to Sign up"</b> button located at the bottom of the Sign In card on the main page.</li>
-                        <li>Fill in your full legal name, warrant number (e.g. <code className="bg-white px-1 border rounded">JP-25138</code>), mobile phone, and active email address.</li>
+                        <li>Fill in your full legal name, the numeric part of your warrant number (e.g. <code className="bg-white px-1 border rounded">25138</code>), mobile phone, and active email address.</li>
                         <li>Check the <b>Provisional JP</b> box if you are currently undertaking provisional service.</li>
                         <li>Enter your password twice. The two passwords must match; use the eye icons if you need to show or hide either entry.</li>
                         <li>Submit the form. Your account status will be marked as <b>Pending</b>, a confirmation email will be sent, and AJPA Registrars will be notified for review.</li>
@@ -2797,7 +2851,7 @@ export default function App() {
               <div className="space-y-6">
                 <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">{calendarDisplayWeeks}-Week Rolling Calendar</h2>
+                    <h2 className="text-xl font-bold text-slate-900">{calendarDisplayWeeks}-Week Roster</h2>
                     <p className="text-xs text-slate-500 mt-1">
                       {currentUser.role === 'Member' ? 'Choose the followed desks and shift times you want to see.' : 'Filter calendar view by region, desk selection, and shift time of day.'}
                     </p>
@@ -4573,7 +4627,7 @@ export default function App() {
                         <li>New members click <b>"Click here to Sign up"</b> on the login screen to register warrant details. Enter the password twice; the application will not accept it unless the two entries match.</li>
                         <li>Accounts start as <b>Pending</b> until an AJPA Registrar verifies credentials. Once approved, log in with your email and password.</li>
                         <li>Use the eye icon to show or hide a password while entering it. If you forget your password, select <b>"Forgot password?"</b>, enter your registered email address, and follow the reset link sent to that address.</li>
-                        <li><b>My Profile:</b> update your email address and mobile phone. Your name, warrant number, role, and account status are displayed for reference and are maintained by a Registrar.</li>
+                        <li><b>My Profile:</b> update your email address, mobile phone, and warrant number. Your name, role, and account status are displayed for reference; role changes are maintained by a Registrar.</li>
                       </ul>
                     </div>
 

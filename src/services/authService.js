@@ -16,7 +16,7 @@ function mapProfile(profile) {
   };
 }
 
-export async function signInApprovedUser(email, password) {
+export async function signInPortalUser(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
   if (error) throw new Error(error.message);
 
@@ -26,17 +26,15 @@ export async function signInApprovedUser(email, password) {
     .eq('id', data.user.id)
     .single();
 
-  if (profileError || profile?.status !== 'Approved') {
-    await supabase.auth.signOut();
-    throw new Error('Your account is not approved. Please contact the Registrar.');
-  }
+  if (profileError || !profile) throw new Error('Your account profile could not be found. Please contact an AJPA Registrar.');
 
   return mapProfile(profile);
 }
 
 // Supabase keeps a signed-in session in the browser. Rehydrate the matching
-// approved profile when the application is refreshed or reopened.
-export async function getCurrentApprovedUser() {
+// profile so a pending member can be shown the approval-confirmation screen
+// instead of being allowed into the portal.
+export async function getCurrentSessionUser() {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
   if (!session?.user) return null;
@@ -47,10 +45,7 @@ export async function getCurrentApprovedUser() {
     .eq('id', session.user.id)
     .single();
 
-  if (profileError || profile?.status !== 'Approved') {
-    await supabase.auth.signOut();
-    return null;
-  }
+  if (profileError || !profile) throw new Error('Your account profile could not be found. Please contact an AJPA Registrar.');
 
   return mapProfile(profile);
 }
