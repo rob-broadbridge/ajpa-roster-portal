@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabaseClient';
 import { getCurrentSessionUser, requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
 import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
@@ -6349,6 +6350,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <Analytics />
     </div>
   );
 }
