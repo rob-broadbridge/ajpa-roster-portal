@@ -3162,6 +3162,8 @@ export default function App() {
                                 dayOccurrences.map(occ => {
                                   const desk = activeDeskMap[occ.deskId] || {};
                                   const assigned = occ.assignedJpIds.length;
+                                  const firstRegisteredJp = assigned > 0 ? userMap[occ.assignedJpIds[0]] : null;
+                                  const firstRegisteredJpName = firstRegisteredJp?.fullName || (assigned > 0 ? 'Registered JP' : '');
                                   const isRegistered = occ.assignedJpIds.includes(currentUser.id);
                                   const statsLogged = hasLoggedStatisticsForOccurrence(occ);
                                   const shiftFinished = isOccurrenceFinished(occ);
@@ -3190,6 +3192,12 @@ export default function App() {
                                       <div className="text-[10px] font-semibold text-slate-700 flex items-center space-x-1">
                                         <Clock className="w-3 h-3 text-slate-500 shrink-0" />
                                         <span>{occ.startTime} - {occ.endTime}</span>
+                                      </div>
+                                      <div className="h-3 w-full min-w-0 flex items-center whitespace-nowrap text-[10px] font-bold text-slate-900" title={firstRegisteredJpName}>
+                                        {assigned > 0 && <>
+                                          <span className="min-w-0 flex-1 truncate">{firstRegisteredJpName}</span>
+                                          {assigned > 1 && <span className="shrink-0">{` +${assigned - 1}`}</span>}
+                                        </>}
                                       </div>
 
                                       <div className="pt-1.5 border-t border-slate-200/60 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
