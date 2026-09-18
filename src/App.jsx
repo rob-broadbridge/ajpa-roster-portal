@@ -168,6 +168,8 @@ export default function App() {
   // EDITING EXISTING STATS RECORD MODAL
   const [editingStatRecord, setEditingStatRecord] = useState(null);
   const [editStatForm, setEditStatForm] = useState({
+    dutyDate: '',
+    startTime: '',
     noOfJpDuties: 1,
     noOfClients: 0,
     noOfHoursWorked: 2.00,
@@ -301,7 +303,7 @@ export default function App() {
     setStatutoryHolidays(roster.statutoryHolidays); setSlotHolidayOverrides(roster.slotHolidayOverrides);
 
     const profileCanUseDeskMaintenance = profile.role === 'Registrar'
-      || roster.desks.some(desk => desk.primaryAdminId === profile.id || desk.secondaryAdminId === profile.id);
+      || roster.desks.some(desk => !desk.isHomeBasedService && (desk.primaryAdminId === profile.id || desk.secondaryAdminId === profile.id));
     if (profileCanUseDeskMaintenance) {
       try {
         setActivityLogRange('LAST_250');
@@ -706,7 +708,7 @@ export default function App() {
 
   const isCurrentUserDeskAdmin = useMemo(() => {
     if (!currentUser) return false;
-    return serviceDesks.some(desk => desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id);
+    return serviceDesks.some(desk => !desk.isHomeBasedService && (desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id));
   }, [currentUser, serviceDesks]);
 
   const canUseDeskMaintenance = useMemo(() => (
@@ -805,7 +807,7 @@ export default function App() {
   }, [serviceDesks]);
 
   const activeDesksList = useMemo(() => {
-    return serviceDesks.filter(d => d.status === 'Active');
+    return serviceDesks.filter(d => d.status === 'Active' && !d.isHomeBasedService);
   }, [serviceDesks]);
 
   // The Location & desks filter should not offer a desk outside the selected
@@ -819,7 +821,7 @@ export default function App() {
   }, [calendarRegionDesks, followedDesks]);
 
   const archivedDesksList = useMemo(() => {
-    return serviceDesks.filter(d => d.status === 'Archived');
+    return serviceDesks.filter(d => d.status === 'Archived' && !d.isHomeBasedService);
   }, [serviceDesks]);
 
   const handlePrepareFullDataDownload = async () => {
@@ -1587,6 +1589,8 @@ export default function App() {
   const handleOpenEditStatModal = (statRecord) => {
     setEditingStatRecord(statRecord);
     setEditStatForm({
+      dutyDate: statRecord.date,
+      startTime: statRecord.startTime || '09:00',
       noOfJpDuties: calculateJpDuties(statRecord.noOfHoursWorked),
       noOfClients: statRecord.noOfClients,
       noOfHoursWorked: statRecord.noOfHoursWorked,
@@ -1617,21 +1621,36 @@ export default function App() {
   const handleSaveEditedStatSubmit = async (e) => {
     e.preventDefault();
     if (!editingStatRecord) return;
+    const statisticValues = {
+      noOfClients: editStatForm.noOfClients,
+      noOfHoursWorked: editStatForm.noOfHoursWorked,
+      certifiedCopies: editStatForm.certifiedCopies,
+      statutoryDeclarations: editStatForm.statutoryDeclarations,
+      signatureWitnessed: editStatForm.signatureWitnessed,
+      affidavits: editStatForm.affidavits,
+      other: editStatForm.other,
+      notes: editStatForm.notes
+    };
+    if (editingStatRecord.isHomeBasedService) {
+      const { error } = await supabase.rpc('save_home_based_duty_statistic', {
+        p_statistic_id: editingStatRecord.id,
+        p_duty_date: editStatForm.dutyDate,
+        p_start_time: editStatForm.startTime,
+        p_values: statisticValues
+      });
+      if (error) { alert(`Unable to save Home Based Service statistics: ${error.message}`); return; }
+      await loadSupabaseRoster(currentUser);
+      setEditingStatRecord(null);
+      setStatsSuccessToast(true);
+      setTimeout(() => setStatsSuccessToast(false), 3000);
+      return;
+    }
     const { error } = await supabase.rpc('save_duty_statistic_for_member', {
       p_statistic_id: editingStatRecord.id,
       p_member_id: editingStatRecord.jpId,
       p_slot_id: editingStatRecord.slotId,
       p_duty_date: editingStatRecord.date,
-      p_values: {
-        noOfClients: editStatForm.noOfClients,
-        noOfHoursWorked: editStatForm.noOfHoursWorked,
-        certifiedCopies: editStatForm.certifiedCopies,
-        statutoryDeclarations: editStatForm.statutoryDeclarations,
-        signatureWitnessed: editStatForm.signatureWitnessed,
-        affidavits: editStatForm.affidavits,
-        other: editStatForm.other,
-        notes: editStatForm.notes
-      }
+      p_values: statisticValues
     });
     if (error) { alert(`Unable to save statistics: ${error.message}`); return; }
     await loadSupabaseRoster(currentUser);
@@ -1781,7 +1800,7 @@ export default function App() {
 
       slotTemplates.forEach(template => {
         const parentDesk = activeDeskMap[template.deskId];
-        if (!parentDesk || parentDesk.status !== 'Active') return;
+        if (!parentDesk || parentDesk.status !== 'Active' || parentDesk.isHomeBasedService) return;
 
         if (template.status === 'Active' && template.dayOfWeek === fullDayName) {
           const instanceKey = `${template.deskId}_${template.id}_${isoDate}`;
@@ -2039,6 +2058,29 @@ export default function App() {
     });
   };
 
+  const handleOpenHomeBasedStatistics = () => {
+    if (!currentUser) return;
+    setLogStatsOccurrence({
+      isHomeBasedService: true,
+      date: getTimeZoneDateString(new Date(), DEFAULT_ROSTER_TIME_ZONE),
+      startTime: '09:00',
+      endTime: '',
+      formattedDate: ''
+    });
+    setStatisticsSubjectUser(currentUser);
+    setStatsForm({
+      noOfJpDuties: calculateJpDuties(0.25),
+      noOfClients: 0,
+      noOfHoursWorked: 0.25,
+      certifiedCopies: 0,
+      statutoryDeclarations: 0,
+      signatureWitnessed: 0,
+      affidavits: 0,
+      other: 0,
+      notes: ''
+    });
+  };
+
   const handleStatsInputChange = (field, value, isFloat = false) => {
     if (isFloat) {
       const val = parseFloat(value);
@@ -2057,6 +2099,30 @@ export default function App() {
   const handleSaveStatsSubmit = async (e) => {
     e.preventDefault();
     if (!logStatsOccurrence || !currentUser || !statisticsSubjectUser) return;
+    if (logStatsOccurrence.isHomeBasedService) {
+      const { error } = await supabase.rpc('save_home_based_duty_statistic', {
+        p_statistic_id: null,
+        p_duty_date: logStatsOccurrence.date,
+        p_start_time: logStatsOccurrence.startTime,
+        p_values: {
+          noOfClients: statsForm.noOfClients,
+          noOfHoursWorked: statsForm.noOfHoursWorked,
+          certifiedCopies: statsForm.certifiedCopies,
+          statutoryDeclarations: statsForm.statutoryDeclarations,
+          signatureWitnessed: statsForm.signatureWitnessed,
+          affidavits: statsForm.affidavits,
+          other: statsForm.other,
+          notes: statsForm.notes
+        }
+      });
+      if (error) { alert(`Unable to save Home Based Service statistics: ${error.message}`); return; }
+      await loadSupabaseRoster(currentUser);
+      setLogStatsOccurrence(null);
+      setStatisticsSubjectUser(null);
+      setStatsSuccessToast(true);
+      setTimeout(() => setStatsSuccessToast(false), 4000);
+      return;
+    }
     if (hasLoggedStatisticsForOccurrence(logStatsOccurrence, statisticsSubjectUser.id)) {
       alert('Statistics have already been logged for this shift. To maintain them, open the Statistics tab.');
       setLogStatsOccurrence(null);
@@ -2316,7 +2382,7 @@ export default function App() {
       return;
     }
 
-    const managedDesks = serviceDesks.filter(desk => desk.primaryAdminId === memberId || desk.secondaryAdminId === memberId);
+    const managedDesks = serviceDesks.filter(desk => !desk.isHomeBasedService && (desk.primaryAdminId === memberId || desk.secondaryAdminId === memberId));
     if (managedDesks.length > 0) {
       const deskNames = managedDesks.map(desk => desk.name).join(', ');
       alert(`${member.fullName} cannot be archived because they are assigned as a Primary or Secondary Desk Admin for: ${deskNames}. Reassign or clear those Desk Admin roles first.`);
@@ -2336,7 +2402,7 @@ export default function App() {
       return;
     }
 
-    const managedDesks = serviceDesks.filter(desk => desk.primaryAdminId === memberId || desk.secondaryAdminId === memberId);
+    const managedDesks = serviceDesks.filter(desk => !desk.isHomeBasedService && (desk.primaryAdminId === memberId || desk.secondaryAdminId === memberId));
     if (managedDesks.length > 0) {
       const deskNames = managedDesks.map(desk => desk.name).join(', ');
       alert(`This member is now assigned as a Primary or Secondary Desk Admin for: ${deskNames}. Reassign or clear those Desk Admin roles before archiving.`);
@@ -2814,7 +2880,7 @@ export default function App() {
                         </div>
                       </div>
 
-                      <button 
+                      <button
                         type="submit" 
                         className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-lg font-extrabold text-sm shadow transition cursor-pointer"
                       >
@@ -2824,7 +2890,7 @@ export default function App() {
 
                     <div className="pt-4 border-t border-slate-100 text-center space-y-2">
                       <span className="text-xs text-slate-500 block">Not signed up on the AJPA Roster yet?</span>
-                      <button 
+                      <button
                         onClick={() => setSignUpModalOpen(true)}
                         className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider shadow transition cursor-pointer"
                       >
@@ -3722,7 +3788,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="text-[11px] text-slate-600">
-                        Managed desks: {serviceDesks.filter(desk => desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id).map(desk => `[${desk.code}] ${desk.name}`).join(', ') || 'No Primary or Secondary desk assignments are currently recorded.'}
+                        Managed desks: {serviceDesks.filter(desk => !desk.isHomeBasedService && (desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id)).map(desk => `[${desk.code}] ${desk.name}`).join(', ') || 'No Primary or Secondary desk assignments are currently recorded.'}
                       </div>
                     </div>
                   )}
@@ -3750,13 +3816,22 @@ export default function App() {
                       </p>
                     </div>
 
-                    <button 
-                      onClick={handleDownloadCsv}
-                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-black shadow flex items-center space-x-1.5 cursor-pointer"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Download Filtered CSV</span>
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={handleOpenHomeBasedStatistics}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-black shadow flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Home Based Service</span>
+                      </button>
+                      <button
+                        onClick={handleDownloadCsv}
+                        className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-black shadow flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download Filtered CSV</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-2 border-t border-slate-100">
@@ -5489,10 +5564,23 @@ export default function App() {
                 <div className="text-slate-900 font-extrabold text-xs sm:text-sm">
                   {editingStatRecord.deskName} [{editingStatRecord.deskCode}]
                 </div>
-                <div className="flex flex-wrap justify-between text-[11px] text-slate-600">
-                  <span>📅 {editingStatRecord.date}</span>
-                  <span>⏰ {editingStatRecord.startTime} - {editingStatRecord.endTime}</span>
-                </div>
+                {editingStatRecord.isHomeBasedService ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">Date</label>
+                      <input type="date" required value={editStatForm.dutyDate} onChange={(event) => setEditStatForm(previous => ({ ...previous, dutyDate: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">Start time</label>
+                      <input type="time" required value={editStatForm.startTime} onChange={(event) => setEditStatForm(previous => ({ ...previous, startTime: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white text-sm" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap justify-between text-[11px] text-slate-600">
+                    <span>📅 {editingStatRecord.date}</span>
+                    <span>⏰ {editingStatRecord.startTime} - {editingStatRecord.endTime}</span>
+                  </div>
+                )}
                 <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200">
                   JP: <span className="font-bold text-slate-800">{editingStatRecord.jpName}</span> ({editingStatRecord.warrantNumber})
                 </div>
@@ -5769,8 +5857,8 @@ export default function App() {
           <div className="bg-white rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 border border-slate-200 my-auto max-h-[95vh] overflow-y-auto">
             <div className="flex justify-between items-start border-b border-slate-100 pb-3">
               <div>
-                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">Shift Completion Log</span>
-                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">Log Shift Service Statistics</h3>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">{logStatsOccurrence.isHomeBasedService ? 'Special Service Log' : 'Shift Completion Log'}</span>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-0.5">{logStatsOccurrence.isHomeBasedService ? 'Log Home Based Service Statistics' : 'Log Shift Service Statistics'}</h3>
               </div>
               <button onClick={() => setLogStatsOccurrence(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
@@ -5780,12 +5868,25 @@ export default function App() {
             <form onSubmit={handleSaveStatsSubmit} className="space-y-4 text-xs">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 font-semibold text-slate-700">
                 <div className="text-slate-900 font-extrabold text-xs sm:text-sm">
-                  {activeDeskMap[logStatsOccurrence.deskId]?.name} [{activeDeskMap[logStatsOccurrence.deskId]?.code}]
+                  {logStatsOccurrence.isHomeBasedService ? 'Home Based Service' : `${activeDeskMap[logStatsOccurrence.deskId]?.name} [${activeDeskMap[logStatsOccurrence.deskId]?.code}]`}
                 </div>
-                <div className="flex flex-wrap justify-between text-[11px] text-slate-600">
-                  <span>📅 {logStatsOccurrence.formattedDate}</span>
-                  <span>⏰ {logStatsOccurrence.startTime} - {logStatsOccurrence.endTime}</span>
-                </div>
+                {logStatsOccurrence.isHomeBasedService ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">Date</label>
+                      <input type="date" required value={logStatsOccurrence.date} onChange={(event) => setLogStatsOccurrence(previous => ({ ...previous, date: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">Start time</label>
+                      <input type="time" required value={logStatsOccurrence.startTime} onChange={(event) => setLogStatsOccurrence(previous => ({ ...previous, startTime: event.target.value }))} className="w-full border border-slate-300 rounded-lg p-2 bg-white text-sm" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap justify-between text-[11px] text-slate-600">
+                    <span>📅 {logStatsOccurrence.formattedDate}</span>
+                    <span>⏰ {logStatsOccurrence.startTime} - {logStatsOccurrence.endTime}</span>
+                  </div>
+                )}
                 {statisticsSubjectUser && <div className="text-[11px] text-slate-700">JP Member: <b>{statisticsSubjectUser.fullName}</b> {statisticsSubjectUser.warrantNumber ? `(${statisticsSubjectUser.warrantNumber})` : ''}</div>}
               </div>
 

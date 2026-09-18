@@ -38,9 +38,12 @@ Deno.serve(async (request) => {
 
   const { data: desks, error: desksError } = await supabase
     .from('service_desks')
-    .select('id, code, name, primary_admin_id, secondary_admin_id, regions(timezone)')
+    .select('id, code, name, primary_admin_id, secondary_admin_id, is_home_based_service, regions(timezone)')
     .eq('status', 'Active');
   if (desksError) throw desksError;
+  // Home Based Service entries are individual statistics records, not rostered
+  // shifts. They must never appear in staffing reports or Desk Admin reminders.
+  const rosterDesks = (desks ?? []).filter((desk) => !desk.is_home_based_service);
 
   const { data: retries, error: retriesError } = await supabase
     .from('desk_admin_reminder_deliveries')
@@ -57,7 +60,7 @@ Deno.serve(async (request) => {
   }> = [];
   for (const admin of admins ?? []) {
     if (!admin.desk_admin_reminder_start_date || !admin.email) continue;
-    const managedDesks = (desks ?? []).filter((desk) => desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id);
+    const managedDesks = rosterDesks.filter((desk) => desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id);
     const timeZones = [...new Set(managedDesks.map((desk) => desk.regions?.timezone || 'Pacific/Auckland'))];
     for (const timeZone of timeZones) {
       const localNow = timeZoneParts(timeZone);
@@ -90,7 +93,7 @@ Deno.serve(async (request) => {
     const candidateKey = `${admin.id}_${timeZone}_${candidate.reportStartDate}_${candidate.reportEndDate}`;
     if (processed.has(candidateKey)) continue;
     processed.add(candidateKey);
-    const managedDesks = (desks ?? []).filter((desk) =>
+    const managedDesks = rosterDesks.filter((desk) =>
       (desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id)
       && (desk.regions?.timezone || 'Pacific/Auckland') === timeZone
     );
