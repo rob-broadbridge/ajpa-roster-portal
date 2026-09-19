@@ -2,12 +2,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabaseClient';
 import { getCurrentSessionUser, requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
-import { fetchDeskFollowerContacts, fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
+import { fetchDeskFollowerContacts, fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, fetchStatisticsForWindow, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS, INITIAL_REGIONS, INITIAL_SERVICE_DESKS, INITIAL_SLOT_TEMPLATES, INITIAL_USERS } from './config/demoRosterData';
 import { IANA_TIME_ZONES } from './config/timezones';
-import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, daysBetweenIsoDates, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
+import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
 import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
@@ -31,6 +31,31 @@ const createDefaultActivityLogDateRange = () => {
 };
 
 const normaliseCalendarWeeks = (value) => Math.max(4, Math.min(20, Math.round(Number(value) || 12)));
+
+// The statistics screen is deliberately date-led.  Keeping this calculation
+// in one place means the database read and the visible filter always cover the
+// same inclusive period.
+const getStatisticsDateWindow = (preset, customFromDate, customToDate) => {
+  const today = getTimeZoneDateString();
+  const currentPeriod = today.slice(0, 7);
+  const previousMonth = calendarDateFromIso(`${currentPeriod}-01`);
+  previousMonth.setMonth(previousMonth.getMonth() - 1);
+  const previousPeriod = calendarDateToIso(previousMonth).slice(0, 7);
+
+  if (preset === 'CURRENT_AND_PREVIOUS') return { startDate: `${previousPeriod}-01`, endDate: today };
+  if (preset === 'CURRENT_MONTH') return { startDate: `${currentPeriod}-01`, endDate: today };
+  if (preset === 'LAST_MONTH') {
+    const nextMonth = calendarDateFromIso(`${previousPeriod}-01`);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    nextMonth.setDate(0);
+    return { startDate: `${previousPeriod}-01`, endDate: calendarDateToIso(nextMonth) };
+  }
+  if (preset === 'CUSTOM') return { startDate: customFromDate, endDate: customToDate };
+
+  // Retains the portal's established definition of “Last 30 days”: today
+  // plus the preceding thirty calendar dates.
+  return { startDate: addDaysToIsoDate(today, -30), endDate: today };
+};
 
 // Warrant numbers are always stored and displayed as JP-12345.  The edit
 // fields keep only the numeric part, so members do not need to type the prefix.
@@ -354,7 +379,15 @@ export default function App() {
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
     setPreferencesReadyForProfile(null);
-    const roster = await fetchRosterData(profile.id, getOperationalRosterWindow());
+    // A full statistics history can grow indefinitely. Sign-in needs only the
+    // current reporting window; subsequent filter changes refresh that bounded
+    // window without reloading the roster.
+    const defaultStatisticsWindow = getStatisticsDateWindow('LAST_30_DAYS', '', '');
+    const roster = await fetchRosterData(profile.id, {
+      ...getOperationalRosterWindow(),
+      statisticsStartDate: defaultStatisticsWindow.startDate,
+      statisticsEndDate: defaultStatisticsWindow.endDate
+    });
     setUsers(roster.users); setRegions(roster.regions); setServiceDesks(roster.desks); setSlotTemplates(roster.slots);
     setFollowedDesks(roster.followedDesks); setSlotAssignments(roster.assignments);
     setLoggedStatistics(roster.statistics);
@@ -1483,14 +1516,12 @@ export default function App() {
     } : null);
   };
 
+  const statisticsDateWindow = useMemo(() => (
+    getStatisticsDateWindow(statsDatePreset, customFromDate, customToDate)
+  ), [statsDatePreset, customFromDate, customToDate]);
+
   const filteredStatisticsList = useMemo(() => {
     if (!currentUser) return [];
-
-    const today = getTimeZoneDateString();
-    const currentPeriod = today.slice(0, 7);
-    const previousMonth = calendarDateFromIso(`${currentPeriod}-01`);
-    previousMonth.setMonth(previousMonth.getMonth() - 1);
-    const previousPeriod = calendarDateToIso(previousMonth).slice(0, 7);
 
     return loggedStatistics.filter(stat => {
       if (currentUser.role === 'Member' && stat.jpId !== currentUser.id) {
@@ -1509,28 +1540,11 @@ export default function App() {
         return false;
       }
 
-      const statPeriod = stat.date.slice(0, 7);
-
-      if (statsDatePreset === 'CURRENT_AND_PREVIOUS') {
-        if (statPeriod !== currentPeriod && statPeriod !== previousPeriod) return false;
-      } 
-      else if (statsDatePreset === 'CURRENT_MONTH') {
-        if (statPeriod !== currentPeriod) return false;
-      } 
-      else if (statsDatePreset === 'LAST_MONTH') {
-        if (statPeriod !== previousPeriod) return false;
-      } 
-      else if (statsDatePreset === 'LAST_30_DAYS') {
-        const diffDays = daysBetweenIsoDates(today, stat.date);
-        if (diffDays < 0 || diffDays > 30) return false;
-      } 
-      else if (statsDatePreset === 'CUSTOM') {
-        if (stat.date < customFromDate || stat.date > customToDate) return false;
-      }
+      if (stat.date < statisticsDateWindow.startDate || stat.date > statisticsDateWindow.endDate) return false;
 
       return true;
     });
-  }, [loggedStatistics, currentUser, statsRegionFilter, statsDeskFilter, statsJpFilter, statsDatePreset, customFromDate, customToDate]);
+  }, [loggedStatistics, currentUser, statsRegionFilter, statsDeskFilter, statsJpFilter, statisticsDateWindow]);
 
   const handleDownloadCsv = () => {
     if (filteredStatisticsList.length === 0) {
@@ -2114,6 +2128,53 @@ export default function App() {
 
     return { label: 'Showing registered shifts', startDateStr: '1970-01-01', endDateStr: '2099-12-31' };
   }, [myShiftsPreset, currentWeek1Monday, myShiftsCustomFrom, myShiftsCustomTo]);
+
+  // The visible Statistics period is the primary driver.  We also retain the
+  // selected My Shifts period, plus the four-week Desk Maintenance view for
+  // staff, so a completed shift never incorrectly appears as missing just
+  // because its statistics were outside the report currently on screen.
+  const statisticsReadWindow = useMemo(() => {
+    const today = getTimeZoneDateString();
+    const startDates = [statisticsDateWindow.startDate, myShiftsFilterDescriptor.startDateStr];
+    if (isCurrentUserDeskAdmin) startDates.push(addDaysToIsoDate(today, -28));
+
+    return {
+      startDate: startDates.reduce((earliest, candidate) => candidate < earliest ? candidate : earliest),
+      endDate: [statisticsDateWindow.endDate, myShiftsFilterDescriptor.endDateStr, today]
+        .reduce((latest, candidate) => candidate > latest ? candidate : latest)
+    };
+  }, [statisticsDateWindow, myShiftsFilterDescriptor, isCurrentUserDeskAdmin]);
+
+  useEffect(() => {
+    if (!currentUser || preferencesReadyForProfile !== currentUser.id) return undefined;
+
+    let cancelled = false;
+    const refreshStatisticsWindow = async () => {
+      try {
+        const statistics = await fetchStatisticsForWindow({
+          ...statisticsReadWindow,
+          users,
+          desks: serviceDesks,
+          slots: slotTemplates
+        });
+        if (!cancelled) setLoggedStatistics(statistics);
+      } catch (statisticsError) {
+        // Keep the last successfully loaded window on screen if a temporary
+        // network issue occurs. The rest of the roster remains usable.
+        console.warn('Statistics window could not be refreshed:', statisticsError.message);
+      }
+    };
+
+    refreshStatisticsWindow();
+    return () => { cancelled = true; };
+  }, [
+    currentUser,
+    preferencesReadyForProfile,
+    statisticsReadWindow,
+    users,
+    serviceDesks,
+    slotTemplates
+  ]);
 
   const myShiftsFilteredList = useMemo(() => {
     if (!currentUser) return [];

@@ -161,65 +161,12 @@ export async function fetchFullRosterArchiveData() {
   };
 }
 
-export async function fetchRosterData(profileId, { operationalStartDate, operationalEndDate } = {}) {
-  const assignmentsQuery = supabase.from('duty_assignments').select('slot_id, duty_date, profile_id');
-  const slotHolidayOverridesQuery = supabase.from('duty_slot_holiday_overrides').select('*');
-
-  if (operationalStartDate) {
-    assignmentsQuery.gte('duty_date', operationalStartDate);
-    slotHolidayOverridesQuery.gte('duty_date', operationalStartDate);
-  }
-  if (operationalEndDate) {
-    assignmentsQuery.lte('duty_date', operationalEndDate);
-    slotHolidayOverridesQuery.lte('duty_date', operationalEndDate);
-  }
-
-  const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
-    supabase.rpc('get_roster_member_directory_for_current_user'),
-    supabase.from('regions').select('*').order('name'),
-    supabase.from('service_desks').select('*, regions(name, timezone)').order('name'),
-    supabase.from('duty_slots').select('*').eq('status', 'Active'),
-    supabase.from('desk_follows').select('desk_id').eq('profile_id', profileId),
-    assignmentsQuery,
-    supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false }),
-    supabase.from('user_preferences').select('*').eq('profile_id', profileId).maybeSingle(),
-    supabase.from('statutory_holidays').select('*').order('holiday_date'),
-    slotHolidayOverridesQuery
-  ]);
-
-  const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);
-  if (failure) throw failure.error;
-
-  const users = profilesResult.data.map(member => ({
-    id: member.id,
-    fullName: member.full_name,
-    email: member.email || '',
-    phone: member.phone || '',
-    warrantNumber: member.warrant_number || '',
-    role: member.role || '',
-    isProvisional: Boolean(member.is_provisional),
-    status: member.status || (member.is_approved ? 'Approved' : ''),
-    isApproved: Boolean(member.is_approved),
-    canBeDeskAdmin: Boolean(member.can_be_desk_admin),
-    reminderFrequency: member.reminder_frequency || 'NONE',
-    reminderStartDate: member.reminder_start_date || '',
-    reminderWeeks: member.reminder_weeks || 4
-  }));
-  const regions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code, timezone: region.timezone || 'Pacific/Auckland' }));
-  const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', timeZone: desk.regions?.timezone || 'Pacific/Auckland', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status, isHomeBasedService: Boolean(desk.is_home_based_service) }));
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const slots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
+const mapStatistics = (records, users, desks, slots) => {
   const userMap = Object.fromEntries(users.map(user => [user.id, user]));
   const deskMap = Object.fromEntries(desks.map(desk => [desk.id, desk]));
   const slotMap = Object.fromEntries(slots.map(slot => [slot.id, slot]));
-  const assignments = assignmentsResult.data.reduce((all, assignment) => {
-    const slot = slotMap[assignment.slot_id];
-    if (!slot) return all;
-    const key = `${slot.deskId}_${slot.id}_${assignment.duty_date}`;
-    all[key] = [...(all[key] || []), assignment.profile_id];
-    return all;
-  }, {});
-  const statistics = statisticsResult.data.map(stat => {
+
+  return (records ?? []).map(stat => {
     // duty_statistics stores the profile ID, rather than duplicating personal
     // details in every log entry. Resolve it here so the on-screen log and CSV
     // export consistently show the JP's current name and warrant number.
@@ -253,6 +200,80 @@ export async function fetchRosterData(profileId, { operationalStartDate, operati
       notes: stat.notes
     };
   });
+};
+
+export async function fetchStatisticsForWindow({ startDate, endDate, users, desks, slots }) {
+  const statisticsQuery = supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false });
+  if (startDate) statisticsQuery.gte('duty_date', startDate);
+  if (endDate) statisticsQuery.lte('duty_date', endDate);
+
+  const { data, error } = await statisticsQuery;
+  if (error) throw error;
+
+  return mapStatistics(data, users, desks, slots);
+}
+
+export async function fetchRosterData(profileId, { operationalStartDate, operationalEndDate, statisticsStartDate, statisticsEndDate } = {}) {
+  const assignmentsQuery = supabase.from('duty_assignments').select('slot_id, duty_date, profile_id');
+  const slotHolidayOverridesQuery = supabase.from('duty_slot_holiday_overrides').select('*');
+  const statisticsQuery = supabase.from('duty_statistics').select('*').order('duty_date', { ascending: false });
+
+  if (operationalStartDate) {
+    assignmentsQuery.gte('duty_date', operationalStartDate);
+    slotHolidayOverridesQuery.gte('duty_date', operationalStartDate);
+  }
+  if (operationalEndDate) {
+    assignmentsQuery.lte('duty_date', operationalEndDate);
+    slotHolidayOverridesQuery.lte('duty_date', operationalEndDate);
+  }
+  if (statisticsStartDate) statisticsQuery.gte('duty_date', statisticsStartDate);
+  if (statisticsEndDate) statisticsQuery.lte('duty_date', statisticsEndDate);
+
+  const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
+    supabase.rpc('get_roster_member_directory_for_current_user'),
+    supabase.from('regions').select('*').order('name'),
+    supabase.from('service_desks').select('*, regions(name, timezone)').order('name'),
+    supabase.from('duty_slots').select('*').eq('status', 'Active'),
+    supabase.from('desk_follows').select('desk_id').eq('profile_id', profileId),
+    assignmentsQuery,
+    statisticsQuery,
+    supabase.from('user_preferences').select('*').eq('profile_id', profileId).maybeSingle(),
+    supabase.from('statutory_holidays').select('*').order('holiday_date'),
+    slotHolidayOverridesQuery
+  ]);
+
+  const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);
+  if (failure) throw failure.error;
+
+  const users = profilesResult.data.map(member => ({
+    id: member.id,
+    fullName: member.full_name,
+    email: member.email || '',
+    phone: member.phone || '',
+    warrantNumber: member.warrant_number || '',
+    role: member.role || '',
+    isProvisional: Boolean(member.is_provisional),
+    status: member.status || (member.is_approved ? 'Approved' : ''),
+    isApproved: Boolean(member.is_approved),
+    canBeDeskAdmin: Boolean(member.can_be_desk_admin),
+    reminderFrequency: member.reminder_frequency || 'NONE',
+    reminderStartDate: member.reminder_start_date || '',
+    reminderWeeks: member.reminder_weeks || 4
+  }));
+  const regions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code, timezone: region.timezone || 'Pacific/Auckland' }));
+  const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', timeZone: desk.regions?.timezone || 'Pacific/Auckland', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status, isHomeBasedService: Boolean(desk.is_home_based_service) }));
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const slots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
+  const deskMap = Object.fromEntries(desks.map(desk => [desk.id, desk]));
+  const slotMap = Object.fromEntries(slots.map(slot => [slot.id, slot]));
+  const assignments = assignmentsResult.data.reduce((all, assignment) => {
+    const slot = slotMap[assignment.slot_id];
+    if (!slot) return all;
+    const key = `${slot.deskId}_${slot.id}_${assignment.duty_date}`;
+    all[key] = [...(all[key] || []), assignment.profile_id];
+    return all;
+  }, {});
+  const statistics = mapStatistics(statisticsResult.data, users, desks, slots);
 
   const statutoryHolidays = statutoryHolidaysResult.data.map(holiday => ({ id: holiday.id, date: holiday.holiday_date, description: holiday.description }));
   const slotHolidayOverrides = slotHolidayOverridesResult.data.map(override => ({ slotId: override.duty_slot_id, date: override.duty_date, isHoliday: override.is_holiday }));
