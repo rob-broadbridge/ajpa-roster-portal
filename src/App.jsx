@@ -45,6 +45,49 @@ const normaliseWarrantNumber = (value = '') => {
   return digits ? `JP-${digits}` : '';
 };
 
+const getShiftDateRangeDescriptor = ({ preset, currentWeek1Monday, fromDate, toDate, subject }) => {
+  const today = calendarDateFromIso(getTimeZoneDateString());
+  const formatDate = (date) => `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+  const weekStart = new Date(currentWeek1Monday);
+  const range = (start, end, label) => ({
+    label: `Showing ${subject} for ${label} (${formatDate(start)} to ${formatDate(end)})`,
+    startDateStr: calendarDateToIso(start),
+    endDateStr: calendarDateToIso(end)
+  });
+
+  if (preset === 'DEFAULT_13_WEEKS') {
+    const start = new Date(weekStart); start.setDate(start.getDate() - 7);
+    const end = new Date(weekStart); end.setDate(end.getDate() + 83);
+    return range(start, end, '13-week window: Prior Week + Calendar Weeks 1-12');
+  }
+  if (preset === 'DEFAULT_5WEEKS') {
+    const start = new Date(weekStart); start.setDate(start.getDate() - 7);
+    const end = new Date(weekStart); end.setDate(end.getDate() + 34);
+    return range(start, end, '5-week window: Prior Week + Calendar Weeks 1-4');
+  }
+  if (preset === 'NEXT_4_WEEKS') {
+    const end = new Date(weekStart); end.setDate(end.getDate() + 27);
+    return range(weekStart, end, 'Calendar Weeks 1-4');
+  }
+  if (preset === 'THIS_MONTH') {
+    return range(new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 0), 'This Month');
+  }
+  if (preset === 'LAST_MONTH') {
+    return range(new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 0), 'Last Month');
+  }
+  if (preset === 'NEXT_MONTH') {
+    return range(new Date(today.getFullYear(), today.getMonth() + 1, 1), new Date(today.getFullYear(), today.getMonth() + 2, 0), 'Next Month');
+  }
+  if (preset === 'CUSTOM') {
+    return {
+      label: `Showing ${subject} for Custom Date Range (${formatDate(calendarDateFromIso(fromDate))} to ${formatDate(calendarDateFromIso(toDate))})`,
+      startDateStr: fromDate,
+      endDateStr: toDate
+    };
+  }
+  return { label: `Showing ${subject}`, startDateStr: '1970-01-01', endDateStr: '2099-12-31' };
+};
+
 export default function App() {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -206,7 +249,11 @@ export default function App() {
   // Desk Maintenance is deliberately separate from members' self-service
   // calendar. Staff can only act for JPs at desks they administer.
   const [deskMaintenanceSubTab, setDeskMaintenanceSubTab] = useState('assign-jps');
+  const [deskMaintenanceDatePreset, setDeskMaintenanceDatePreset] = useState('DEFAULT_13_WEEKS');
   const [deskMaintenanceDeskFilter, setDeskMaintenanceDeskFilter] = useState('ALL');
+  const [deskMaintenanceCustomModalOpen, setDeskMaintenanceCustomModalOpen] = useState(false);
+  const [deskMaintenanceCustomFrom, setDeskMaintenanceCustomFrom] = useState('2026-08-31');
+  const [deskMaintenanceCustomTo, setDeskMaintenanceCustomTo] = useState('2026-10-04');
   const [deskMaintenanceMemberSelections, setDeskMaintenanceMemberSelections] = useState({});
   const [deskMaintenanceStatsFilter, setDeskMaintenanceStatsFilter] = useState('LAST_4_WEEKS');
   const [incompleteDutyStatistics, setIncompleteDutyStatistics] = useState([]);
@@ -381,6 +428,8 @@ export default function App() {
     setCalendarDisplayWeeks(12);
     setMyShiftsPreset('DEFAULT_13_WEEKS');
     setMyShiftsDeskFilter('ALL');
+    setDeskMaintenanceDatePreset('DEFAULT_13_WEEKS');
+    setDeskMaintenanceDeskFilter('ALL');
     setStatsRegionFilter('ALL');
     setStatsDeskFilter('ALL');
     setStatsJpFilter(profile.role === 'Member' ? profile.id : 'ALL');
@@ -392,6 +441,7 @@ export default function App() {
     } else if (roster.preferences) {
       const calendar = roster.preferences.calendar_filters || {};
       const myShifts = roster.preferences.my_shifts_filters || {};
+      const deskMaintenance = roster.preferences.desk_maintenance_filters || {};
       const statistics = roster.preferences.statistics_filters || {};
       if (typeof calendar.desk === 'string') setCalendarDeskFilter(calendar.desk);
       if (profile.role === 'Member' && Array.isArray(calendar.member_desk_ids)) {
@@ -409,6 +459,10 @@ export default function App() {
       if (typeof myShifts.desk === 'string') setMyShiftsDeskFilter(myShifts.desk);
       if (typeof myShifts.from === 'string') setMyShiftsCustomFrom(myShifts.from);
       if (typeof myShifts.to === 'string') setMyShiftsCustomTo(myShifts.to);
+      if (typeof deskMaintenance.preset === 'string') setDeskMaintenanceDatePreset(deskMaintenance.preset);
+      if (typeof deskMaintenance.desk === 'string') setDeskMaintenanceDeskFilter(deskMaintenance.desk);
+      if (typeof deskMaintenance.from === 'string') setDeskMaintenanceCustomFrom(deskMaintenance.from);
+      if (typeof deskMaintenance.to === 'string') setDeskMaintenanceCustomTo(deskMaintenance.to);
       if (typeof statistics.region === 'string') setStatsRegionFilter(statistics.region);
       if (typeof statistics.desk === 'string') setStatsDeskFilter(statistics.desk);
       if (typeof statistics.jp === 'string') setStatsJpFilter(statistics.jp);
@@ -542,6 +596,7 @@ export default function App() {
       else if (confirmDownloadModalOpen) setConfirmDownloadModalOpen(false);
       else if (activityLogCustomModalOpen) setActivityLogCustomModalOpen(false);
       else if (myShiftsCustomModalOpen) setMyShiftsCustomModalOpen(false);
+      else if (deskMaintenanceCustomModalOpen) setDeskMaintenanceCustomModalOpen(false);
       else if (customDateModalOpen) setCustomDateModalOpen(false);
       else if (pastRegistrationConfirmationOcc) setPastRegistrationConfirmationOcc(null);
       else if (pastWithdrawalConfirmationOcc) setPastWithdrawalConfirmationOcc(null);
@@ -570,6 +625,7 @@ export default function App() {
     createDeskModalOpen,
     customDateModalOpen,
     detailedSlotModal,
+    deskMaintenanceCustomModalOpen,
     editingStatRecord,
     forgotModalOpen,
     logStatsOccurrence,
@@ -670,6 +726,12 @@ export default function App() {
           from: myShiftsCustomFrom,
           to: myShiftsCustomTo
         },
+        desk_maintenance_filters: {
+          preset: deskMaintenanceDatePreset,
+          desk: deskMaintenanceDeskFilter,
+          from: deskMaintenanceCustomFrom,
+          to: deskMaintenanceCustomTo
+        },
         statistics_filters: {
           region: statsRegionFilter,
           desk: statsDeskFilter,
@@ -698,6 +760,10 @@ export default function App() {
     myShiftsDeskFilter,
     myShiftsCustomFrom,
     myShiftsCustomTo,
+    deskMaintenanceDatePreset,
+    deskMaintenanceDeskFilter,
+    deskMaintenanceCustomFrom,
+    deskMaintenanceCustomTo,
     statsRegionFilter,
     statsDeskFilter,
     statsJpFilter,
@@ -709,6 +775,19 @@ export default function App() {
   const canManage = useMemo(() => {
     return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
   }, [currentUser]);
+
+  // The interface must match the database's Stage 2B desk scope.  Registrars
+  // may maintain every desk; an Admin may maintain only a desk where they are
+  // the recorded Primary or Secondary Desk Admin.
+  const canMaintainDesk = (deskOrId) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'Registrar') return true;
+    if (currentUser.role !== 'Admin') return false;
+    const desk = typeof deskOrId === 'string'
+      ? serviceDesks.find(item => item.id === deskOrId)
+      : deskOrId;
+    return Boolean(desk && (desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id));
+  };
 
   const isCurrentUserDeskAdmin = useMemo(() => {
     if (!currentUser) return false;
@@ -1230,11 +1309,11 @@ export default function App() {
   }, [slotForm]);
 
   const handleOpenAddSlotModal = (targetDeskId = null) => {
-    if (!canManage) return;
+    if (!canManage || (targetDeskId && !canMaintainDesk(targetDeskId))) return;
     setEditingSlotId(null);
     setSlotValidationError('');
     setSlotForm({
-      deskId: targetDeskId || activeDesksList[0]?.id || 'desk-remuera',
+      deskId: targetDeskId || (currentUser?.role === 'Admin' ? serviceDesks.find(desk => canMaintainDesk(desk))?.id : activeDesksList[0]?.id) || 'desk-remuera',
       dayOfWeek: 'Tuesday',
       startTime: '10:00',
       endTime: '12:00',
@@ -1248,6 +1327,7 @@ export default function App() {
   };
 
   const handleOpenEditSlotModal = (slot) => {
+    if (!canMaintainDesk(slot.deskId)) return;
     setEditingSlotId(slot.id);
     setSlotValidationError('');
     setSlotForm({
@@ -1266,7 +1346,7 @@ export default function App() {
 
   const handlePromptSaveSlot = (e) => {
     e.preventDefault();
-    if (!canManage) return;
+    if (!canManage || !canMaintainDesk(slotForm.deskId)) return;
     const errorMsg = validateSlotForm(slotForm);
     if (errorMsg) {
       setSlotValidationError(errorMsg);
@@ -1286,7 +1366,7 @@ export default function App() {
   };
 
   const handleConfirmSlotAction = async () => {
-    if (!canManage && slotActionConfirm !== 'CANCEL') {
+    if ((!canManage || !canMaintainDesk(slotForm.deskId)) && slotActionConfirm !== 'CANCEL') {
       setSlotActionConfirm(null);
       return;
     }
@@ -1855,18 +1935,29 @@ export default function App() {
     .filter(desk => deskMaintenanceDeskIds.includes(desk.id))
     .sort((first, second) => first.name.localeCompare(second.name)), [activeDesksList, deskMaintenanceDeskIds]);
 
+  useEffect(() => {
+    if (deskMaintenanceDeskFilter !== 'ALL' && !deskMaintenanceDesks.some(desk => desk.id === deskMaintenanceDeskFilter)) {
+      setDeskMaintenanceDeskFilter('ALL');
+    }
+  }, [deskMaintenanceDeskFilter, deskMaintenanceDesks]);
+
+  const deskMaintenanceDateFilterDescriptor = useMemo(() => getShiftDateRangeDescriptor({
+    preset: deskMaintenanceDatePreset,
+    currentWeek1Monday,
+    fromDate: deskMaintenanceCustomFrom,
+    toDate: deskMaintenanceCustomTo,
+    subject: 'Desk Maintenance shifts'
+  }), [deskMaintenanceDatePreset, currentWeek1Monday, deskMaintenanceCustomFrom, deskMaintenanceCustomTo]);
+
   const deskMaintenanceOccurrences = useMemo(() => {
-    const today = getTimeZoneDateString();
-    const earliest = addDaysToIsoDate(today, -28);
-    const latest = addDaysToIsoDate(today, 84);
     return generatedOccurrences
       .filter(occ => deskMaintenanceDeskIds.includes(occ.deskId))
       .filter(occ => deskMaintenanceDeskFilter === 'ALL' || occ.deskId === deskMaintenanceDeskFilter)
-      .filter(occ => occ.date >= earliest && occ.date <= latest)
+      .filter(occ => occ.date >= deskMaintenanceDateFilterDescriptor.startDateStr && occ.date <= deskMaintenanceDateFilterDescriptor.endDateStr)
       .sort((first, second) => first.date.localeCompare(second.date)
         || first.startTime.localeCompare(second.startTime)
         || (activeDeskMap[first.deskId]?.name || '').localeCompare(activeDeskMap[second.deskId]?.name || ''));
-  }, [generatedOccurrences, deskMaintenanceDeskIds, deskMaintenanceDeskFilter, activeDeskMap]);
+  }, [generatedOccurrences, deskMaintenanceDeskIds, deskMaintenanceDeskFilter, deskMaintenanceDateFilterDescriptor, activeDeskMap]);
 
   const activeMembersForDeskMaintenance = useMemo(() => users
     .filter(user => user.status === 'Approved')
@@ -1887,7 +1978,21 @@ export default function App() {
       p_duty_date: occurrence.date
     });
     if (error) { alert(`Unable to ${verb} JP member: ${error.message}`); return; }
+
+    // Reloading roster data also reloads saved display preferences. Preserve
+    // the filters the Desk Admin is using right now, including changes made
+    // less than the short preference-save delay ago.
+    const activeFilters = {
+      datePreset: deskMaintenanceDatePreset,
+      desk: deskMaintenanceDeskFilter,
+      from: deskMaintenanceCustomFrom,
+      to: deskMaintenanceCustomTo
+    };
     await loadSupabaseRoster(currentUser);
+    setDeskMaintenanceDatePreset(activeFilters.datePreset);
+    setDeskMaintenanceDeskFilter(activeFilters.desk);
+    setDeskMaintenanceCustomFrom(activeFilters.from);
+    setDeskMaintenanceCustomTo(activeFilters.to);
     await refreshActivityLog();
   };
 
@@ -2005,9 +2110,23 @@ export default function App() {
 
   const isOccurrenceFinished = (occurrence) => hasShiftEnded(occurrence, actionClock);
 
-  const deskMaintenanceRecentStatisticRows = useMemo(() => deskMaintenanceOccurrences
+  // JP Stats deliberately keeps its original behaviour: the recent view is
+  // the last four weeks of completed shifts, while Incomplete covers every
+  // older missing record.  The Assign JPs date filter does not narrow either.
+  const deskMaintenanceStatisticsOccurrences = useMemo(() => {
+    const earliest = addDaysToIsoDate(getTimeZoneDateString(), -28);
+    return generatedOccurrences
+      .filter(occ => deskMaintenanceDeskIds.includes(occ.deskId))
+      .filter(occ => deskMaintenanceDeskFilter === 'ALL' || occ.deskId === deskMaintenanceDeskFilter)
+      .filter(occ => occ.date >= earliest)
+      .sort((first, second) => first.date.localeCompare(second.date)
+        || first.startTime.localeCompare(second.startTime)
+        || (activeDeskMap[first.deskId]?.name || '').localeCompare(activeDeskMap[second.deskId]?.name || ''));
+  }, [generatedOccurrences, deskMaintenanceDeskIds, deskMaintenanceDeskFilter, activeDeskMap]);
+
+  const deskMaintenanceRecentStatisticRows = useMemo(() => deskMaintenanceStatisticsOccurrences
     .filter(occ => isOccurrenceFinished(occ))
-    .flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))), [deskMaintenanceOccurrences, actionClock]);
+    .flatMap(occ => occ.assignedJpIds.map(memberId => ({ occ, memberId }))), [deskMaintenanceStatisticsOccurrences, actionClock]);
 
   const deskMaintenanceIncompleteStatisticRows = useMemo(() => incompleteDutyStatistics
     .filter(item => deskMaintenanceDeskFilter === 'ALL' || item.deskId === deskMaintenanceDeskFilter)
@@ -2595,6 +2714,7 @@ export default function App() {
   };
 
   const handleStartEditDesk = (desk) => {
+    if (!canMaintainDesk(desk)) return;
     setEditingDeskId(desk.id);
     setEditDeskForm({
       code: desk.code || '',
@@ -2613,6 +2733,8 @@ export default function App() {
   const handleSaveDeskDirectly = async (e) => {
     e.preventDefault();
 
+    if (!canMaintainDesk(editingDeskId)) return;
+
     if (!editDeskForm.primaryAdminId) {
       alert('A Service Desk must always have a valid Primary Desk Admin.');
       return;
@@ -2630,6 +2752,10 @@ export default function App() {
   };
 
   const confirmDeleteDesk = async () => {
+    if (!canMaintainDesk(pendingDeleteDeskId)) {
+      setPendingDeleteDeskId(null);
+      return;
+    }
     const { error } = await supabase.from('service_desks').update({ status: 'Archived' }).eq('id', pendingDeleteDeskId);
     if (error) { alert(`Unable to archive service desk: ${error.message}`); return; }
     await loadSupabaseRoster(currentUser);
@@ -3400,6 +3526,7 @@ export default function App() {
                         {desks.map(desk => {
                           const isFollowed = followedDesks.includes(desk.id);
                           const isEditing = editingDeskId === desk.id;
+                          const canMaintainThisDesk = canMaintainDesk(desk);
 
                           const primaryAdmin = userMap[desk.primaryAdminId];
                           const secondaryAdmin = userMap[desk.secondaryAdminId];
@@ -3509,7 +3636,7 @@ export default function App() {
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                      {canManage && desk.status === 'Active' && (
+                                      {canMaintainThisDesk && desk.status === 'Active' && (
                                         <>
                                           <button 
                                             type="button" 
@@ -3578,7 +3705,7 @@ export default function App() {
                                         <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                         <span>Configured Recurring Shift Slots ({deskSlotTemplates.length})</span>
                                       </span>
-                                      <span className="text-[10px] text-slate-400 font-bold">Click tile to maintain slot</span>
+                                      <span className="text-[10px] text-slate-400 font-bold">{canMaintainThisDesk ? 'Click tile to maintain slot' : 'Shift settings are view-only'}</span>
                                     </div>
 
                                     {deskSlotTemplates.length === 0 ? (
@@ -3591,8 +3718,8 @@ export default function App() {
                                           return (
                                             <div
                                               key={slot.id}
-                                              onClick={() => handleOpenEditSlotModal(slot)}
-                                              className={`p-2.5 rounded-lg border text-xs cursor-pointer shadow-sm transition space-y-1.5 ${
+                                              onClick={canMaintainThisDesk ? () => handleOpenEditSlotModal(slot) : undefined}
+                                              className={`p-2.5 rounded-lg border text-xs shadow-sm transition space-y-1.5 ${canMaintainThisDesk ? 'cursor-pointer' : 'cursor-default'} ${
                                                 slot.status === 'Active'
                                                   ? 'bg-amber-50/90 border-amber-300 text-amber-900 hover:bg-amber-100'
                                                   : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
@@ -4055,6 +4182,29 @@ export default function App() {
 
                 {deskMaintenanceSubTab !== 'activity' && (
                   <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-end gap-3">
+                    <Filter className="w-4 h-4 text-amber-600 mb-2 shrink-0" />
+                    {deskMaintenanceSubTab === 'assign-jps' && <>
+                      <label className="text-xs font-extrabold text-slate-700 flex flex-col gap-1">Date
+                        <select value={deskMaintenanceDatePreset} onChange={(event) => {
+                          const value = event.target.value;
+                          setDeskMaintenanceDatePreset(value);
+                          if (value === 'CUSTOM') setDeskMaintenanceCustomModalOpen(true);
+                        }} className="border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-900">
+                          <option value="DEFAULT_13_WEEKS">Prior Week + Calendar Wks 1-12 (Default)</option>
+                          <option value="DEFAULT_5WEEKS">Prior Week + Calendar Wks 1-4</option>
+                          <option value="NEXT_4_WEEKS">Calendar Wks 1-4</option>
+                          <option value="THIS_MONTH">This Month</option>
+                          <option value="LAST_MONTH">Last Month</option>
+                          <option value="NEXT_MONTH">Next Month</option>
+                          <option value="CUSTOM">Custom Date Range...</option>
+                        </select>
+                      </label>
+                      {deskMaintenanceDatePreset === 'CUSTOM' && (
+                        <button type="button" onClick={() => setDeskMaintenanceCustomModalOpen(true)} className="px-3 py-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 text-xs font-extrabold cursor-pointer">
+                          Change range
+                        </button>
+                      )}
+                    </>}
                     <label className="text-xs font-extrabold text-slate-700 flex flex-col gap-1">Service Desk
                       <select value={deskMaintenanceDeskFilter} onChange={(event) => setDeskMaintenanceDeskFilter(event.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-900">
                         <option value="ALL">All authorised Service Desks</option>
@@ -4069,7 +4219,7 @@ export default function App() {
                         </select>
                       </label>
                     )}
-                    <span className="text-[11px] text-slate-500 pb-2">{deskMaintenanceSubTab === 'jp-stats' && deskMaintenanceStatsFilter === 'INCOMPLETE' ? 'All past registered shifts that do not yet have statistics.' : 'Showing completed shifts from the past four weeks and upcoming shifts for the next 12 weeks.'}</span>
+                    <span className="text-[11px] text-slate-500 pb-2">{deskMaintenanceSubTab === 'jp-stats' ? (deskMaintenanceStatsFilter === 'INCOMPLETE' ? 'All past registered shifts that do not yet have statistics.' : 'Completed registered shifts from the last four weeks.') : deskMaintenanceDateFilterDescriptor.label}</span>
                   </div>
                 )}
 
@@ -5337,6 +5487,21 @@ export default function App() {
           }}
           title="Interrogate My Shifts (Custom Date Range)"
           toDate={myShiftsCustomTo}
+        />
+      )}
+
+      {deskMaintenanceCustomModalOpen && (
+        <CustomDateRangeModal
+          applyLabel="Apply Custom Range"
+          fromDate={deskMaintenanceCustomFrom}
+          onClose={() => setDeskMaintenanceCustomModalOpen(false)}
+          onApply={({ fromDate, toDate }) => {
+            setDeskMaintenanceCustomFrom(fromDate);
+            setDeskMaintenanceCustomTo(toDate);
+            setDeskMaintenanceCustomModalOpen(false);
+          }}
+          title="Interrogate Desk Maintenance (Custom Date Range)"
+          toDate={deskMaintenanceCustomTo}
         />
       )}
 
