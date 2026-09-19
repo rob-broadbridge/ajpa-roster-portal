@@ -6,6 +6,8 @@ type Reminder = {
   slot_id: string;
   duty_date: string;
   access_token: string | null;
+  reminder_kind: 'INITIAL' | 'FOLLOW_UP';
+  reminder_number: number;
 };
 
 const displayDate = (date: string) => new Intl.DateTimeFormat('en-NZ', {
@@ -125,11 +127,15 @@ Deno.serve(async (request) => {
       const safeDeskCode = escapeHtml(desk.code || 'JP');
       const safeDate = escapeHtml(displayDate(reminder.duty_date));
       const safeTime = escapeHtml(time);
-      const text = `Hello ${memberName},\n\nThank you for serving at ${desk.name}.\n\nPlease complete your Statistics for this duty:\n\nService desk: [${desk.code || 'JP'}] ${desk.name}\nDate: ${displayDate(reminder.duty_date)}\nTime: ${time}\n\nUse this secure link to open the correct Statistics form in the AJPA Service Desk Management Platform:\n${reminderLink}\n\nIf another JP also served this slot, they will receive their own reminder and should submit their Statistics separately.\n\nFor your security, please sign in with the account that received this email. This link remains available for 30 days.\n\nRegards,\nAJPA Roster Team`;
-      const html = `<p>Hello ${safeMemberName},</p><p>Thank you for serving at <strong>${safeDeskName}</strong>.</p><p>Please complete your Statistics for this duty:</p><p><strong>Service desk:</strong> [${safeDeskCode}] ${safeDeskName}<br><strong>Date:</strong> ${safeDate}<br><strong>Time:</strong> ${safeTime}</p><p><a href="${reminderLink}" style="display:inline-block;background:#f59e0b;color:#0f172a;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">Complete Statistics</a></p><p>If another JP also served this slot, they will receive their own reminder and should submit their Statistics separately.</p><p style="color:#475569;font-size:13px">For your security, please sign in with the account that received this email. This link remains available for 30 days.</p><p>Regards,<br>AJPA Roster Team</p>`;
+      const isFollowUp = reminder.reminder_kind === 'FOLLOW_UP';
+      const introduction = isFollowUp
+        ? 'Our records show that Statistics have not yet been completed for this duty.'
+        : `Thank you for serving at ${desk.name}.`;
+      const text = `Hello ${memberName},\n\n${introduction}\n\nPlease complete your Statistics for this duty:\n\nService desk: [${desk.code || 'JP'}] ${desk.name}\nDate: ${displayDate(reminder.duty_date)}\nTime: ${time}\n\nUse this secure link to open the correct Statistics form in the AJPA Service Desk Management Platform:\n${reminderLink}\n\nIf another JP also served this slot, they will receive their own reminder and should submit their Statistics separately.\n\nFor your security, please sign in with the account that received this email. This link remains available for 30 days.\n\nRegards,\nAJPA Roster Team`;
+      const html = `<p>Hello ${safeMemberName},</p><p>${escapeHtml(introduction)}</p><p>Please complete your Statistics for this duty:</p><p><strong>Service desk:</strong> [${safeDeskCode}] ${safeDeskName}<br><strong>Date:</strong> ${safeDate}<br><strong>Time:</strong> ${safeTime}</p><p><a href="${reminderLink}" style="display:inline-block;background:#f59e0b;color:#0f172a;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">Complete Statistics</a></p><p>If another JP also served this slot, they will receive their own reminder and should submit their Statistics separately.</p><p style="color:#475569;font-size:13px">For your security, please sign in with the account that received this email. This link remains available for 30 days.</p><p>Regards,<br>AJPA Roster Team</p>`;
       const response = await sendEmail({
         to: [memberResult.data.email],
-        subject: `Please complete your JP duty Statistics — ${desk.name}, ${reminder.duty_date}`,
+        subject: `${isFollowUp ? 'Reminder: ' : ''}please complete your JP duty Statistics — ${desk.name}, ${reminder.duty_date}`,
         text,
         html
       }, `duty-statistics-reminder-${reminder.id}`);
