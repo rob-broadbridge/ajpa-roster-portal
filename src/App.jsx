@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabaseClient';
 import { getCurrentSessionUser, requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
-import { fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
+import { fetchDeskFollowerContacts, fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS, INITIAL_REGIONS, INITIAL_SERVICE_DESKS, INITIAL_SLOT_TEMPLATES, INITIAL_USERS } from './config/demoRosterData';
@@ -44,6 +44,10 @@ const normaliseWarrantNumber = (value = '') => {
   const digits = warrantNumberDigits(value);
   return digits ? `JP-${digits}` : '';
 };
+
+const formatEligibleDeskAdmin = (user) => user.role
+  ? `${user.fullName} (${user.role} - ${user.warrantNumber})`
+  : `${user.fullName} (${user.warrantNumber})`;
 
 const getShiftDateRangeDescriptor = ({ preset, currentWeek1Monday, fromDate, toDate, subject }) => {
   const today = calendarDateFromIso(getTimeZoneDateString());
@@ -256,6 +260,9 @@ export default function App() {
   const [deskMaintenanceCustomTo, setDeskMaintenanceCustomTo] = useState('2026-10-04');
   const [deskMaintenanceMemberSelections, setDeskMaintenanceMemberSelections] = useState({});
   const [deskMaintenanceStatsFilter, setDeskMaintenanceStatsFilter] = useState('LAST_4_WEEKS');
+  const [deskMaintenanceContacts, setDeskMaintenanceContacts] = useState([]);
+  const [deskMaintenanceContactsError, setDeskMaintenanceContactsError] = useState('');
+  const [deskMaintenanceContactsLoading, setDeskMaintenanceContactsLoading] = useState(false);
   const [incompleteDutyStatistics, setIncompleteDutyStatistics] = useState([]);
   const [incompleteDutyStatisticsError, setIncompleteDutyStatisticsError] = useState('');
   const [incompleteDutyStatisticsLoading, setIncompleteDutyStatisticsLoading] = useState(false);
@@ -816,7 +823,7 @@ export default function App() {
   }, [currentUser, calendarDisplayWeeks]);
 
   const eligibleAdminsList = useMemo(() => {
-    return users.filter(u => (u.role === 'Admin' || u.role === 'Registrar') && u.status === 'Approved');
+    return users.filter(user => user.canBeDeskAdmin);
   }, [users]);
 
   const userMap = useMemo(() => {
@@ -1941,6 +1948,29 @@ export default function App() {
     }
   }, [deskMaintenanceDeskFilter, deskMaintenanceDesks]);
 
+  useEffect(() => {
+    if (activeTab !== 'desk-maintenance' || deskMaintenanceSubTab !== 'jp-contacts' || !canUseDeskMaintenance) return undefined;
+
+    let cancelled = false;
+    setDeskMaintenanceContactsLoading(true);
+    fetchDeskFollowerContacts(deskMaintenanceDeskFilter === 'ALL' ? null : deskMaintenanceDeskFilter)
+      .then(contacts => {
+        if (cancelled) return;
+        setDeskMaintenanceContacts(contacts);
+        setDeskMaintenanceContactsError('');
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setDeskMaintenanceContacts([]);
+        setDeskMaintenanceContactsError(error.message);
+      })
+      .finally(() => {
+        if (!cancelled) setDeskMaintenanceContactsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab, deskMaintenanceSubTab, deskMaintenanceDeskFilter, canUseDeskMaintenance, currentUser?.id]);
+
   const deskMaintenanceDateFilterDescriptor = useMemo(() => getShiftDateRangeDescriptor({
     preset: deskMaintenanceDatePreset,
     currentWeek1Monday,
@@ -1960,7 +1990,7 @@ export default function App() {
   }, [generatedOccurrences, deskMaintenanceDeskIds, deskMaintenanceDeskFilter, deskMaintenanceDateFilterDescriptor, activeDeskMap]);
 
   const activeMembersForDeskMaintenance = useMemo(() => users
-    .filter(user => user.status === 'Approved')
+    .filter(user => user.isApproved)
     .sort((first, second) => first.fullName.localeCompare(second.fullName)), [users]);
 
   const handleStaffAssignmentChange = async (occurrence, memberId, action) => {
@@ -3574,7 +3604,7 @@ export default function App() {
                                         className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                                       >
                                         {eligibleAdminsList.map(u => (
-                                          <option key={u.id} value={u.id}>{u.fullName} ({u.role} - {u.warrantNumber})</option>
+                                          <option key={u.id} value={u.id}>{formatEligibleDeskAdmin(u)}</option>
                                         ))}
                                       </select>
                                     </div>
@@ -3590,7 +3620,7 @@ export default function App() {
                                         {eligibleAdminsList
                                           .filter(u => u.id !== editDeskForm.primaryAdminId)
                                           .map(u => (
-                                            <option key={u.id} value={u.id}>{u.fullName} ({u.role} - {u.warrantNumber})</option>
+                                            <option key={u.id} value={u.id}>{formatEligibleDeskAdmin(u)}</option>
                                           ))}
                                       </select>
                                     </div>
@@ -4174,7 +4204,7 @@ export default function App() {
                     <p className="text-xs text-slate-500 mt-1">Register JPs, maintain their completed-shift statistics, and review desk activity. Desk Admins only see Service Desks assigned to them.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                    {[['assign-jps', 'Assign JPs'], ['jp-stats', 'JP Stats'], ['activity', 'Activity Log']].map(([key, label]) => (
+                    {[['assign-jps', 'Assign JPs'], ['jp-stats', 'JP Stats'], ['jp-contacts', 'JP Contacts'], ['activity', 'Activity Log']].map(([key, label]) => (
                       <button key={key} type="button" onClick={() => setDeskMaintenanceSubTab(key)} className={`px-4 py-2 rounded-lg text-xs font-extrabold cursor-pointer ${deskMaintenanceSubTab === key ? 'bg-slate-900 text-amber-400 shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>
                     ))}
                   </div>
@@ -4219,7 +4249,7 @@ export default function App() {
                         </select>
                       </label>
                     )}
-                    <span className="text-[11px] text-slate-500 pb-2">{deskMaintenanceSubTab === 'jp-stats' ? (deskMaintenanceStatsFilter === 'INCOMPLETE' ? 'All past registered shifts that do not yet have statistics.' : 'Completed registered shifts from the last four weeks.') : deskMaintenanceDateFilterDescriptor.label}</span>
+                    <span className="text-[11px] text-slate-500 pb-2">{deskMaintenanceSubTab === 'jp-stats' ? (deskMaintenanceStatsFilter === 'INCOMPLETE' ? 'All past registered shifts that do not yet have statistics.' : 'Completed registered shifts from the last four weeks.') : deskMaintenanceSubTab === 'jp-contacts' ? 'Active approved JPs who follow the selected authorised Service Desk.' : deskMaintenanceDateFilterDescriptor.label}</span>
                   </div>
                 )}
 
@@ -4243,6 +4273,28 @@ export default function App() {
                     ) : null}
                     <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead><tr className="bg-slate-900 text-white uppercase font-black tracking-wider"><th className="p-2.5">Shift</th><th className="p-2.5">Service Desk</th><th className="p-2.5">JP Member</th><th className="p-2.5">Action</th></tr></thead><tbody className="divide-y divide-slate-200">
                       {(deskMaintenanceStatsFilter === 'INCOMPLETE' ? deskMaintenanceIncompleteStatisticRows : deskMaintenanceRecentStatisticRows).length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">{deskMaintenanceStatsFilter === 'INCOMPLETE' ? (incompleteDutyStatisticsLoading ? 'Loading incomplete shifts…' : 'No incomplete registered shifts match this desk filter.') : 'No completed registered shifts match this desk filter.'}</td></tr> : (deskMaintenanceStatsFilter === 'INCOMPLETE' ? deskMaintenanceIncompleteStatisticRows : deskMaintenanceRecentStatisticRows).map(({ occ, memberId, memberName, warrantNumber, deskName, deskCode }) => { const existing = loggedStatistics.find(stat => stat.jpId === memberId && stat.slotId === occ.slotId && stat.date === occ.date); const member = userMap[memberId] || (memberName ? { id: memberId, fullName: memberName, warrantNumber } : null); return <tr key={`${occ.instanceKey}-${memberId}`} className="hover:bg-sky-50/50"><td className="p-2.5 whitespace-nowrap font-bold">{occ.date}<div className="text-[10px] text-slate-500">{occ.startTime}–{occ.endTime}</div></td><td className="p-2.5">{deskName || activeDeskMap[occ.deskId]?.name}<span className="ml-1 text-[10px] text-slate-400">{deskCode ? `[${deskCode}]` : ''}</span></td><td className="p-2.5 font-bold">{member?.fullName || 'Unavailable JP'}<div className="text-[10px] text-slate-400">{member?.warrantNumber || ''}</div></td><td className="p-2.5"><button type="button" onClick={() => existing ? handleOpenEditStatModal(existing) : handleOpenLogStatsModal(occ, null, member)} className={`px-3 py-1.5 rounded font-extrabold cursor-pointer ${existing ? 'bg-sky-100 text-sky-900 hover:bg-sky-200' : 'bg-amber-500 text-slate-950 hover:bg-amber-400'}`}>{existing ? 'Maintain stats' : 'Log stats'}</button></td></tr>; })}</tbody></table></div>
+                  </div>
+                )}
+
+                {deskMaintenanceSubTab === 'jp-contacts' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 sm:p-5 border-b border-slate-100">
+                      <h3 className="font-extrabold text-slate-900">JP contact report</h3>
+                      <p className="text-xs text-slate-500 mt-1">Contact details for active approved JPs who follow your selected authorised Service Desk. A JP following more than one selected desk appears once.</p>
+                    </div>
+                    {deskMaintenanceContactsError ? (
+                      <div className="m-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-800">The JP Contacts report could not be loaded. {deskMaintenanceContactsError}</div>
+                    ) : null}
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[720px] text-left text-xs">
+                        <thead><tr className="bg-slate-900 text-white uppercase font-black tracking-wider"><th className="p-2.5">Name</th><th className="p-2.5">Warrant Number</th><th className="p-2.5">Email Address</th><th className="p-2.5">Phone Number</th></tr></thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {deskMaintenanceContactsLoading ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">Loading JP contacts…</td></tr>
+                            : deskMaintenanceContacts.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No active approved JPs follow the selected Service Desk.</td></tr>
+                            : deskMaintenanceContacts.map(member => <tr key={member.id} className="hover:bg-sky-50/50"><td className="p-2.5 font-bold text-slate-900">{member.fullName}</td><td className="p-2.5 font-mono text-slate-700">{member.warrantNumber || '—'}</td><td className="p-2.5 text-slate-700">{member.email || '—'}</td><td className="p-2.5 text-slate-700">{member.phone || '—'}</td></tr>)}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5997,7 +6049,7 @@ export default function App() {
                     className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                   >
                     {eligibleAdminsList.map(u => (
-                      <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                      <option key={u.id} value={u.id}>{u.role ? `${u.fullName} (${u.role})` : u.fullName}</option>
                     ))}
                   </select>
                 </div>
@@ -6013,7 +6065,7 @@ export default function App() {
                     {eligibleAdminsList
                       .filter(u => u.id !== newDeskForm.primaryAdminId)
                       .map(u => (
-                        <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                        <option key={u.id} value={u.id}>{u.role ? `${u.fullName} (${u.role})` : u.fullName}</option>
                       ))}
                   </select>
                 </div>

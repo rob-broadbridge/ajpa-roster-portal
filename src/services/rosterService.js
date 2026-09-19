@@ -74,6 +74,23 @@ export async function fetchIncompleteDutyStatistics() {
   }));
 }
 
+// Contact details are intentionally retrieved only from this database function.
+// It independently limits a Desk Admin to followers of their assigned desks.
+export async function fetchDeskFollowerContacts(deskId = null) {
+  const { data, error } = await supabase.rpc('get_desk_follower_contacts_for_current_user', {
+    p_desk_id: deskId || null
+  });
+  if (error) throw error;
+
+  return (data ?? []).map(member => ({
+    id: member.profile_id,
+    fullName: member.full_name,
+    warrantNumber: member.warrant_number || '',
+    email: member.email || '',
+    phone: member.phone || ''
+  }));
+}
+
 // The database function returns only operational summary information. It is
 // independently restricted to Registrars, so this never exposes notification
 // contents, email addresses, or delivery payloads to the browser.
@@ -158,7 +175,7 @@ export async function fetchRosterData(profileId, { operationalStartDate, operati
   }
 
   const [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, preferencesResult, statutoryHolidaysResult, slotHolidayOverridesResult] = await Promise.all([
-    supabase.from('profiles').select('*').order('full_name'),
+    supabase.rpc('get_roster_member_directory_for_current_user'),
     supabase.from('regions').select('*').order('name'),
     supabase.from('service_desks').select('*, regions(name, timezone)').order('name'),
     supabase.from('duty_slots').select('*').eq('status', 'Active'),
@@ -173,7 +190,21 @@ export async function fetchRosterData(profileId, { operationalStartDate, operati
   const failure = [profilesResult, regionsResult, desksResult, slotsResult, followsResult, assignmentsResult, statisticsResult, statutoryHolidaysResult, slotHolidayOverridesResult].find(result => result.error);
   if (failure) throw failure.error;
 
-  const users = profilesResult.data.map(member => ({ id: member.id, fullName: member.full_name, email: member.email, phone: member.phone || '', warrantNumber: member.warrant_number || '', role: member.role, isProvisional: member.is_provisional, status: member.status, reminderFrequency: member.desk_admin_reminder_frequency || 'NONE', reminderStartDate: member.desk_admin_reminder_start_date || '', reminderWeeks: member.desk_admin_reminder_weeks || 4 }));
+  const users = profilesResult.data.map(member => ({
+    id: member.id,
+    fullName: member.full_name,
+    email: member.email || '',
+    phone: member.phone || '',
+    warrantNumber: member.warrant_number || '',
+    role: member.role || '',
+    isProvisional: Boolean(member.is_provisional),
+    status: member.status || (member.is_approved ? 'Approved' : ''),
+    isApproved: Boolean(member.is_approved),
+    canBeDeskAdmin: Boolean(member.can_be_desk_admin),
+    reminderFrequency: member.reminder_frequency || 'NONE',
+    reminderStartDate: member.reminder_start_date || '',
+    reminderWeeks: member.reminder_weeks || 4
+  }));
   const regions = regionsResult.data.map(region => ({ id: region.id, name: region.name, code: region.code, timezone: region.timezone || 'Pacific/Auckland' }));
   const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', timeZone: desk.regions?.timezone || 'Pacific/Auckland', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status, isHomeBasedService: Boolean(desk.is_home_based_service) }));
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
