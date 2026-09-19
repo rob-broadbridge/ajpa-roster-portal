@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabaseClient';
 import { getCurrentSessionUser, requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
@@ -51,6 +51,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authRestoring, setAuthRestoring] = useState(true);
   const [activeTab, setActiveTab] = useState('calendar');
+  // A statistics-reminder link is deliberately resolved only after the JP
+  // signs in. The database verifies that the link belongs to that JP.
+  const [statisticsReminderToken, setStatisticsReminderToken] = useState(() => new URLSearchParams(window.location.search).get('statsReminder') || '');
+  const statisticsReminderOpening = useRef(false);
   const [profileForm, setProfileForm] = useState({ email: '', phone: '', warrantNumber: '', calendarWeeks: 12, reminderFrequency: 'NONE', reminderStartDate: '', reminderWeeks: 4 });
   const [profileSaveMessage, setProfileSaveMessage] = useState('');
   const [profileSaveError, setProfileSaveError] = useState('');
@@ -2057,6 +2061,54 @@ export default function App() {
       notes: ''
     });
   };
+
+  useEffect(() => {
+    if (!statisticsReminderToken || statisticsReminderOpening.current || !currentUser || !isAuthenticated || !slotTemplates.length || !serviceDesks.length) return undefined;
+
+    let cancelled = false;
+    const clearReminderFromAddress = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('statsReminder');
+      window.history.replaceState(window.history.state, '', url.toString());
+    };
+
+    const openReminder = async () => {
+      statisticsReminderOpening.current = true;
+      try {
+        const { data, error } = await supabase.rpc('get_duty_statistics_reminder_target', {
+          p_access_token: statisticsReminderToken
+        });
+        if (error) throw error;
+        const target = Array.isArray(data) ? data[0] : data;
+        if (!target) throw new Error('This Statistics reminder is no longer available. The Statistics may already have been completed, or the link may have expired.');
+
+        const occurrence = generatedOccurrences.find(item => item.slotId === target.slot_id && item.date === target.duty_date);
+        if (!occurrence || !occurrence.assignedJpIds.includes(currentUser.id)) {
+          throw new Error('The duty from this reminder could not be found in your roster.');
+        }
+        if (cancelled) return;
+
+        setActiveTab('statistics');
+        handleOpenLogStatsModal(occurrence, null, currentUser);
+        clearReminderFromAddress();
+        setStatisticsReminderToken('');
+      } catch (reminderError) {
+        if (!cancelled) {
+          alert(`Unable to open the Statistics reminder: ${reminderError.message}`);
+          clearReminderFromAddress();
+          setStatisticsReminderToken('');
+        }
+      } finally {
+        if (!cancelled) statisticsReminderOpening.current = false;
+      }
+    };
+
+    openReminder();
+    return () => {
+      cancelled = true;
+      statisticsReminderOpening.current = false;
+    };
+  }, [statisticsReminderToken, currentUser, isAuthenticated, slotTemplates.length, serviceDesks.length, generatedOccurrences]);
 
   const handleOpenHomeBasedStatistics = () => {
     if (!currentUser) return;
