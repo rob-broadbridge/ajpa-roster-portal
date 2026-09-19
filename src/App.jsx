@@ -4436,10 +4436,12 @@ export default function App() {
                         </div>
                       ) : rosterOperationalHealth && (
                         <>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                             {[
                               { label: 'Duty notifications', value: rosterOperationalHealth.dutyNotifications },
-                              { label: 'Desk Admin reminders', value: rosterOperationalHealth.deskAdminReminders }
+                              { label: 'Desk Admin reminders', value: rosterOperationalHealth.deskAdminReminders },
+                              { label: 'Statistics reminders', value: rosterOperationalHealth.statisticsReminders },
+                              { label: 'Monthly Statistics reports', value: rosterOperationalHealth.monthlyStatisticsReports }
                             ].map(item => (
                               <div key={item.label} className={`rounded-lg border p-3 ${item.value.failed ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
                                 <p className="text-xs font-bold text-slate-800">{item.label}</p>

@@ -44,6 +44,14 @@ Deno.serve(async (request) => {
   const adminById = new Map((admins ?? []).filter((admin: any) => admin.email).map((admin: any) => [admin.id, admin]));
 
   const candidates = new Map<string, any>();
+  const addCandidate = (admin: any, timezone: string, reportMonth: string) => {
+    const managedDesks = desks.filter((desk: any) => timezoneFor(desk) === timezone && (desk.primary_admin_id === admin.id || desk.secondary_admin_id === admin.id));
+    if (!managedDesks.length) return;
+    const key = `${admin.id}|${timezone}|${reportMonth}`;
+    const candidate = candidates.get(key) ?? { admin, timezone, reportMonth, desks: [] };
+    candidate.desks = managedDesks;
+    candidates.set(key, candidate);
+  };
   for (const desk of desks) {
     const timezone = timezoneFor(desk);
     const now = localTime(timezone);
@@ -53,12 +61,25 @@ Deno.serve(async (request) => {
     for (const adminId of [desk.primary_admin_id, desk.secondary_admin_id]) {
       const admin = adminId ? adminById.get(adminId) : null;
       if (!admin) continue;
-      const reportMonth = monthStart(now.date);
-      const key = `${admin.id}|${timezone}|${reportMonth}`;
-      const candidate = candidates.get(key) ?? { admin, timezone, reportMonth, desks: [] };
-      candidate.desks.push(desk);
-      candidates.set(key, candidate);
+      addCandidate(admin, timezone, monthStart(now.date));
     }
+  }
+
+  // Retries must not be limited to the local 10 pm month-end window. A report
+  // that cannot be sent at 10 pm is picked up by later scheduler runs until
+  // delivery succeeds or the normal five-attempt limit is reached.
+  const retryCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data: pendingReports, error: pendingReportsError } = await supabase
+    .from('desk_admin_monthly_statistics_reports')
+    .select('profile_id, timezone, report_month, status, next_attempt_at, processing_started_at')
+    .in('status', ['PENDING', 'PROCESSING']);
+  if (pendingReportsError) throw pendingReportsError;
+  for (const report of pendingReports ?? []) {
+    const readyToRetry = (report.status === 'PENDING' && report.next_attempt_at <= new Date().toISOString())
+      || (report.status === 'PROCESSING' && report.processing_started_at && report.processing_started_at < retryCutoff);
+    if (!readyToRetry) continue;
+    const admin = adminById.get(report.profile_id);
+    if (admin) addCandidate(admin, report.timezone, report.report_month);
   }
 
   let sent = 0;

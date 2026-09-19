@@ -84,6 +84,8 @@ export async function fetchRosterOperationalHealth() {
 
   const dutyNotifications = data?.duty_notifications || {};
   const deskAdminReminders = data?.desk_admin_reminders || {};
+  const statisticsReminders = data?.statistics_reminders || {};
+  const monthlyStatisticsReports = data?.monthly_statistics_reports || {};
   const schedules = data?.schedules || {};
 
   return {
@@ -94,6 +96,14 @@ export async function fetchRosterOperationalHealth() {
     deskAdminReminders: {
       failed: Number(deskAdminReminders.failed) || 0,
       waiting: Number(deskAdminReminders.waiting) || 0
+    },
+    statisticsReminders: {
+      failed: Number(statisticsReminders.failed) || 0,
+      waiting: Number(statisticsReminders.waiting) || 0
+    },
+    monthlyStatisticsReports: {
+      failed: Number(monthlyStatisticsReports.failed) || 0,
+      waiting: Number(monthlyStatisticsReports.waiting) || 0
     },
     schedules: Object.entries(schedules).map(([jobName, job]) => ({
       jobName,
