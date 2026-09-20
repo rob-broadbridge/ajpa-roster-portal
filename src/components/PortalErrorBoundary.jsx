@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { track } from '@vercel/analytics/react';
 
 // A last-resort safety net for render-time faults. It deliberately does not
 // attempt to repair data or sign a member out: refreshing is safe and keeps
@@ -18,6 +19,11 @@ export default class PortalErrorBoundary extends React.Component {
     // Keeps the technical detail available to support staff through the
     // browser console without exposing it in the member-facing screen.
     console.error('AJPA portal render error:', error, errorInfo);
+
+    // This intentionally sends no exception content, account details, or
+    // roster data. It simply lets administrators identify recurring display
+    // failures in Vercel Analytics.
+    track('portal_display_error');
   }
 
   render() {
