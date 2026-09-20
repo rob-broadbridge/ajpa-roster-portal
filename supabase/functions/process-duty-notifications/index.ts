@@ -39,7 +39,8 @@ const buildCalendarInvite = ({ profileId, slotId, dutyDate, startTime, endTime, 
 
 Deno.serve(async (request) => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  if (request.headers.get('x-webhook-secret') !== Deno.env.get('REGISTRAR_WEBHOOK_SECRET')) return new Response('Unauthorized', { status: 401 });
+  const webhookSecret = Deno.env.get('REGISTRAR_WEBHOOK_SECRET');
+  if (!webhookSecret || request.headers.get('x-webhook-secret') !== webhookSecret) return new Response('Unauthorized', { status: 401 });
   const body = await request.json().catch(() => ({}));
   const limit = Math.max(1, Math.min(100, Number(body?.limit) || 25));
   const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
