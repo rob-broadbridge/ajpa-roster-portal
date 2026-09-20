@@ -470,6 +470,8 @@ export default function App() {
     setMyShiftsDeskFilter('ALL');
     setDeskMaintenanceDatePreset('DEFAULT_13_WEEKS');
     setDeskMaintenanceDeskFilter('ALL');
+    setDeskViewFilter('Active');
+    setSelectedDeskRegions(roster.regions.map(region => region.name));
     setStatsRegionFilter('ALL');
     setStatsDeskFilter('ALL');
     setStatsJpFilter(profile.role === 'Member' ? profile.id : 'ALL');
@@ -494,6 +496,13 @@ export default function App() {
       if (calendar.days && typeof calendar.days === 'object') setCalendarDayFilter(previous => ({ ...previous, ...calendar.days }));
       if (Number.isInteger(calendar.weeks) || typeof calendar.weeks === 'string') {
         setCalendarDisplayWeeks(normaliseCalendarWeeks(calendar.weeks));
+      }
+      if (calendar.service_desks?.view === 'Active' || calendar.service_desks?.view === 'Archived') {
+        setDeskViewFilter(calendar.service_desks.view);
+      }
+      if (Array.isArray(calendar.service_desks?.regions)) {
+        const validRegionNames = new Set(roster.regions.map(region => region.name));
+        setSelectedDeskRegions(calendar.service_desks.regions.filter(regionName => validRegionNames.has(regionName)));
       }
       if (typeof myShifts.preset === 'string') setMyShiftsPreset(myShifts.preset);
       if (typeof myShifts.desk === 'string') setMyShiftsDeskFilter(myShifts.desk);
@@ -758,7 +767,11 @@ export default function App() {
           region: calendarRegionFilter,
           time_of_day: calendarTimeOfDayFilter,
           days: calendarDayFilter,
-          weeks: calendarDisplayWeeks
+          weeks: calendarDisplayWeeks,
+          service_desks: {
+            view: deskViewFilter,
+            regions: selectedDeskRegions
+          }
         },
         my_shifts_filters: {
           preset: myShiftsPreset,
@@ -804,6 +817,8 @@ export default function App() {
     deskMaintenanceDeskFilter,
     deskMaintenanceCustomFrom,
     deskMaintenanceCustomTo,
+    deskViewFilter,
+    selectedDeskRegions,
     statsRegionFilter,
     statsDeskFilter,
     statsJpFilter,
@@ -1207,6 +1222,49 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    // The normal preference save is deliberately delayed while a user makes a
+    // series of changes. Save these filters immediately on sign-out as well,
+    // so a quick account switch cannot carry one member's view into another's.
+    if (currentUser && preferencesReadyForProfile === currentUser.id) {
+      try {
+        await saveUserPreferences(currentUser.id, {
+          calendar_filters: {
+            desk: calendarDeskFilter,
+            member_desk_ids: memberCalendarDeskIds,
+            region: calendarRegionFilter,
+            time_of_day: calendarTimeOfDayFilter,
+            days: calendarDayFilter,
+            weeks: calendarDisplayWeeks,
+            service_desks: {
+              view: deskViewFilter,
+              regions: selectedDeskRegions
+            }
+          },
+          my_shifts_filters: {
+            preset: myShiftsPreset,
+            desk: myShiftsDeskFilter,
+            from: myShiftsCustomFrom,
+            to: myShiftsCustomTo
+          },
+          desk_maintenance_filters: {
+            preset: deskMaintenanceDatePreset,
+            desk: deskMaintenanceDeskFilter,
+            from: deskMaintenanceCustomFrom,
+            to: deskMaintenanceCustomTo
+          },
+          statistics_filters: {
+            region: statsRegionFilter,
+            desk: statsDeskFilter,
+            jp: statsJpFilter,
+            date_preset: statsDatePreset,
+            custom_from: customFromDate,
+            custom_to: customToDate
+          }
+        });
+      } catch (preferencesSaveError) {
+        console.warn('Service Desk filter preferences were not saved before sign-out:', preferencesSaveError.message);
+      }
+    }
     try {
       await signOutUser();
     } catch (signOutError) {
@@ -2854,20 +2912,47 @@ export default function App() {
     if (editingDeskId === pendingDeleteDeskId) setEditingDeskId(null);
   };
 
+  const saveServiceDeskFiltersNow = async (view, selectedRegions) => {
+    if (!currentUser || preferencesReadyForProfile !== currentUser.id) return;
+
+    try {
+      // This targeted update uses the established calendar_filters JSON field,
+      // rather than relying on the general delayed preference save.
+      await saveUserPreferences(currentUser.id, {
+        calendar_filters: {
+          desk: calendarDeskFilter,
+          member_desk_ids: memberCalendarDeskIds,
+          region: calendarRegionFilter,
+          time_of_day: calendarTimeOfDayFilter,
+          days: calendarDayFilter,
+          weeks: calendarDisplayWeeks,
+          service_desks: { view, regions: selectedRegions }
+        }
+      });
+    } catch (preferencesSaveError) {
+      alert(`Unable to save your Service Desk filters: ${preferencesSaveError.message}`);
+    }
+  };
+
+  const handleDeskViewFilterChange = (view) => {
+    setDeskViewFilter(view);
+    void saveServiceDeskFiltersNow(view, selectedDeskRegions);
+  };
+
   const toggleRegionSelection = (regionName) => {
-    setSelectedDeskRegions(prev => 
-      prev.includes(regionName) 
-        ? prev.filter(r => r !== regionName)
-        : [...prev, regionName]
-    );
+    const nextRegions = selectedDeskRegions.includes(regionName)
+      ? selectedDeskRegions.filter(name => name !== regionName)
+      : [...selectedDeskRegions, regionName];
+    setSelectedDeskRegions(nextRegions);
+    void saveServiceDeskFiltersNow(deskViewFilter, nextRegions);
   };
 
   const toggleAllRegions = () => {
-    if (selectedDeskRegions.length === regions.length) {
-      setSelectedDeskRegions([]);
-    } else {
-      setSelectedDeskRegions(regions.map(r => r.name));
-    }
+    const nextRegions = selectedDeskRegions.length === regions.length
+      ? []
+      : regions.map(region => region.name);
+    setSelectedDeskRegions(nextRegions);
+    void saveServiceDeskFiltersNow(deskViewFilter, nextRegions);
   };
 
   return (
@@ -3547,10 +3632,10 @@ export default function App() {
 
                     <div className="flex items-center space-x-3">
                       <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
-                        <button onClick={() => setDeskViewFilter('Active')} className={`px-3 py-1.5 rounded-md cursor-pointer ${deskViewFilter === 'Active' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <button onClick={() => handleDeskViewFilterChange('Active')} className={`px-3 py-1.5 rounded-md cursor-pointer ${deskViewFilter === 'Active' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
                           Active Desks ({activeDesksList.length})
                         </button>
-                        <button onClick={() => setDeskViewFilter('Archived')} className={`px-3 py-1.5 rounded-md cursor-pointer ${deskViewFilter === 'Archived' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
+                        <button onClick={() => handleDeskViewFilterChange('Archived')} className={`px-3 py-1.5 rounded-md cursor-pointer ${deskViewFilter === 'Archived' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600'}`}>
                           Archived Desks ({archivedDesksList.length})
                         </button>
                       </div>
