@@ -264,7 +264,6 @@ export async function fetchRosterData(profileId, { operationalStartDate, operati
   const desks = desksResult.data.map(desk => ({ id: desk.id, code: desk.code, name: desk.name, address: desk.address, region: desk.regions?.name || '', timeZone: desk.regions?.timezone || 'Pacific/Auckland', primaryAdminId: desk.primary_admin_id, secondaryAdminId: desk.secondary_admin_id, siteContactName: desk.site_contact_name, siteContactEmail: desk.site_contact_email, contactPerson: desk.contact_person, notes: desk.notes, status: desk.status, isHomeBasedService: Boolean(desk.is_home_based_service) }));
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const slots = slotsResult.data.map(slot => ({ id: slot.id, deskId: slot.desk_id, dayOfWeek: dayNames[slot.day_of_week], startTime: slot.start_time.slice(0, 5), endTime: slot.end_time.slice(0, 5), minJps: slot.min_jps, targetJps: slot.target_jps, maxJps: slot.max_jps, status: slot.status, effectiveFromDate: slot.effective_from }));
-  const deskMap = Object.fromEntries(desks.map(desk => [desk.id, desk]));
   const slotMap = Object.fromEntries(slots.map(slot => [slot.id, slot]));
   const assignments = assignmentsResult.data.reduce((all, assignment) => {
     const slot = slotMap[assignment.slot_id];
