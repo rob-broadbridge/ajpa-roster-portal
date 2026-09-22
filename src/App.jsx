@@ -9,6 +9,7 @@ import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS,
 import { IANA_TIME_ZONES } from './config/timezones';
 import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
+import { statisticsInputSelection } from './utils/statisticsInputSelection';
 import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
 import PortalAlerts from './components/PortalAlerts';
@@ -5984,7 +5985,7 @@ export default function App() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditedStatSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveEditedStatSubmit} {...statisticsInputSelection} className="space-y-4 text-xs">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 font-semibold text-slate-700">
                 <div className="text-slate-900 font-extrabold text-xs sm:text-sm">
                   {editingStatRecord.deskName} [{editingStatRecord.deskCode}]
@@ -6290,7 +6291,7 @@ export default function App() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveStatsSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveStatsSubmit} {...statisticsInputSelection} className="space-y-4 text-xs">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 font-semibold text-slate-700">
                 <div className="text-slate-900 font-extrabold text-xs sm:text-sm">
                   {logStatsOccurrence.isHomeBasedService ? 'Home Based Service' : `${activeDeskMap[logStatsOccurrence.deskId]?.name} [${activeDeskMap[logStatsOccurrence.deskId]?.code}]`}
