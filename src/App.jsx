@@ -119,6 +119,8 @@ const getShiftDateRangeDescriptor = ({ preset, currentWeek1Monday, fromDate, toD
   return { label: `Showing ${subject}`, startDateStr: '1970-01-01', endDateStr: '2099-12-31' };
 };
 
+const EMPTY_SIGN_UP_FORM = { fullName: '', email: '', phone: '', warrantNumber: '', password: '', confirmPassword: '', isProvisional: false };
+
 export default function App({ initialProfile = null, initialRecovery = false, onSessionChange }) {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -193,7 +195,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
 
   // Sign Up Modal State
   const [signUpModalOpen, setSignUpModalOpen] = useState(false);
-  const [signUpForm, setSignUpForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: '', password: '', confirmPassword: '', isProvisional: false });
+  const [signUpForm, setSignUpForm] = useState(EMPTY_SIGN_UP_FORM);
   const [signUpSuccessMsg, setSignUpSuccessMsg] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [showSignUpConfirmPassword, setShowSignUpConfirmPassword] = useState(false);
@@ -664,6 +666,10 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       else if (createDeskModalOpen) setCreateDeskModalOpen(false);
       else if (signUpModalOpen) {
         setSignUpSuccessMsg(false);
+        setSignUpForm(EMPTY_SIGN_UP_FORM);
+        setShowSignUpPassword(false);
+        setShowSignUpConfirmPassword(false);
+        setSignUpPasswordError('');
         setSignUpModalOpen(false);
       } else if (forgotModalOpen) setForgotModalOpen(false);
       else if (pendingMembersNoticeCount > 0) setPendingMembersNoticeCount(0);
@@ -3147,13 +3153,15 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                       </div>
                     )}
 
-                    <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
+                    <form onSubmit={handleLoginSubmit} autoComplete="on" className="space-y-4 text-xs">
                       <div>
                         <label className="block font-bold text-slate-700 mb-1">Email Address</label>
                         <div className="relative">
                           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                           <input 
-                            type="email" 
+                            type="email"
+                            name="email"
+                            autoComplete="username"
                             required 
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
@@ -3181,7 +3189,9 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                         <div className="relative">
                           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                           <input 
-                            type={showPassword ? 'text' : 'password'} 
+                            type={showPassword ? 'text' : 'password'}
+                            name="password"
+                            autoComplete="current-password"
                             required 
                             value={loginPassword}
                             onChange={(e) => setLoginPassword(e.target.value)}
@@ -3210,7 +3220,14 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                     <div className="pt-4 border-t border-slate-100 text-center space-y-2">
                       <span className="text-xs text-slate-500 block">Not signed up on the AJPA Roster yet?</span>
                       <button
-                        onClick={() => setSignUpModalOpen(true)}
+                        onClick={() => {
+                          setSignUpForm(EMPTY_SIGN_UP_FORM);
+                          setSignUpSuccessMsg(false);
+                          setShowSignUpPassword(false);
+                          setShowSignUpConfirmPassword(false);
+                          setSignUpPasswordError('');
+                          setSignUpModalOpen(true);
+                        }}
                         className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs uppercase tracking-wider shadow transition cursor-pointer"
                       >
                         Click here to Sign up
@@ -6646,7 +6663,14 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 <h3 className="text-xl font-black text-slate-900">JP Roster Sign-Up Request</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Register for access to the Auckland JP Service Desk Platform</p>
               </div>
-              <button onClick={() => setSignUpModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+              <button onClick={() => {
+                setSignUpForm(EMPTY_SIGN_UP_FORM);
+                setSignUpSuccessMsg(false);
+                setShowSignUpPassword(false);
+                setShowSignUpConfirmPassword(false);
+                setSignUpPasswordError('');
+                setSignUpModalOpen(false);
+              }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -6663,11 +6687,13 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 </p>
               </div>
             ) : (
-              <form onSubmit={handleSignUpSubmit} className="space-y-3 text-xs">
+              <form onSubmit={handleSignUpSubmit} autoComplete="off" className="space-y-3 text-xs">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Full Legal Name</label>
                   <input 
-                    type="text" 
+                    type="text"
+                    name="fullName"
+                    autoComplete="off"
                     required 
                     value={signUpForm.fullName}
                     onChange={(e) => setSignUpForm(prev => ({ ...prev, fullName: e.target.value }))}
@@ -6683,6 +6709,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                       <span className="px-3 py-2.5 bg-slate-100 border-r border-slate-300 font-mono font-bold text-slate-700">JP-</span>
                       <input
                         type="text"
+                        name="warrantNumber"
+                        autoComplete="off"
                         required
                         inputMode="numeric"
                         pattern="[0-9]*"
@@ -6697,7 +6725,9 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Mobile Phone</label>
                     <input 
-                      type="tel" 
+                      type="tel"
+                      name="phone"
+                      autoComplete="off"
                       required 
                       value={signUpForm.phone}
                       onChange={(e) => setSignUpForm(prev => ({ ...prev, phone: e.target.value }))}
@@ -6710,7 +6740,9 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Email Address</label>
                   <input 
-                    type="email" 
+                    type="email"
+                    name="email"
+                    autoComplete="off"
                     required 
                     value={signUpForm.email}
                     onChange={(e) => setSignUpForm(prev => ({ ...prev, email: e.target.value }))}
@@ -6724,6 +6756,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                   <div className="relative">
                     <input
                       type={showSignUpPassword ? 'text' : 'password'}
+                      name="new-password"
+                      autoComplete="new-password"
                       required
                       value={signUpForm.password}
                       onChange={(e) => { setSignUpForm(prev => ({ ...prev, password: e.target.value })); setSignUpPasswordError(''); }}
@@ -6742,6 +6776,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                   <div className="relative">
                     <input
                       type={showSignUpConfirmPassword ? 'text' : 'password'}
+                      name="confirm-password"
+                      autoComplete="new-password"
                       required
                       value={signUpForm.confirmPassword}
                       onChange={(e) => { setSignUpForm(prev => ({ ...prev, confirmPassword: e.target.value })); setSignUpPasswordError(''); }}
@@ -6770,7 +6806,14 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 <div className="pt-2 border-t border-slate-100 flex justify-end space-x-2">
                   <button 
                     type="button" 
-                    onClick={() => setSignUpModalOpen(false)} 
+                    onClick={() => {
+                      setSignUpForm(EMPTY_SIGN_UP_FORM);
+                      setSignUpSuccessMsg(false);
+                      setShowSignUpPassword(false);
+                      setShowSignUpConfirmPassword(false);
+                      setSignUpPasswordError('');
+                      setSignUpModalOpen(false);
+                    }}
                     className="px-4 py-2.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
                   >
                     Cancel
