@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { eligibilityTransport } from './eligibilityTransport';
 
 function mapProfile(profile) {
   return {
@@ -20,6 +21,8 @@ export async function signInPortalUser(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
   if (error) throw new Error(error.message);
 
+  eligibilityTransport.setOwnProfileId(data.user.id);
+
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -37,6 +40,7 @@ export async function signInPortalUser(email, password) {
 export async function getCurrentSessionUser() {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
+  eligibilityTransport.setOwnProfileId(session?.user?.id || null);
   if (!session?.user) return null;
 
   const { data: profile, error: profileError } = await supabase

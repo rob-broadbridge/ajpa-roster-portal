@@ -1,0 +1,4033 @@
+{
+  "constraints": [
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_monthly_statistics_reports",
+      "domain_name": "null",
+      "conname": "desk_admin_monthly_statistics_profile_id_timezone_report_mo_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (profile_id, timezone, report_month)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_monthly_statistics_reports",
+      "domain_name": "null",
+      "conname": "desk_admin_monthly_statistics_reports_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_monthly_statistics_reports",
+      "domain_name": "null",
+      "conname": "desk_admin_monthly_statistics_reports_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_monthly_statistics_reports",
+      "domain_name": "null",
+      "conname": "desk_admin_monthly_statistics_reports_status_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (status = ANY (ARRAY['PENDING'::text, 'PROCESSING'::text, 'SENT'::text, 'FAILED'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_reminder_deliveries",
+      "domain_name": "null",
+      "conname": "desk_admin_reminder_deliverie_profile_id_timezone_report_st_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (profile_id, timezone, report_start_date, report_end_date)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_reminder_deliveries",
+      "domain_name": "null",
+      "conname": "desk_admin_reminder_deliveries_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_reminder_deliveries",
+      "domain_name": "null",
+      "conname": "desk_admin_reminder_deliveries_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_admin_reminder_deliveries",
+      "domain_name": "null",
+      "conname": "desk_admin_reminder_deliveries_status_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (status = ANY (ARRAY['PENDING'::text, 'PROCESSING'::text, 'SENT'::text, 'FAILED'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_follows",
+      "domain_name": "null",
+      "conname": "desk_follows_desk_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (desk_id) REFERENCES service_desks(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_follows",
+      "domain_name": "null",
+      "conname": "desk_follows_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (profile_id, desk_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "desk_follows",
+      "domain_name": "null",
+      "conname": "desk_follows_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignment_notifications",
+      "domain_name": "null",
+      "conname": "duty_assignment_notifications_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignment_notifications",
+      "domain_name": "null",
+      "conname": "duty_assignment_notifications_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignment_notifications",
+      "domain_name": "null",
+      "conname": "duty_assignment_notifications_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (slot_id) REFERENCES duty_slots(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignment_notifications",
+      "domain_name": "null",
+      "conname": "duty_assignment_notifications_status_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (status = ANY (ARRAY['PENDING_CONFIRMATION'::text, 'PROCESSING_CONFIRMATION'::text, 'CONFIRMATION_SENT'::text, 'CANCELLED_BEFORE_CONFIRMATION'::text, 'CANCELLATION_PENDING'::text, 'PROCESSING_CANCELLATION'::text, 'CANCELLATION_SENT'::text, 'FAILED'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignments",
+      "domain_name": "null",
+      "conname": "duty_assignments_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignments",
+      "domain_name": "null",
+      "conname": "duty_assignments_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignments",
+      "domain_name": "null",
+      "conname": "duty_assignments_slot_id_duty_date_profile_id_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (slot_id, duty_date, profile_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_assignments",
+      "domain_name": "null",
+      "conname": "duty_assignments_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (slot_id) REFERENCES duty_slots(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_cancellations",
+      "domain_name": "null",
+      "conname": "duty_cancellations_cancelled_by_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (cancelled_by) REFERENCES profiles(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_cancellations",
+      "domain_name": "null",
+      "conname": "duty_cancellations_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (slot_id, duty_date)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_cancellations",
+      "domain_name": "null",
+      "conname": "duty_cancellations_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (slot_id) REFERENCES duty_slots(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slot_holiday_overrides",
+      "domain_name": "null",
+      "conname": "duty_slot_holiday_overrides_duty_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (duty_slot_id) REFERENCES duty_slots(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slot_holiday_overrides",
+      "domain_name": "null",
+      "conname": "duty_slot_holiday_overrides_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (duty_slot_id, duty_date)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (target_jps >= min_jps)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_check1",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (max_jps >= target_jps)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_check2",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (start_time < end_time)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_day_of_week_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (day_of_week >= 0 AND day_of_week <= 6)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_desk_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (desk_id) REFERENCES service_desks(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_min_jps_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (min_jps >= 1)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_status_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (status = ANY (ARRAY['Active'::text, 'Archived'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_valid_capacity_range",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (min_jps >= 0 AND target_jps >= min_jps AND max_jps >= target_jps)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_valid_day_of_week",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (day_of_week >= 0 AND day_of_week <= 6)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_slots",
+      "domain_name": "null",
+      "conname": "duty_slots_valid_time_range",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (start_time < end_time)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_affidavits_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (affidavits >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_assignment_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (assignment_id) REFERENCES duty_assignments(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_certified_copies_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (certified_copies >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_no_of_clients_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (no_of_clients >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_no_of_hours_worked_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (no_of_hours_worked >= 0::numeric)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_no_of_jp_duties_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (no_of_jp_duties >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_non_negative_values",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (COALESCE(no_of_clients, 0) >= 0 AND COALESCE(no_of_hours_worked, 0::numeric) >= 0::numeric AND COALESCE(certified_copies, 0) >= 0 AND COALESCE(statutory_declarations, 0) >= 0 AND COALESCE(signatures_witnessed, 0) >= 0 AND COALESCE(affidavits, 0) >= 0 AND COALESCE(other_duties, 0) >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_other_duties_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (other_duties >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_signatures_witnessed_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (signatures_witnessed >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_slot_id_duty_date_profile_id_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (slot_id, duty_date, profile_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (slot_id) REFERENCES duty_slots(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics",
+      "domain_name": "null",
+      "conname": "duty_statistics_statutory_declarations_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (statutory_declarations >= 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminder_settings",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminder_settings_id_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminder_settings",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminder_settings_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminders",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminders_access_token_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (access_token)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminders",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminders_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminders",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminders_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminders",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminders_reminder_kind_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (reminder_kind = ANY (ARRAY['INITIAL'::text, 'FOLLOW_UP'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminders",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminders_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (slot_id) REFERENCES duty_slots(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "duty_statistics_reminders",
+      "domain_name": "null",
+      "conname": "duty_statistics_reminders_status_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (status = ANY (ARRAY['PENDING'::text, 'PROCESSING'::text, 'SENT'::text, 'SKIPPED'::text, 'FAILED'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_desk_admin_reminder_frequency_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (desk_admin_reminder_frequency = ANY (ARRAY['NONE'::text, 'WEEKLY'::text, 'FORTNIGHTLY'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_desk_admin_reminder_weeks_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (desk_admin_reminder_weeks >= 1 AND desk_admin_reminder_weeks <= 52)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_email_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (email)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_warrant_number_format",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (warrant_number IS NULL OR warrant_number ~ '^JP-[0-9]+$'::text)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "profiles",
+      "domain_name": "null",
+      "conname": "profiles_warrant_number_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (warrant_number)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "recurring_rules",
+      "domain_name": "null",
+      "conname": "recurring_rules_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (rule_type = 'NEXT_N'::rule_type AND count_n IS NOT NULL OR rule_type <> 'NEXT_N'::rule_type)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "recurring_rules",
+      "domain_name": "null",
+      "conname": "recurring_rules_check1",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (rule_type = 'UNTIL_DATE'::rule_type AND until_date IS NOT NULL AND until_date >= start_date OR rule_type <> 'UNTIL_DATE'::rule_type)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "recurring_rules",
+      "domain_name": "null",
+      "conname": "recurring_rules_count_n_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (count_n IS NULL OR count_n > 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "recurring_rules",
+      "domain_name": "null",
+      "conname": "recurring_rules_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "recurring_rules",
+      "domain_name": "null",
+      "conname": "recurring_rules_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "recurring_rules",
+      "domain_name": "null",
+      "conname": "recurring_rules_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (slot_id) REFERENCES duty_slots(id) ON DELETE CASCADE"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "regions",
+      "domain_name": "null",
+      "conname": "regions_code_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (code)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "regions",
+      "domain_name": "null",
+      "conname": "regions_name_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (name)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "regions",
+      "domain_name": "null",
+      "conname": "regions_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "roster_activity_audit",
+      "domain_name": "null",
+      "conname": "roster_activity_audit_actor_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (actor_profile_id) REFERENCES profiles(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "roster_activity_audit",
+      "domain_name": "null",
+      "conname": "roster_activity_audit_duty_slot_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (duty_slot_id) REFERENCES duty_slots(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "roster_activity_audit",
+      "domain_name": "null",
+      "conname": "roster_activity_audit_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "roster_activity_audit",
+      "domain_name": "null",
+      "conname": "roster_activity_audit_subject_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (subject_profile_id) REFERENCES profiles(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (primary_admin_id IS NULL OR secondary_admin_id IS NULL OR primary_admin_id <> secondary_admin_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_code_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (code)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_distinct_administrators",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (primary_admin_id IS NULL OR secondary_admin_id IS NULL OR primary_admin_id <> secondary_admin_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_primary_admin_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (primary_admin_id) REFERENCES profiles(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_region_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (region_id) REFERENCES regions(id) ON DELETE RESTRICT"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_secondary_admin_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (secondary_admin_id) REFERENCES profiles(id) ON DELETE SET NULL"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "service_desks",
+      "domain_name": "null",
+      "conname": "service_desks_status_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (status = ANY (ARRAY['Active'::text, 'Archived'::text]))"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "statutory_holidays",
+      "domain_name": "null",
+      "conname": "statutory_holidays_description_check",
+      "contype": "c",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "CHECK (length(TRIM(BOTH FROM description)) > 0)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "statutory_holidays",
+      "domain_name": "null",
+      "conname": "statutory_holidays_holiday_date_key",
+      "contype": "u",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "UNIQUE (holiday_date)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "statutory_holidays",
+      "domain_name": "null",
+      "conname": "statutory_holidays_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "user_preferences",
+      "domain_name": "null",
+      "conname": "user_preferences_pkey",
+      "contype": "p",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "PRIMARY KEY (profile_id)"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "user_preferences",
+      "domain_name": "null",
+      "conname": "user_preferences_profile_id_fkey",
+      "contype": "f",
+      "convalidated": "true",
+      "condeferrable": "false",
+      "condeferred": "false",
+      "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    }
+  ],
+  "grants": [
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "desk_follows",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "desk_follows",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "desk_follows",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_assignments",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_assignments",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_assignments",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_slots",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_slots",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_slots",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_statistics",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_statistics",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_statistics",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_statistics_reminder_settings",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_statistics_reminder_settings",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_statistics_reminder_settings",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "profiles",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "profiles",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "profiles",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "recurring_rules",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "recurring_rules",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "recurring_rules",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "regions",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "regions",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "regions",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "service_desks",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "service_desks",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "service_desks",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "user_preferences",
+      "relkind": "r",
+      "rolname": "anon",
+      "can_select": "false",
+      "can_insert": "false",
+      "can_update": "false",
+      "can_delete": "false",
+      "can_truncate": "false",
+      "can_reference": "false",
+      "can_create_trigger": "false"
+    },
+    {
+      "object_name": "user_preferences",
+      "relkind": "r",
+      "rolname": "authenticated",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    },
+    {
+      "object_name": "user_preferences",
+      "relkind": "r",
+      "rolname": "service_role",
+      "can_select": "true",
+      "can_insert": "true",
+      "can_update": "true",
+      "can_delete": "true",
+      "can_truncate": "true",
+      "can_reference": "true",
+      "can_create_trigger": "true"
+    }
+  ],
+  "policies": [
+    {
+      "schemaname": "public",
+      "tablename": "desk_follows",
+      "policyname": "own follows",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "(profile_id = auth.uid())",
+      "check_expression": "(profile_id = auth.uid())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_assignments",
+      "policyname": "authenticated read assignments",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_assignments",
+      "policyname": "own_or_registrar_withdraw_assignment",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "DELETE",
+      "using_expression": "((profile_id = auth.uid()) OR is_approved_registrar())",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_cancellations",
+      "policyname": "read cancellations",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_cancellations",
+      "policyname": "registrar_manage_cancellations",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "is_approved_registrar()",
+      "check_expression": "is_approved_registrar()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_slot_holiday_overrides",
+      "policyname": "duty_slot_holiday_overrides_read_authenticated",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_slot_holiday_overrides",
+      "policyname": "registrar_or_assigned_admin_manage_holiday_overrides",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "(EXISTS ( SELECT 1\n   FROM duty_slots slot\n  WHERE ((slot.id = duty_slot_holiday_overrides.duty_slot_id) AND is_registrar_or_assigned_desk_admin(slot.desk_id))))",
+      "check_expression": "(EXISTS ( SELECT 1\n   FROM duty_slots slot\n  WHERE ((slot.id = duty_slot_holiday_overrides.duty_slot_id) AND is_registrar_or_assigned_desk_admin(slot.desk_id))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_slots",
+      "policyname": "authenticated read slots",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_slots",
+      "policyname": "registrar_or_assigned_admin_manage_slots",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "is_registrar_or_assigned_desk_admin(desk_id)",
+      "check_expression": "is_registrar_or_assigned_desk_admin(desk_id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "duty_statistics",
+      "policyname": "own_registrar_or_assigned_admin_read_statistics",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "((profile_id = auth.uid()) OR is_approved_registrar() OR (EXISTS ( SELECT 1\n   FROM duty_slots slot\n  WHERE ((slot.id = duty_statistics.slot_id) AND is_assigned_desk_admin(slot.desk_id)))))",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "own_or_registrar_read_profiles",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "((id = auth.uid()) OR is_approved_registrar())",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "registrar_manage_profiles",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "is_approved_registrar()",
+      "check_expression": "is_approved_registrar()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "recurring_rules",
+      "policyname": "own_or_registrar_manage_rules",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "((profile_id = auth.uid()) OR is_approved_registrar())",
+      "check_expression": "((profile_id = auth.uid()) OR is_approved_registrar())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "regions",
+      "policyname": "authenticated read roster setup",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "regions",
+      "policyname": "registrar_manage_regions",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "is_approved_registrar()",
+      "check_expression": "is_approved_registrar()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "roster_activity_audit",
+      "policyname": "roster_activity_audit_admin_read",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.status = 'Approved'::account_status) AND (profiles.role = ANY (ARRAY['Admin'::app_role, 'Registrar'::app_role])))))",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_desks",
+      "policyname": "authenticated read desks",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_desks",
+      "policyname": "registrar_or_assigned_admin_manage_desks",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "UPDATE",
+      "using_expression": "is_registrar_or_assigned_desk_admin(id)",
+      "check_expression": "is_registrar_or_assigned_desk_admin(id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "statutory_holidays",
+      "policyname": "statutory_holidays_read_authenticated",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "using_expression": "true",
+      "check_expression": "null"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "statutory_holidays",
+      "policyname": "statutory_holidays_registrar_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'Registrar'::app_role))))",
+      "check_expression": "(EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'Registrar'::app_role))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "user_preferences",
+      "policyname": "own user preferences",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "using_expression": "(profile_id = auth.uid())",
+      "check_expression": "(profile_id = auth.uid())"
+    }
+  ],
+  "columns": [
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "2",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "3",
+      "column_name": "timezone",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "4",
+      "column_name": "report_month",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "5",
+      "column_name": "status",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "'PENDING'::text"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "6",
+      "column_name": "processing_started_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "7",
+      "column_name": "attempt_count",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "8",
+      "column_name": "next_attempt_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "9",
+      "column_name": "sent_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "10",
+      "column_name": "resend_email_id",
+      "data_type": "text",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "11",
+      "column_name": "last_error",
+      "data_type": "text",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "12",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "desk_admin_monthly_statistics_reports",
+      "position": "13",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "2",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "3",
+      "column_name": "timezone",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "4",
+      "column_name": "report_start_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "5",
+      "column_name": "report_end_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "6",
+      "column_name": "status",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "'PENDING'::text"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "7",
+      "column_name": "attempt_count",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "8",
+      "column_name": "next_attempt_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "9",
+      "column_name": "processing_started_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "10",
+      "column_name": "sent_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "11",
+      "column_name": "resend_email_id",
+      "data_type": "text",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "12",
+      "column_name": "last_error",
+      "data_type": "text",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "13",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "desk_admin_reminder_deliveries",
+      "position": "14",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "desk_follows",
+      "position": "1",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_follows",
+      "position": "2",
+      "column_name": "desk_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "desk_follows",
+      "position": "3",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "2",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "3",
+      "column_name": "slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "4",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "5",
+      "column_name": "status",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "'PENDING_CONFIRMATION'::text"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "6",
+      "column_name": "confirmation_due_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "(now() + '00:05:00'::interval)"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "7",
+      "column_name": "confirmation_sent_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "8",
+      "column_name": "cancellation_requested_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "9",
+      "column_name": "member_cancellation_sent_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "10",
+      "column_name": "desk_admin_alert_sent_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "11",
+      "column_name": "desk_admin_alert_required",
+      "data_type": "boolean",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "false"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "12",
+      "column_name": "processing_started_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "13",
+      "column_name": "attempt_count",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "14",
+      "column_name": "resend_confirmation_id",
+      "data_type": "text",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "15",
+      "column_name": "last_error",
+      "data_type": "text",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "16",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "17",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "18",
+      "column_name": "next_attempt_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "19",
+      "column_name": "failure_count",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "20",
+      "column_name": "failed_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignment_notifications",
+      "position": "21",
+      "column_name": "payload_snapshot",
+      "data_type": "jsonb",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignments",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "duty_assignments",
+      "position": "2",
+      "column_name": "slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignments",
+      "position": "3",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignments",
+      "position": "4",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_assignments",
+      "position": "5",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "position": "1",
+      "column_name": "slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "position": "2",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "position": "3",
+      "column_name": "reason",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "position": "4",
+      "column_name": "cancelled_by",
+      "data_type": "uuid",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_cancellations",
+      "position": "5",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "position": "1",
+      "column_name": "duty_slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "position": "2",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "position": "3",
+      "column_name": "is_holiday",
+      "data_type": "boolean",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "position": "4",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_slot_holiday_overrides",
+      "position": "5",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "2",
+      "column_name": "desk_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "3",
+      "column_name": "day_of_week",
+      "data_type": "smallint",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "4",
+      "column_name": "start_time",
+      "data_type": "time without time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "5",
+      "column_name": "end_time",
+      "data_type": "time without time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "6",
+      "column_name": "min_jps",
+      "data_type": "smallint",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "1"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "7",
+      "column_name": "target_jps",
+      "data_type": "smallint",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "1"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "8",
+      "column_name": "max_jps",
+      "data_type": "smallint",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "2"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "9",
+      "column_name": "effective_from",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "CURRENT_DATE"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "10",
+      "column_name": "status",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "'Active'::text"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "11",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_slots",
+      "position": "12",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "2",
+      "column_name": "assignment_id",
+      "data_type": "uuid",
+      "not_null": "false",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "3",
+      "column_name": "slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "4",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "5",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "6",
+      "column_name": "desk_name_snapshot",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "7",
+      "column_name": "desk_code_snapshot",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "8",
+      "column_name": "start_time_snapshot",
+      "data_type": "time without time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "9",
+      "column_name": "end_time_snapshot",
+      "data_type": "time without time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "10",
+      "column_name": "no_of_jp_duties",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "1"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "11",
+      "column_name": "no_of_clients",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "12",
+      "column_name": "no_of_hours_worked",
+      "data_type": "numeric(5,2)",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "13",
+      "column_name": "certified_copies",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "14",
+      "column_name": "statutory_declarations",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "15",
+      "column_name": "signatures_witnessed",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "16",
+      "column_name": "affidavits",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "17",
+      "column_name": "other_duties",
+      "data_type": "integer",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "18",
+      "column_name": "notes",
+      "data_type": "text",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "19",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics",
+      "position": "20",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics_reminder_settings",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "boolean",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "true"
+    },
+    {
+      "object_name": "duty_statistics_reminder_settings",
+      "position": "2",
+      "column_name": "enabled_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "identity_kind": "",
+      "generated_kind": "",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "2",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "3",
+      "column_name": "slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "4",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "5",
+      "column_name": "due_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "6",
+      "column_name": "status",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "'PENDING'::text"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "7",
+      "column_name": "access_token",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "8",
+      "column_name": "token_expires_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "9",
+      "column_name": "processing_started_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "10",
+      "column_name": "attempt_count",
+      "data_type": "integer",
+      "not_null": "true",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "11",
+      "column_name": "next_attempt_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "12",
+      "column_name": "sent_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "13",
+      "column_name": "resend_email_id",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "14",
+      "column_name": "last_error",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "15",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "16",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "17",
+      "column_name": "reminder_kind",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "'INITIAL'::text"
+    },
+    {
+      "object_name": "duty_statistics_reminders",
+      "position": "18",
+      "column_name": "reminder_number",
+      "data_type": "integer",
+      "not_null": "true",
+      "default_or_generation_expression": "0"
+    },
+    {
+      "object_name": "profiles",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "profiles",
+      "position": "2",
+      "column_name": "full_name",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "profiles",
+      "position": "3",
+      "column_name": "email",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "profiles",
+      "position": "4",
+      "column_name": "phone",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "profiles",
+      "position": "5",
+      "column_name": "warrant_number",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "profiles",
+      "position": "6",
+      "column_name": "role",
+      "data_type": "app_role",
+      "not_null": "true",
+      "default_or_generation_expression": "'Member'::app_role"
+    },
+    {
+      "object_name": "profiles",
+      "position": "7",
+      "column_name": "status",
+      "data_type": "account_status",
+      "not_null": "true",
+      "default_or_generation_expression": "'Pending'::account_status"
+    },
+    {
+      "object_name": "profiles",
+      "position": "8",
+      "column_name": "is_provisional",
+      "data_type": "boolean",
+      "not_null": "true",
+      "default_or_generation_expression": "false"
+    },
+    {
+      "object_name": "profiles",
+      "position": "9",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "profiles",
+      "position": "10",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "profiles",
+      "position": "11",
+      "column_name": "desk_admin_reminder_frequency",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "'NONE'::text"
+    },
+    {
+      "object_name": "profiles",
+      "position": "12",
+      "column_name": "desk_admin_reminder_start_date",
+      "data_type": "date",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "profiles",
+      "position": "13",
+      "column_name": "desk_admin_reminder_weeks",
+      "data_type": "integer",
+      "not_null": "true",
+      "default_or_generation_expression": "4"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "2",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "3",
+      "column_name": "slot_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "4",
+      "column_name": "action",
+      "data_type": "rule_action",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "5",
+      "column_name": "rule_type",
+      "data_type": "rule_type",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "6",
+      "column_name": "start_date",
+      "data_type": "date",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "7",
+      "column_name": "until_date",
+      "data_type": "date",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "8",
+      "column_name": "count_n",
+      "data_type": "integer",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "recurring_rules",
+      "position": "9",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "regions",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "regions",
+      "position": "2",
+      "column_name": "name",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "regions",
+      "position": "3",
+      "column_name": "code",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "regions",
+      "position": "4",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "regions",
+      "position": "5",
+      "column_name": "timezone",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "'Pacific/Auckland'::text"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "2",
+      "column_name": "occurred_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "3",
+      "column_name": "actor_profile_id",
+      "data_type": "uuid",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "4",
+      "column_name": "subject_profile_id",
+      "data_type": "uuid",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "5",
+      "column_name": "event_type",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "6",
+      "column_name": "duty_slot_id",
+      "data_type": "uuid",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "7",
+      "column_name": "duty_date",
+      "data_type": "date",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "8",
+      "column_name": "rule_action",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "9",
+      "column_name": "rule_type",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "10",
+      "column_name": "rule_start_date",
+      "data_type": "date",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "11",
+      "column_name": "rule_until_date",
+      "data_type": "date",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "12",
+      "column_name": "rule_count_n",
+      "data_type": "integer",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "13",
+      "column_name": "desk_code_snapshot",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "14",
+      "column_name": "desk_name_snapshot",
+      "data_type": "text",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "15",
+      "column_name": "start_time_snapshot",
+      "data_type": "time without time zone",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "roster_activity_audit",
+      "position": "16",
+      "column_name": "end_time_snapshot",
+      "data_type": "time without time zone",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "2",
+      "column_name": "code",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "3",
+      "column_name": "name",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "4",
+      "column_name": "address",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "5",
+      "column_name": "region_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "6",
+      "column_name": "primary_admin_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "7",
+      "column_name": "secondary_admin_id",
+      "data_type": "uuid",
+      "not_null": "false",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "8",
+      "column_name": "site_contact_name",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "9",
+      "column_name": "site_contact_email",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "10",
+      "column_name": "contact_person",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "11",
+      "column_name": "notes",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "''::text"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "12",
+      "column_name": "status",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "'Active'::text"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "13",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "14",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "service_desks",
+      "position": "15",
+      "column_name": "is_home_based_service",
+      "data_type": "boolean",
+      "not_null": "true",
+      "default_or_generation_expression": "false"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "position": "1",
+      "column_name": "id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "gen_random_uuid()"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "position": "2",
+      "column_name": "holiday_date",
+      "data_type": "date",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "position": "3",
+      "column_name": "description",
+      "data_type": "text",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "position": "4",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "statutory_holidays",
+      "position": "5",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    },
+    {
+      "object_name": "user_preferences",
+      "position": "1",
+      "column_name": "profile_id",
+      "data_type": "uuid",
+      "not_null": "true",
+      "default_or_generation_expression": "null"
+    },
+    {
+      "object_name": "user_preferences",
+      "position": "2",
+      "column_name": "calendar_filters",
+      "data_type": "jsonb",
+      "not_null": "true",
+      "default_or_generation_expression": "'{}'::jsonb"
+    },
+    {
+      "object_name": "user_preferences",
+      "position": "3",
+      "column_name": "my_shifts_filters",
+      "data_type": "jsonb",
+      "not_null": "true",
+      "default_or_generation_expression": "'{}'::jsonb"
+    },
+    {
+      "object_name": "user_preferences",
+      "position": "4",
+      "column_name": "statistics_filters",
+      "data_type": "jsonb",
+      "not_null": "true",
+      "default_or_generation_expression": "'{}'::jsonb"
+    },
+    {
+      "object_name": "user_preferences",
+      "position": "5",
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "not_null": "true",
+      "default_or_generation_expression": "now()"
+    }
+  ],
+  "functions": [
+    {
+      "function_signature": "apply_duty_assignment_change_for_member(uuid,text,uuid,date)",
+      "definition_fingerprint": "5ac230454fc6ac6417fafcf552da5488",
+      "definition": "CREATE OR REPLACE FUNCTION public.apply_duty_assignment_change_for_member(p_member_id uuid, p_action text, p_slot_id uuid, p_duty_date date)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare v_actor_id uuid := auth.uid(); v_slot record; v_registered_count integer; v_finished boolean;\r\nbegin\r\n  if v_actor_id is null then raise exception 'You must be signed in to change a roster booking.'; end if;\r\n  p_action := upper(coalesce(p_action, ''));\r\n  if p_action not in ('REGISTER', 'WITHDRAW') then raise exception 'Booking action must be REGISTER or WITHDRAW.'; end if;\r\n  if p_duty_date is null then raise exception 'A duty date is required.'; end if;\r\n  if not exists (select 1 from public.profiles where id = p_member_id and status = 'Approved') then raise exception 'The selected JP member is not an active approved member.'; end if;\r\n  select slot.*, desk.id as desk_id, coalesce(region.timezone, 'Pacific/Auckland') as roster_timezone into v_slot from public.duty_slots slot join public.service_desks desk on desk.id = slot.desk_id left join public.regions region on region.id = desk.region_id where slot.id = p_slot_id and slot.status = 'Active' and desk.status = 'Active' for update of slot;\r\n  if not found then raise exception 'This duty slot is no longer active.'; end if;\r\n  if not public.is_registrar_or_assigned_desk_admin(v_slot.desk_id) then raise exception 'You are not an assigned Desk Admin for this Service Desk.'; end if;\r\n  if not exists (select 1 from public.duty_slot_occurrence_dates(p_slot_id,p_duty_date,p_duty_date,p_action = 'WITHDRAW') occurrence where occurrence.duty_date = p_duty_date) then raise exception 'This slot does not occur on the selected date or is closed for a holiday.'; end if;\r\n  v_finished := p_duty_date + v_slot.end_time <= timezone(v_slot.roster_timezone, now());\r\n  if p_action = 'REGISTER' then\r\n    if exists (select 1 from public.duty_assignments where profile_id=p_member_id and slot_id=p_slot_id and duty_date=p_duty_date) then raise exception 'This JP member is already registered for this shift.'; end if;\r\n    select count(*) into v_registered_count from public.duty_assignments where slot_id=p_slot_id and duty_date=p_duty_date;\r\n    if v_registered_count >= v_slot.max_jps then raise exception 'This slot is already full.'; end if;\r\n    delete from public.recurring_rules where profile_id=p_member_id and slot_id=p_slot_id and action='WITHDRAW' and rule_type='NEXT_N' and start_date=p_duty_date and count_n=1;\r\n    insert into public.duty_assignments (profile_id,slot_id,duty_date) values (p_member_id,p_slot_id,p_duty_date);\r\n  else\r\n    if not exists (select 1 from public.duty_assignments where profile_id=p_member_id and slot_id=p_slot_id and duty_date=p_duty_date) then raise exception 'This JP member is not registered for this shift.'; end if;\r\n    delete from public.duty_assignments where profile_id=p_member_id and slot_id=p_slot_id and duty_date=p_duty_date;\r\n    if not v_finished then\r\n      delete from public.recurring_rules where profile_id=p_member_id and slot_id=p_slot_id and action='WITHDRAW' and rule_type='NEXT_N' and start_date=p_duty_date and count_n=1;\r\n      insert into public.recurring_rules (profile_id,slot_id,action,rule_type,start_date,count_n) values (p_member_id,p_slot_id,'WITHDRAW','NEXT_N'::public.rule_type,p_duty_date,1);\r\n    end if;\r\n  end if;\r\n  return jsonb_build_object('action',p_action,'member_id',p_member_id,'duty_date',p_duty_date);\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "apply_duty_assignment_change(text,uuid,date,text,integer,date)",
+      "definition_fingerprint": "e2850d379aae1298365ce99156116add",
+      "definition": "CREATE OR REPLACE FUNCTION public.apply_duty_assignment_change(p_action text, p_slot_id uuid, p_start_date date, p_scope text DEFAULT 'SINGLE'::text, p_count_n integer DEFAULT NULL::integer, p_until_date date DEFAULT NULL::date)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  v_profile_id uuid := auth.uid();\r\n  v_slot record;\r\n  v_today date;\r\n  v_now_time time;\r\n  v_end_date date;\r\n  v_count_n integer;\r\n  v_dates date[];\r\n  v_date date;\r\n  v_registered_count integer;\r\n  v_shift_finished boolean;\r\nbegin\r\n  if v_profile_id is null then raise exception 'You must be signed in to change a roster booking.'; end if;\r\n  if not exists (select 1 from public.profiles where id = v_profile_id and status = 'Approved') then\r\n    raise exception 'Your account is not approved for roster bookings.';\r\n  end if;\r\n  p_action := upper(coalesce(p_action, ''));\r\n  p_scope := upper(coalesce(p_scope, ''));\r\n  if p_action not in ('REGISTER', 'WITHDRAW') then raise exception 'Booking action must be REGISTER or WITHDRAW.'; end if;\r\n  if p_scope not in ('SINGLE', 'NEXT_N', 'UNTIL_DATE', 'ALL_FUTURE') then raise exception 'Booking scope is not valid.'; end if;\r\n  if p_start_date is null then raise exception 'A booking start date is required.'; end if;\r\n\r\n  select slot.*, coalesce(region.timezone, 'Pacific/Auckland') as roster_timezone into v_slot\r\n  from public.duty_slots as slot\r\n  join public.service_desks as desk on desk.id = slot.desk_id\r\n  left join public.regions as region on region.id = desk.region_id\r\n  where slot.id = p_slot_id and slot.status = 'Active' and desk.status = 'Active'\r\n  for update of slot;\r\n  if not found then raise exception 'This duty slot is no longer active.'; end if;\r\n\r\n  v_today := timezone(v_slot.roster_timezone, now())::date;\r\n  v_now_time := timezone(v_slot.roster_timezone, now())::time;\r\n  v_shift_finished := p_start_date < v_today\r\n    or (p_start_date = v_today and coalesce(v_slot.end_time, time '00:00') <= v_now_time);\r\n  if v_shift_finished and p_scope <> 'SINGLE' then\r\n    raise exception 'Only a single past shift can be changed.';\r\n  end if;\r\n\r\n  v_count_n := least(greatest(coalesce(p_count_n, 1), 1), 52);\r\n  if p_scope = 'UNTIL_DATE' then\r\n    if p_until_date is null or p_until_date < p_start_date then raise exception 'Choose an end date on or after the first shift.'; end if;\r\n    if p_until_date > p_start_date + 730 then raise exception 'The selected end date is more than two years away.'; end if;\r\n    v_end_date := p_until_date;\r\n  elsif p_scope = 'NEXT_N' then v_end_date := p_start_date + 730;\r\n  elsif p_scope = 'ALL_FUTURE' then v_end_date := greatest(p_start_date, v_today) + 365;\r\n  else v_end_date := p_start_date;\r\n  end if;\r\n\r\n  with candidate_dates as (\r\n    select occurrence.duty_date\r\n    from public.duty_slot_occurrence_dates(p_slot_id, p_start_date, v_end_date, p_action = 'WITHDRAW') as occurrence\r\n    where (p_scope <> 'SINGLE' or occurrence.duty_date = p_start_date)\r\n      and ((p_action = 'REGISTER' and not exists (select 1 from public.duty_assignments a where a.profile_id = v_profile_id and a.slot_id = p_slot_id and a.duty_date = occurrence.duty_date))\r\n        or (p_action = 'WITHDRAW' and exists (select 1 from public.duty_assignments a where a.profile_id = v_profile_id and a.slot_id = p_slot_id and a.duty_date = occurrence.duty_date)))\r\n      and (p_scope <> 'UNTIL_DATE' or occurrence.duty_date <= p_until_date)\r\n    order by occurrence.duty_date\r\n  ), selected_dates as (\r\n    select duty_date from candidate_dates limit case when p_scope = 'NEXT_N' then v_count_n else 2147483647 end\r\n  ) select array_agg(duty_date order by duty_date) into v_dates from selected_dates;\r\n  if coalesce(array_length(v_dates, 1), 0) = 0 then raise exception 'No matching bookings were found.'; end if;\r\n\r\n  if p_action = 'REGISTER' then\r\n    foreach v_date in array v_dates loop\r\n      select count(*) into v_registered_count from public.duty_assignments where slot_id = p_slot_id and duty_date = v_date;\r\n      if v_registered_count >= v_slot.max_jps then raise exception 'The slot on % is already full. No bookings were changed.', v_date; end if;\r\n    end loop;\r\n  end if;\r\n\r\n  if p_action = 'REGISTER' then\r\n    if p_scope = 'SINGLE' then\r\n      delete from public.recurring_rules where profile_id = v_profile_id and slot_id = p_slot_id and action = 'WITHDRAW' and rule_type = 'NEXT_N' and start_date = p_start_date and count_n = 1;\r\n    else\r\n      delete from public.recurring_rules where profile_id = v_profile_id and slot_id = p_slot_id and action in ('REGISTER', 'WITHDRAW');\r\n      insert into public.recurring_rules (profile_id, slot_id, action, rule_type, start_date, until_date, count_n)\r\n      values (v_profile_id, p_slot_id, 'REGISTER', p_scope::public.rule_type, p_start_date, case when p_scope = 'UNTIL_DATE' then p_until_date else null end, case when p_scope = 'NEXT_N' then v_count_n else null end);\r\n    end if;\r\n    foreach v_date in array v_dates loop\r\n      insert into public.duty_assignments (profile_id, slot_id, duty_date) values (v_profile_id, p_slot_id, v_date) on conflict do nothing;\r\n    end loop;\r\n  else\r\n    foreach v_date in array v_dates loop\r\n      delete from public.duty_assignments where profile_id = v_profile_id and slot_id = p_slot_id and duty_date = v_date;\r\n    end loop;\r\n    if p_scope = 'ALL_FUTURE' then\r\n      delete from public.recurring_rules where profile_id = v_profile_id and slot_id = p_slot_id;\r\n    else\r\n      foreach v_date in array v_dates loop\r\n        -- A historical single withdrawal never needs a materialisation\r\n        -- override: it must not leave behind a recurring-rule record.\r\n        if not v_shift_finished then\r\n          delete from public.recurring_rules where profile_id = v_profile_id and slot_id = p_slot_id and action = 'WITHDRAW' and rule_type = 'NEXT_N' and start_date = v_date and count_n = 1;\r\n          insert into public.recurring_rules (profile_id, slot_id, action, rule_type, start_date, until_date, count_n)\r\n          values (v_profile_id, p_slot_id, 'WITHDRAW', 'NEXT_N'::public.rule_type, v_date, null, 1);\r\n        end if;\r\n      end loop;\r\n    end if;\r\n  end if;\r\n  return jsonb_build_object('action', p_action, 'scope', p_scope, 'affected_count', array_length(v_dates, 1), 'affected_dates', to_jsonb(v_dates));\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "delete_duty_statistic_for_member(uuid)",
+      "definition_fingerprint": "bf60cada51a3b84fb4412c369bdfe7e5",
+      "definition": "CREATE OR REPLACE FUNCTION public.delete_duty_statistic_for_member(p_statistic_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare v_stat record;\r\nbegin\r\n  select statistic.id,statistic.profile_id,slot.desk_id into v_stat from public.duty_statistics statistic join public.duty_slots slot on slot.id=statistic.slot_id where statistic.id=p_statistic_id;\r\n  if not found then raise exception 'The statistics record could not be found.'; end if;\r\n  if auth.uid() <> v_stat.profile_id and not public.is_registrar_or_assigned_desk_admin(v_stat.desk_id) then raise exception 'You are not an assigned Desk Admin for this Service Desk.'; end if;\r\n  delete from public.duty_statistics where id=p_statistic_id;\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_desk_follower_contacts_for_current_user(uuid)",
+      "definition_fingerprint": "5b1805a8e0883c2699907d3a517801e8",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_desk_follower_contacts_for_current_user(p_desk_id uuid DEFAULT NULL::uuid)\n RETURNS TABLE(profile_id uuid, full_name text, warrant_number text, email text, phone text)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select distinct\r\n    member.id as profile_id,\r\n    member.full_name,\r\n    member.warrant_number,\r\n    member.email,\r\n    coalesce(member.phone, '') as phone\r\n  from public.desk_follows as follow\r\n  join public.service_desks as desk on desk.id = follow.desk_id\r\n  join public.profiles as member on member.id = follow.profile_id\r\n  where desk.status = 'Active'\r\n    and not coalesce(desk.is_home_based_service, false)\r\n    and (p_desk_id is null or desk.id = p_desk_id)\r\n    and member.status = 'Approved'\r\n    and public.is_registrar_or_assigned_desk_admin(desk.id)\r\n  order by member.full_name, member.warrant_number;\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_duty_notification_failures(integer)",
+      "definition_fingerprint": "2bff42e54382cf0721ceab12e4dcdd79",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_duty_notification_failures(p_limit integer DEFAULT 100)\n RETURNS TABLE(id uuid, status text, failure_count integer, last_error text, duty_date date, updated_at timestamp with time zone, member_name text, desk_name text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  if not exists (\r\n    select 1 from public.profiles\r\n    where profiles.id = auth.uid()\r\n      and profiles.status = 'Approved'\r\n      and profiles.role = 'Registrar'\r\n  ) then\r\n    raise exception 'Only Registrars can view notification failures.';\r\n  end if;\r\n\r\n  return query\r\n  select notification.id, notification.status, notification.failure_count,\r\n    notification.last_error, notification.duty_date, notification.updated_at,\r\n    profile.full_name, desk.name\r\n  from public.duty_assignment_notifications as notification\r\n  join public.profiles as profile on profile.id = notification.profile_id\r\n  join public.duty_slots as slot on slot.id = notification.slot_id\r\n  join public.service_desks as desk on desk.id = slot.desk_id\r\n  where notification.status = 'FAILED'\r\n  order by notification.updated_at desc\r\n  limit least(greatest(p_limit, 1), 250);\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_duty_statistics_reminder_target(text)",
+      "definition_fingerprint": "301e19747aa15c2f4c6791dd45c044a3",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_duty_statistics_reminder_target(p_access_token text)\n RETURNS TABLE(slot_id uuid, duty_date date)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  v_profile_id uuid := auth.uid();\r\nbegin\r\n  if v_profile_id is null then\r\n    raise exception 'Please sign in to open this statistics reminder.';\r\n  end if;\r\n\r\n  return query\r\n  select reminder.slot_id, reminder.duty_date\r\n  from public.duty_statistics_reminders as reminder\r\n  join public.duty_assignments as assignment\r\n    on assignment.profile_id = reminder.profile_id\r\n   and assignment.slot_id = reminder.slot_id\r\n   and assignment.duty_date = reminder.duty_date\r\n  join public.duty_slots as slot on slot.id = reminder.slot_id\r\n  join public.service_desks as desk on desk.id = slot.desk_id\r\n  join public.profiles as member on member.id = reminder.profile_id\r\n  where reminder.access_token = p_access_token\r\n    and reminder.profile_id = v_profile_id\r\n    and reminder.status = 'SENT'\r\n    and reminder.token_expires_at > now()\r\n    and member.status = 'Approved'\r\n    and not coalesce(desk.is_home_based_service, false)\r\n    and not exists (\r\n      select 1 from public.duty_statistics as statistic\r\n      where statistic.profile_id = reminder.profile_id\r\n        and statistic.slot_id = reminder.slot_id\r\n        and statistic.duty_date = reminder.duty_date\r\n    );\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_incomplete_duty_statistics_for_current_user()",
+      "definition_fingerprint": "bee2230f2ed314edf70ff8925bb2f2dd",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_incomplete_duty_statistics_for_current_user()\n RETURNS TABLE(member_id uuid, member_name text, warrant_number text, slot_id uuid, duty_date date, desk_id uuid, desk_name text, desk_code text, start_time time without time zone, end_time time without time zone)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select\r\n    member.id,\r\n    member.full_name,\r\n    member.warrant_number,\r\n    slot.id,\r\n    assignment.duty_date,\r\n    desk.id,\r\n    desk.name,\r\n    desk.code,\r\n    slot.start_time,\r\n    slot.end_time\r\n  from public.duty_assignments as assignment\r\n  join public.duty_slots as slot on slot.id = assignment.slot_id\r\n  join public.service_desks as desk on desk.id = slot.desk_id\r\n  left join public.regions as region on region.id = desk.region_id\r\n  join public.profiles as member on member.id = assignment.profile_id\r\n  where assignment.duty_date + slot.end_time <= timezone(coalesce(region.timezone, 'Pacific/Auckland'), now())\r\n    and not exists (\r\n      select 1\r\n      from public.duty_statistics as statistic\r\n      where statistic.profile_id = assignment.profile_id\r\n        and statistic.slot_id = assignment.slot_id\r\n        and statistic.duty_date = assignment.duty_date\r\n    )\r\n    and (\r\n      exists (\r\n        select 1 from public.profiles as caller\r\n        where caller.id = auth.uid()\r\n          and caller.status = 'Approved'\r\n          and caller.role = 'Registrar'\r\n      )\r\n      or exists (\r\n        select 1 from public.profiles as caller\r\n        where caller.id = auth.uid()\r\n          and caller.status = 'Approved'\r\n          and (desk.primary_admin_id = caller.id or desk.secondary_admin_id = caller.id)\r\n      )\r\n    )\r\n  order by assignment.duty_date desc, slot.start_time desc, desk.name, member.full_name;\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_roster_activity_audit_for_current_user(integer,date,date)",
+      "definition_fingerprint": "30b94e37f7bf7ce33adbe58dacc65d41",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_roster_activity_audit_for_current_user(p_limit integer DEFAULT 250, p_from_date date DEFAULT NULL::date, p_to_date date DEFAULT NULL::date)\n RETURNS SETOF roster_activity_audit\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select audit.* from public.roster_activity_audit audit\r\n  where (exists (select 1 from public.profiles where id=auth.uid() and status='Approved' and role='Registrar') or exists (select 1 from public.duty_slots slot join public.service_desks desk on desk.id=slot.desk_id where slot.id=audit.duty_slot_id and (desk.primary_admin_id=auth.uid() or desk.secondary_admin_id=auth.uid())))\r\n  and (p_from_date is null or audit.occurred_at >= p_from_date::timestamptz)\r\n  and (p_to_date is null or audit.occurred_at < (p_to_date+1)::timestamptz)\r\n  order by audit.occurred_at desc limit least(greatest(coalesce(p_limit,250),1),1000);\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_roster_member_directory_for_current_user()",
+      "definition_fingerprint": "c94f120da2895fcf9e1e01b57f9a1abf",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_roster_member_directory_for_current_user()\n RETURNS TABLE(id uuid, full_name text, warrant_number text, email text, phone text, role text, status text, is_provisional boolean, is_approved boolean, can_be_desk_admin boolean, reminder_frequency text, reminder_start_date date, reminder_weeks integer)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  with actor as (\r\n    select public.is_approved_registrar() as is_registrar\r\n  )\r\n  select\r\n    member.id,\r\n    member.full_name,\r\n    member.warrant_number,\r\n    case when actor.is_registrar then member.email else null end,\r\n    case when actor.is_registrar then member.phone else null end,\r\n    case when actor.is_registrar then member.role::text else null end,\r\n    case when actor.is_registrar then member.status::text else null end,\r\n    case when actor.is_registrar then member.is_provisional else false end,\r\n    member.status = 'Approved' as is_approved,\r\n    member.status = 'Approved' and member.role in ('Admin', 'Registrar') as can_be_desk_admin,\r\n    case when actor.is_registrar then member.desk_admin_reminder_frequency else null end,\r\n    case when actor.is_registrar then member.desk_admin_reminder_start_date else null end,\r\n    case when actor.is_registrar then member.desk_admin_reminder_weeks else null end\r\n  from public.profiles as member\r\n  cross join actor\r\n  where actor.is_registrar\r\n     or member.status = 'Approved'\r\n     or member.id = auth.uid()\r\n  order by member.full_name;\r\n$function$\n"
+    },
+    {
+      "function_signature": "get_roster_operational_health()",
+      "definition_fingerprint": "657e1a407606543ff64863780fe97177",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_roster_operational_health()\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'cron'\nAS $function$\r\ndeclare\r\n  duty_failed integer;\r\n  duty_waiting integer;\r\n  desk_failed integer;\r\n  desk_waiting integer;\r\n  statistics_failed integer;\r\n  statistics_waiting integer;\r\n  monthly_failed integer;\r\n  monthly_waiting integer;\r\n  schedules jsonb;\r\nbegin\r\n  if not exists (\r\n    select 1 from public.profiles\r\n    where id = auth.uid() and status = 'Approved' and role = 'Registrar'\r\n  ) then\r\n    raise exception 'Only Registrars can view roster operational health.';\r\n  end if;\r\n\r\n  select count(*) filter (where status = 'FAILED'),\r\n         count(*) filter (where status in ('PENDING_CONFIRMATION', 'PROCESSING_CONFIRMATION', 'CANCELLATION_PENDING', 'PROCESSING_CANCELLATION'))\r\n  into duty_failed, duty_waiting\r\n  from public.duty_assignment_notifications;\r\n\r\n  select count(*) filter (where status = 'FAILED'),\r\n         count(*) filter (where status in ('PENDING', 'PROCESSING'))\r\n  into desk_failed, desk_waiting\r\n  from public.desk_admin_reminder_deliveries;\r\n\r\n  select count(*) filter (where status = 'FAILED'),\r\n         count(*) filter (where status in ('PENDING', 'PROCESSING'))\r\n  into statistics_failed, statistics_waiting\r\n  from public.duty_statistics_reminders;\r\n\r\n  select count(*) filter (where status = 'FAILED'),\r\n         count(*) filter (where status in ('PENDING', 'PROCESSING'))\r\n  into monthly_failed, monthly_waiting\r\n  from public.desk_admin_monthly_statistics_reports;\r\n\r\n  select coalesce(jsonb_object_agg(expected.jobname, jsonb_build_object(\r\n    'schedule', job.schedule,\r\n    'active', coalesce(job.active, false),\r\n    'last_status', latest.status,\r\n    'last_started_at', latest.start_time,\r\n    'last_finished_at', latest.end_time,\r\n    'last_message', latest.return_message\r\n  )), '{}'::jsonb)\r\n  into schedules\r\n  from (values\r\n    ('ajpa-duty-notification-processor-minute'),\r\n    ('ajpa-desk-admin-reminders-quarter-hourly'),\r\n    ('ajpa-recurring-assignment-materialiser-daily'),\r\n    ('ajpa-duty-statistics-reminder-processor-minute'),\r\n    ('ajpa-monthly-duty-statistics-report-processor-minute')\r\n  ) as expected(jobname)\r\n  left join cron.job job on job.jobname = expected.jobname\r\n  left join lateral (\r\n    select run.status, run.start_time, run.end_time, run.return_message\r\n    from cron.job_run_details run\r\n    where run.jobid = job.jobid\r\n    order by run.start_time desc\r\n    limit 1\r\n  ) latest on true;\r\n\r\n  return jsonb_build_object(\r\n    'duty_notifications', jsonb_build_object('failed', coalesce(duty_failed, 0), 'waiting', coalesce(duty_waiting, 0)),\r\n    'desk_admin_reminders', jsonb_build_object('failed', coalesce(desk_failed, 0), 'waiting', coalesce(desk_waiting, 0)),\r\n    'statistics_reminders', jsonb_build_object('failed', coalesce(statistics_failed, 0), 'waiting', coalesce(statistics_waiting, 0)),\r\n    'monthly_statistics_reports', jsonb_build_object('failed', coalesce(monthly_failed, 0), 'waiting', coalesce(monthly_waiting, 0)),\r\n    'schedules', schedules,\r\n    'checked_at', now()\r\n  );\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "is_approved_registrar()",
+      "definition_fingerprint": "8a15a6f1ac1ad31d0ffdc8d8522658a7",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_approved_registrar()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select exists (\r\n    select 1\r\n    from public.profiles\r\n    where id = auth.uid()\r\n      and status = 'Approved'\r\n      and role = 'Registrar'\r\n  );\r\n$function$\n"
+    },
+    {
+      "function_signature": "is_assigned_desk_admin(uuid)",
+      "definition_fingerprint": "d5596d4ecc5fca831d26637cc69d106b",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_assigned_desk_admin(p_desk_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select exists (\r\n    select 1\r\n    from public.profiles as actor\r\n    join public.service_desks as desk\r\n      on desk.primary_admin_id = actor.id\r\n      or desk.secondary_admin_id = actor.id\r\n    where actor.id = auth.uid()\r\n      and actor.status = 'Approved'\r\n      and actor.role = 'Admin'\r\n      and desk.id = p_desk_id\r\n  );\r\n$function$\n"
+    },
+    {
+      "function_signature": "is_duty_slot_holiday(uuid,date)",
+      "definition_fingerprint": "e15df4bdb1a0d7dbf1bcd4dfd22a3903",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_duty_slot_holiday(p_slot_id uuid, p_duty_date date)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select coalesce(\r\n    (\r\n      select override.is_holiday\r\n      from public.duty_slot_holiday_overrides as override\r\n      where override.duty_slot_id = p_slot_id\r\n        and override.duty_date = p_duty_date\r\n    ),\r\n    exists (\r\n      select 1\r\n      from public.statutory_holidays as holiday\r\n      where holiday.holiday_date = p_duty_date\r\n    )\r\n  );\r\n$function$\n"
+    },
+    {
+      "function_signature": "is_manager()",
+      "definition_fingerprint": "c5debd8f804776b2bae41d117f0eb6ff",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_manager()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select exists (select 1 from public.profiles where id = auth.uid() and role in ('Admin', 'Registrar') and status = 'Approved');\r\n$function$\n"
+    },
+    {
+      "function_signature": "is_registrar_or_assigned_desk_admin(uuid)",
+      "definition_fingerprint": "b8e152a25211178ea9d78661605a3672",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_registrar_or_assigned_desk_admin(p_desk_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select public.is_approved_registrar()\r\n      or public.is_assigned_desk_admin(p_desk_id);\r\n$function$\n"
+    },
+    {
+      "function_signature": "normalise_jp_warrant_number()",
+      "definition_fingerprint": "261b84d0f628bcd6b53885ac1df4ef1c",
+      "definition": "CREATE OR REPLACE FUNCTION public.normalise_jp_warrant_number()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  warrant_digits text;\r\nbegin\r\n  warrant_digits := regexp_replace(\r\n    regexp_replace(upper(trim(coalesce(new.warrant_number, ''))), '^JP[[:space:]-]*', ''),\r\n    '[^0-9]',\r\n    '',\r\n    'g'\r\n  );\r\n\r\n  if warrant_digits = '' then\r\n    raise exception 'Enter the numeric part of the JP warrant number.';\r\n  end if;\r\n\r\n  new.warrant_number := 'JP-' || warrant_digits;\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "retry_failed_duty_notification(uuid)",
+      "definition_fingerprint": "dc9041817ac0e0f589bafc12a53860d7",
+      "definition": "CREATE OR REPLACE FUNCTION public.retry_failed_duty_notification(p_notification_id uuid)\n RETURNS text\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  next_status text;\r\nbegin\r\n  if not exists (\r\n    select 1\r\n    from public.profiles\r\n    where profiles.id = auth.uid()\r\n      and profiles.status = 'Approved'\r\n      and profiles.role = 'Registrar'\r\n  ) then\r\n    raise exception 'Only Registrars can retry notification failures.';\r\n  end if;\r\n\r\n  update public.duty_assignment_notifications\r\n  set status = case\r\n        -- No confirmation was successfully recorded, so retry the delayed\r\n        -- confirmation. The processor will first check that the booking still\r\n        -- exists before it sends anything.\r\n        when confirmation_sent_at is null then 'PENDING_CONFIRMATION'\r\n        -- A confirmation was already sent; the only remaining email path is\r\n        -- the cancellation path (member cancellation and/or desk alert).\r\n        else 'CANCELLATION_PENDING'\r\n      end,\r\n      next_attempt_at = now(),\r\n      failure_count = 0,\r\n      failed_at = null,\r\n      processing_started_at = null,\r\n      last_error = null,\r\n      updated_at = now()\r\n  where id = p_notification_id\r\n    and status = 'FAILED'\r\n  returning status into next_status;\r\n\r\n  if next_status is null then\r\n    raise exception 'This notification is no longer a failed notification.';\r\n  end if;\r\n\r\n  return next_status;\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "save_duty_statistic_for_member(uuid,uuid,uuid,date,jsonb)",
+      "definition_fingerprint": "395037b9ae42e4eafa36fd9ec5846f18",
+      "definition": "CREATE OR REPLACE FUNCTION public.save_duty_statistic_for_member(p_statistic_id uuid, p_member_id uuid, p_slot_id uuid, p_duty_date date, p_values jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  v_actor_id uuid := auth.uid();\r\n  v_desk_id uuid;\r\n  v_desk_name text;\r\n  v_desk_code text;\r\n  v_start_time time;\r\n  v_end_time time;\r\n  v_statistic_id uuid;\r\nbegin\r\n  select slot.desk_id, desk.name, desk.code, slot.start_time, slot.end_time\r\n  into v_desk_id, v_desk_name, v_desk_code, v_start_time, v_end_time\r\n  from public.duty_slots slot\r\n  join public.service_desks desk on desk.id = slot.desk_id\r\n  where slot.id = p_slot_id;\r\n\r\n  if v_actor_id is null or v_desk_id is null then\r\n    raise exception 'A valid signed-in user and duty slot are required.';\r\n  end if;\r\n  if v_actor_id <> p_member_id and not public.is_registrar_or_assigned_desk_admin(v_desk_id) then\r\n    raise exception 'You are not an assigned Desk Admin for this Service Desk.';\r\n  end if;\r\n  if not exists (select 1 from public.profiles where id = p_member_id) then\r\n    raise exception 'The selected JP member does not exist.';\r\n  end if;\r\n\r\n  if p_statistic_id is null then\r\n    if not exists (select 1 from public.duty_assignments where profile_id = p_member_id and slot_id = p_slot_id and duty_date = p_duty_date) then\r\n      raise exception 'Statistics can only be added for a JP member registered for this slot.';\r\n    end if;\r\n    insert into public.duty_statistics (\r\n      profile_id, slot_id, duty_date,\r\n      desk_name_snapshot, desk_code_snapshot, start_time_snapshot, end_time_snapshot,\r\n      no_of_clients, no_of_hours_worked, certified_copies, statutory_declarations,\r\n      signatures_witnessed, affidavits, other_duties, notes\r\n    ) values (\r\n      p_member_id, p_slot_id, p_duty_date,\r\n      v_desk_name, v_desk_code, v_start_time, v_end_time,\r\n      coalesce((p_values->>'noOfClients')::integer, 0),\r\n      coalesce((p_values->>'noOfHoursWorked')::numeric, 0),\r\n      coalesce((p_values->>'certifiedCopies')::integer, 0),\r\n      coalesce((p_values->>'statutoryDeclarations')::integer, 0),\r\n      coalesce((p_values->>'signatureWitnessed')::integer, 0),\r\n      coalesce((p_values->>'affidavits')::integer, 0),\r\n      coalesce((p_values->>'other')::integer, 0),\r\n      coalesce(p_values->>'notes', '')\r\n    ) returning id into v_statistic_id;\r\n  else\r\n    select id into v_statistic_id from public.duty_statistics\r\n    where id = p_statistic_id and profile_id = p_member_id and slot_id = p_slot_id and duty_date = p_duty_date;\r\n    if v_statistic_id is null then raise exception 'The statistics record could not be found.'; end if;\r\n    update public.duty_statistics set\r\n      no_of_clients = coalesce((p_values->>'noOfClients')::integer, 0),\r\n      no_of_hours_worked = coalesce((p_values->>'noOfHoursWorked')::numeric, 0),\r\n      certified_copies = coalesce((p_values->>'certifiedCopies')::integer, 0),\r\n      statutory_declarations = coalesce((p_values->>'statutoryDeclarations')::integer, 0),\r\n      signatures_witnessed = coalesce((p_values->>'signatureWitnessed')::integer, 0),\r\n      affidavits = coalesce((p_values->>'affidavits')::integer, 0),\r\n      other_duties = coalesce((p_values->>'other')::integer, 0),\r\n      notes = coalesce(p_values->>'notes', '')\r\n    where id = v_statistic_id;\r\n  end if;\r\n  return v_statistic_id;\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "save_home_based_duty_statistic(uuid,date,time without time zone,jsonb)",
+      "definition_fingerprint": "a1a52da6fe5afc70e4b7d7dd74d329f6",
+      "definition": "CREATE OR REPLACE FUNCTION public.save_home_based_duty_statistic(p_statistic_id uuid, p_duty_date date, p_start_time time without time zone, p_values jsonb)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  v_actor_id uuid := auth.uid();\r\n  v_desk record;\r\n  v_statistic record;\r\n  v_slot_id uuid;\r\n  v_end_time time;\r\n  v_statistic_id uuid;\r\n  v_local_now timestamp;\r\nbegin\r\n  if v_actor_id is null\r\n     or not exists (select 1 from public.profiles where id = v_actor_id and status = 'Approved') then\r\n    raise exception 'You must be an approved JP member to save Home Based Service statistics.';\r\n  end if;\r\n  if p_duty_date is null or p_start_time is null then\r\n    raise exception 'A date and start time are required.';\r\n  end if;\r\n\r\n  select id, name, code\r\n  into v_desk\r\n  from public.service_desks\r\n  where is_home_based_service\r\n    and status = 'Active'\r\n  limit 1;\r\n\r\n  if not found then\r\n    raise exception 'The Home Based Service desk is not available. Run the Home Based Service migration first.';\r\n  end if;\r\n\r\n  v_end_time := case\r\n    when p_start_time >= time '23:45' then time '23:59:59'\r\n    else (p_start_time + interval '15 minutes')::time\r\n  end;\r\n\r\n  -- Statistics are recorded only after the short home-based service has\r\n  -- finished, consistent with the normal rostered-shift statistics rules.\r\n  select now() at time zone coalesce(region.timezone, 'Pacific/Auckland')\r\n  into v_local_now\r\n  from public.service_desks desk\r\n  join public.regions region on region.id = desk.region_id\r\n  where desk.id = v_desk.id;\r\n  if (p_duty_date + p_start_time + interval '15 minutes') > v_local_now then\r\n    raise exception 'Statistics can be logged only after the Home Based Service has ended.';\r\n  end if;\r\n\r\n  if p_statistic_id is null then\r\n    -- Each special statistic receives its own hidden slot. This preserves the\r\n    -- existing duty_statistics foreign-key and maintenance model without\r\n    -- creating a rostered service-desk shift.\r\n    insert into public.duty_slots (\r\n      desk_id, day_of_week, start_time, end_time,\r\n      min_jps, target_jps, max_jps, status, effective_from\r\n    ) values (\r\n      v_desk.id, extract(dow from p_duty_date)::integer, p_start_time, v_end_time,\r\n      1, 1, 1, 'Active', p_duty_date\r\n    ) returning id into v_slot_id;\r\n\r\n    insert into public.duty_statistics (\r\n      profile_id, slot_id, duty_date,\r\n      desk_name_snapshot, desk_code_snapshot, start_time_snapshot, end_time_snapshot,\r\n      no_of_clients, no_of_hours_worked, certified_copies, statutory_declarations,\r\n      signatures_witnessed, affidavits, other_duties, notes\r\n    ) values (\r\n      v_actor_id, v_slot_id, p_duty_date,\r\n      v_desk.name, v_desk.code, p_start_time, v_end_time,\r\n      coalesce((p_values->>'noOfClients')::integer, 0),\r\n      coalesce((p_values->>'noOfHoursWorked')::numeric, 0),\r\n      coalesce((p_values->>'certifiedCopies')::integer, 0),\r\n      coalesce((p_values->>'statutoryDeclarations')::integer, 0),\r\n      coalesce((p_values->>'signatureWitnessed')::integer, 0),\r\n      coalesce((p_values->>'affidavits')::integer, 0),\r\n      coalesce((p_values->>'other')::integer, 0),\r\n      coalesce(p_values->>'notes', '')\r\n    ) returning id into v_statistic_id;\r\n  else\r\n    select statistic.id, statistic.profile_id, statistic.slot_id\r\n    into v_statistic\r\n    from public.duty_statistics statistic\r\n    join public.duty_slots slot on slot.id = statistic.slot_id\r\n    join public.service_desks desk on desk.id = slot.desk_id\r\n    where statistic.id = p_statistic_id\r\n      and desk.is_home_based_service;\r\n\r\n    if not found then\r\n      raise exception 'The Home Based Service statistics record could not be found.';\r\n    end if;\r\n    if v_statistic.profile_id <> v_actor_id\r\n       and not exists (select 1 from public.profiles where id = v_actor_id and status = 'Approved' and role = 'Registrar') then\r\n      raise exception 'Only the JP member or a Registrar can maintain this Home Based Service record.';\r\n    end if;\r\n\r\n    update public.duty_slots\r\n    set day_of_week = extract(dow from p_duty_date)::integer,\r\n        start_time = p_start_time,\r\n        end_time = v_end_time,\r\n        effective_from = p_duty_date\r\n    where id = v_statistic.slot_id;\r\n\r\n    update public.duty_statistics\r\n    set duty_date = p_duty_date,\r\n        start_time_snapshot = p_start_time,\r\n        end_time_snapshot = v_end_time,\r\n        no_of_clients = coalesce((p_values->>'noOfClients')::integer, 0),\r\n        no_of_hours_worked = coalesce((p_values->>'noOfHoursWorked')::numeric, 0),\r\n        certified_copies = coalesce((p_values->>'certifiedCopies')::integer, 0),\r\n        statutory_declarations = coalesce((p_values->>'statutoryDeclarations')::integer, 0),\r\n        signatures_witnessed = coalesce((p_values->>'signatureWitnessed')::integer, 0),\r\n        affidavits = coalesce((p_values->>'affidavits')::integer, 0),\r\n        other_duties = coalesce((p_values->>'other')::integer, 0),\r\n        notes = coalesce(p_values->>'notes', '')\r\n    where id = v_statistic.id;\r\n\r\n    v_statistic_id := v_statistic.id;\r\n  end if;\r\n\r\n  return v_statistic_id;\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,date,integer)",
+      "definition_fingerprint": "64fad81d94d7ea2aee774848789585b5",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_my_profile(p_phone text, p_reminder_frequency text, p_reminder_start_date date, p_reminder_weeks integer)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  is_desk_admin boolean;\r\nbegin\r\n  if auth.uid() is null then\r\n    raise exception 'No profile was found for the signed-in user.';\r\n  end if;\r\n\r\n  if p_reminder_frequency not in ('NONE', 'WEEKLY', 'FORTNIGHTLY') then\r\n    raise exception 'Invalid Desk Admin reminder frequency.';\r\n  end if;\r\n\r\n  if p_reminder_weeks not between 1 and 52 then\r\n    raise exception 'Weeks to report on must be between 1 and 52.';\r\n  end if;\r\n\r\n  select exists (\r\n    select 1\r\n    from public.service_desks\r\n    where primary_admin_id = auth.uid()\r\n       or secondary_admin_id = auth.uid()\r\n  ) into is_desk_admin;\r\n\r\n  update public.profiles\r\n  set phone = nullif(trim(coalesce(p_phone, '')), ''),\r\n      desk_admin_reminder_frequency = case\r\n        when is_desk_admin then p_reminder_frequency else 'NONE'\r\n      end,\r\n      desk_admin_reminder_start_date = case\r\n        when is_desk_admin and p_reminder_frequency <> 'NONE' then p_reminder_start_date else null\r\n      end,\r\n      desk_admin_reminder_weeks = case\r\n        when is_desk_admin then p_reminder_weeks else 4\r\n      end\r\n  where id = auth.uid();\r\n\r\n  if not found then\r\n    raise exception 'Your application profile could not be found.';\r\n  end if;\r\nend;\r\n$function$\n"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,text,date,integer)",
+      "definition_fingerprint": "aafcfa99109ea31be84ccf59f52136cb",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_my_profile(p_phone text, p_warrant_number text, p_reminder_frequency text, p_reminder_start_date date, p_reminder_weeks integer)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  is_desk_admin boolean;\r\nbegin\r\n  if auth.uid() is null then\r\n    raise exception 'No profile was found for the signed-in user.';\r\n  end if;\r\n\r\n  if p_reminder_frequency not in ('NONE', 'WEEKLY', 'FORTNIGHTLY') then\r\n    raise exception 'Invalid Desk Admin reminder frequency.';\r\n  end if;\r\n\r\n  if p_reminder_weeks not between 1 and 52 then\r\n    raise exception 'Weeks to report on must be between 1 and 52.';\r\n  end if;\r\n\r\n  select exists (\r\n    select 1\r\n    from public.service_desks\r\n    where primary_admin_id = auth.uid()\r\n       or secondary_admin_id = auth.uid()\r\n  ) into is_desk_admin;\r\n\r\n  update public.profiles\r\n  set phone = nullif(trim(coalesce(p_phone, '')), ''),\r\n      warrant_number = p_warrant_number,\r\n      desk_admin_reminder_frequency = case\r\n        when is_desk_admin then p_reminder_frequency else 'NONE'\r\n      end,\r\n      desk_admin_reminder_start_date = case\r\n        when is_desk_admin and p_reminder_frequency <> 'NONE' then p_reminder_start_date else null\r\n      end,\r\n      desk_admin_reminder_weeks = case\r\n        when is_desk_admin then p_reminder_weeks else 4\r\n      end\r\n  where id = auth.uid();\r\n\r\n  if not found then\r\n    raise exception 'Your application profile could not be found.';\r\n  end if;\r\nend;\r\n$function$\n"
+    }
+  ],
+  "functionGrants": [
+    {
+      "function_signature": "apply_duty_assignment_change_for_member(uuid,text,uuid,date)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "apply_duty_assignment_change_for_member(uuid,text,uuid,date)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "apply_duty_assignment_change_for_member(uuid,text,uuid,date)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "apply_duty_assignment_change(text,uuid,date,text,integer,date)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "apply_duty_assignment_change(text,uuid,date,text,integer,date)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "apply_duty_assignment_change(text,uuid,date,text,integer,date)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "delete_duty_statistic_for_member(uuid)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "delete_duty_statistic_for_member(uuid)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "delete_duty_statistic_for_member(uuid)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_desk_follower_contacts_for_current_user(uuid)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_desk_follower_contacts_for_current_user(uuid)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_desk_follower_contacts_for_current_user(uuid)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_duty_notification_failures(integer)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_duty_notification_failures(integer)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_duty_notification_failures(integer)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_duty_statistics_reminder_target(text)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_duty_statistics_reminder_target(text)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_duty_statistics_reminder_target(text)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_incomplete_duty_statistics_for_current_user()",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_incomplete_duty_statistics_for_current_user()",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_incomplete_duty_statistics_for_current_user()",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_activity_audit_for_current_user(integer,date,date)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_activity_audit_for_current_user(integer,date,date)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_activity_audit_for_current_user(integer,date,date)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_member_directory_for_current_user()",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_member_directory_for_current_user()",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_member_directory_for_current_user()",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_operational_health()",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_operational_health()",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "get_roster_operational_health()",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_approved_registrar()",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_approved_registrar()",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_approved_registrar()",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_assigned_desk_admin(uuid)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_assigned_desk_admin(uuid)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_assigned_desk_admin(uuid)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_duty_slot_holiday(uuid,date)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_duty_slot_holiday(uuid,date)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_duty_slot_holiday(uuid,date)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_manager()",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_manager()",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_manager()",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_registrar_or_assigned_desk_admin(uuid)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_registrar_or_assigned_desk_admin(uuid)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "is_registrar_or_assigned_desk_admin(uuid)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "normalise_jp_warrant_number()",
+      "checked_role": "anon",
+      "effective_execute": "true",
+      "public_execute": "true"
+    },
+    {
+      "function_signature": "normalise_jp_warrant_number()",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "true"
+    },
+    {
+      "function_signature": "normalise_jp_warrant_number()",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "true"
+    },
+    {
+      "function_signature": "retry_failed_duty_notification(uuid)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "retry_failed_duty_notification(uuid)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "retry_failed_duty_notification(uuid)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "save_duty_statistic_for_member(uuid,uuid,uuid,date,jsonb)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "save_duty_statistic_for_member(uuid,uuid,uuid,date,jsonb)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "save_duty_statistic_for_member(uuid,uuid,uuid,date,jsonb)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "save_home_based_duty_statistic(uuid,date,time without time zone,jsonb)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "save_home_based_duty_statistic(uuid,date,time without time zone,jsonb)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "save_home_based_duty_statistic(uuid,date,time without time zone,jsonb)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,date,integer)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,date,integer)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,date,integer)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,text,date,integer)",
+      "checked_role": "anon",
+      "effective_execute": "false",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,text,date,integer)",
+      "checked_role": "authenticated",
+      "effective_execute": "true",
+      "public_execute": "false"
+    },
+    {
+      "function_signature": "update_my_profile(text,text,text,date,integer)",
+      "checked_role": "service_role",
+      "effective_execute": "true",
+      "public_execute": "false"
+    }
+  ]
+}

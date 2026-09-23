@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabaseClient';
-import { getCurrentSessionUser, requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
+import { requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
 import { fetchDeskFollowerContacts, fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, fetchStatisticsForWindow, retryDutyNotificationFailure } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
@@ -10,6 +10,7 @@ import { IANA_TIME_ZONES } from './config/timezones';
 import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
 import { statisticsInputSelection } from './utils/statisticsInputSelection';
+import { isApproved } from './utils/eligibility';
 import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
 import PortalAlerts from './components/PortalAlerts';
@@ -118,7 +119,7 @@ const getShiftDateRangeDescriptor = ({ preset, currentWeek1Monday, fromDate, toD
   return { label: `Showing ${subject}`, startDateStr: '1970-01-01', endDateStr: '2099-12-31' };
 };
 
-export default function App() {
+export default function App({ initialProfile = null, initialRecovery = false, onSessionChange }) {
   // --- AUTH & GLOBAL STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -203,7 +204,7 @@ export default function App() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLinkSent, setResetLinkSent] = useState(false);
 
-  const [resetScreenOpen, setResetScreenOpen] = useState(false);
+  const [resetScreenOpen, setResetScreenOpen] = useState(initialRecovery);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -379,6 +380,7 @@ export default function App() {
   // The mapping keeps the current component working while later stages replace
   // its in-memory write handlers with database mutations.
   const loadSupabaseRoster = async (profile) => {
+    if (!isApproved(profile)) throw new Error('Approved membership is required to load the roster.');
     setPreferencesReadyForProfile(null);
     // A full statistics history can grow indefinitely. Sign-in needs only the
     // current reporting window; subsequent filter changes refresh that bounded
@@ -395,7 +397,7 @@ export default function App() {
     setStatutoryHolidays(roster.statutoryHolidays); setSlotHolidayOverrides(roster.slotHolidayOverrides);
 
     const profileCanUseDeskMaintenance = profile.role === 'Registrar'
-      || roster.desks.some(desk => !desk.isHomeBasedService && (desk.primaryAdminId === profile.id || desk.secondaryAdminId === profile.id));
+      || (profile.role === 'Admin' && roster.desks.some(desk => !desk.isHomeBasedService && (desk.primaryAdminId === profile.id || desk.secondaryAdminId === profile.id)));
     if (profileCanUseDeskMaintenance) {
       try {
         setActivityLogRange('LAST_250');
@@ -579,7 +581,7 @@ export default function App() {
       }
 
       try {
-        const restoredUser = await getCurrentSessionUser();
+        const restoredUser = initialProfile;
         if (!restoredUser || !isMounted) return;
 
         if (restoredUser.status !== 'Approved') {
@@ -599,6 +601,7 @@ export default function App() {
         }
       } catch (restoreError) {
         console.warn('Saved session could not be restored:', restoreError.message);
+        if (isMounted) setLoginError(`Unable to load roster data: ${restoreError.message}. Refresh the page to retry.`);
       } finally {
         if (isMounted) setAuthRestoring(false);
       }
@@ -606,7 +609,7 @@ export default function App() {
 
     restoreSession();
     return () => { isMounted = false; };
-  }, []);
+  }, [initialProfile]);
 
   // A single-page app has no browser history entries for its tabs. Add a
   // portal entry while signed in so Android Back returns to the Calendar (and
@@ -829,14 +832,14 @@ export default function App() {
   ]);
 
   const canManage = useMemo(() => {
-    return currentUser?.role === 'Admin' || currentUser?.role === 'Registrar';
+    return isApproved(currentUser) && (currentUser.role === 'Admin' || currentUser.role === 'Registrar');
   }, [currentUser]);
 
   // The interface must match the database's Stage 2B desk scope.  Registrars
   // may maintain every desk; an Admin may maintain only a desk where they are
   // the recorded Primary or Secondary Desk Admin.
   const canMaintainDesk = (deskOrId) => {
-    if (!currentUser) return false;
+    if (!isApproved(currentUser)) return false;
     if (currentUser.role === 'Registrar') return true;
     if (currentUser.role !== 'Admin') return false;
     const desk = typeof deskOrId === 'string'
@@ -846,12 +849,12 @@ export default function App() {
   };
 
   const isCurrentUserDeskAdmin = useMemo(() => {
-    if (!currentUser) return false;
+    if (!isApproved(currentUser) || !['Admin', 'Registrar'].includes(currentUser.role)) return false;
     return serviceDesks.some(desk => !desk.isHomeBasedService && (desk.primaryAdminId === currentUser.id || desk.secondaryAdminId === currentUser.id));
   }, [currentUser, serviceDesks]);
 
   const canUseDeskMaintenance = useMemo(() => (
-    currentUser?.role === 'Registrar' || isCurrentUserDeskAdmin
+    isApproved(currentUser) && (currentUser.role === 'Registrar' || isCurrentUserDeskAdmin)
   ), [currentUser, isCurrentUserDeskAdmin]);
 
   const canViewActivityAudit = canUseDeskMaintenance;
@@ -1054,45 +1057,10 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
     setShowPassword(false);
-
-    let foundUser;
     try {
-      foundUser = await signInPortalUser(loginEmail, loginPassword);
-    } catch (loginError) {
-      setLoginError(loginError.message);
-      return;
-    }
-    if (foundUser.status !== 'Approved') {
-      setLoginEmail('');
-      setLoginPassword('');
-      setShowPassword(false);
-      if (foundUser.status === 'Pending') {
-        setPendingApprovalUser(foundUser);
-      } else {
-        await signOutUser();
-        setLoginError('This account is not currently available. Please contact an AJPA Registrar.');
-      }
-      return;
-    }
-
-    let roster;
-    try { roster = await loadSupabaseRoster(foundUser); } catch (loadError) { await supabase.auth.signOut(); setLoginError(`Unable to load roster data: ${loadError.message}`); return; }
-    setCurrentUser(foundUser);
-    setIsAuthenticated(true);
-    setLoginEmail('');
-    setLoginPassword('');
-    setShowPassword(false);
-
-    if (foundUser.role === 'Registrar') {
-      const pendingCount = roster.users.filter(u => u.status === 'Pending').length;
-      if (pendingCount > 0) {
-        setPendingMembersNoticeCount(pendingCount);
-      } else {
-        setActiveTab('calendar');
-      }
-    } else {
-      setActiveTab('calendar');
-    }
+      await signInPortalUser(loginEmail, loginPassword);
+      await onSessionChange();
+    } catch (error) { setLoginError(error.message); }
   };
 
   const handleQuickDemoLogin = (role) => {
@@ -1151,7 +1119,7 @@ export default function App() {
       setSignUpPasswordError("Passwords don't match.");
       return;
     }
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password: signUpForm.password,
       options: {
@@ -1172,14 +1140,10 @@ export default function App() {
       }
       return;
     }
-    setSignUpSuccessMsg(true);
-
-    setTimeout(() => {
-      setSignUpSuccessMsg(false);
-      setSignUpModalOpen(false);
-      setSignUpForm({ fullName: '', email: '', phone: '', warrantNumber: '', password: '', confirmPassword: '', isProvisional: false });
-      setSignUpPasswordError('');
-    }, 2500);
+    setSignUpSuccessMsg({ confirmationExpected: Boolean(data.user && !data.session
+      && !data.user.email_confirmed_at && data.user.identities?.length) });
+    setSignUpForm(previous => ({ ...previous, password: '', confirmPassword: '' }));
+    setSignUpPasswordError('');
   };
 
   const handleSendResetLink = async (e) => {
@@ -6691,8 +6655,11 @@ export default function App() {
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-xl text-xs font-bold space-y-2 text-center animate-fade-in">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                 <p className="text-sm font-black text-emerald-950">Application Submitted!</p>
+                <p>Email confirmation and AJPA membership approval are separate steps. After email confirmation you may sign in, but operational access remains unavailable until AJPA approval.</p>
                 <p className="font-normal text-slate-600 leading-relaxed">
-                  Your registration details have been submitted. Status set to <b>PENDING</b> awaiting AJPA Registrar verification.
+                  {signUpSuccessMsg.confirmationExpected
+                    ? 'A confirmation email has been sent. Click the link within one hour, and check spam or junk if it does not arrive.'
+                    : 'Your application has been submitted. If Supabase requires email confirmation, check your inbox and spam or junk folder, and use the confirmation link within one hour.'}
                 </p>
               </div>
             ) : (
