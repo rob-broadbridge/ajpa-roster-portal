@@ -112,6 +112,20 @@ test('permission failures request an eligibility refresh, validation errors do n
   assert.equal(denied, 2);
 });
 
+test('desk maintenance business-rule RPC failures stay local while genuine access denial invalidates', async () => {
+  let denied = 0;
+  let body = { code: '42501', message: 'An Admin may remove themselves only when another Admin remains.' };
+  const transport = createEligibilityTransport(async () => new Response(JSON.stringify(body), { status: 403 }));
+  transport.setProfile(profile()); transport.onDenied(() => { denied += 1; });
+  await transport.fetch(request('rpc/update_service_desk_with_administrators'), { method: 'POST' });
+  await Promise.resolve();
+  assert.equal(denied, 0);
+  body = { code: '42501', message: 'Approved membership is required for operational access.' };
+  await transport.fetch(request('service_desks'));
+  await Promise.resolve();
+  assert.equal(denied, 1);
+});
+
 test('confirmation and approval ordering depend only on the authenticated profile', async () => {
   let person = null; let loads = 0;
   const controller = createEligibilityController({ readProfile: async () => person,

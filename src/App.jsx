@@ -881,7 +881,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
   }, [currentUser, calendarDisplayWeeks]);
 
   const eligibleAdminsList = useMemo(() => {
-    return users.filter(user => user.canBeDeskAdmin);
+    return users.filter(user => user.status === 'Approved' && user.role === 'Admin');
   }, [users]);
 
   const userMap = useMemo(() => {
@@ -2785,11 +2785,9 @@ export default function App({ initialProfile = null, initialRecovery = false, on
   const handleCreateDeskSubmit = async (e) => {
     e.preventDefault();
 
-    if (!newDeskForm.primaryAdminId) {
-      alert('Select a valid Primary Desk Admin before saving this Service Desk.');
-      return;
-    }
-    if (newDeskForm.primaryAdminId === newDeskForm.secondaryAdminId) {
+    if (currentUser?.role !== 'Registrar') return;
+
+    if (newDeskForm.primaryAdminId && newDeskForm.primaryAdminId === newDeskForm.secondaryAdminId) {
       alert('Primary Admin and Secondary Admin cannot be the same person.');
       return;
     }
@@ -2815,7 +2813,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       name: '', 
       address: '', 
       region: regions[0]?.name || 'Auckland East', 
-      primaryAdminId: currentUser?.id || '',
+      primaryAdminId: '',
       secondaryAdminId: '', 
       siteContactName: '', 
       siteContactEmail: '', 
@@ -2827,7 +2825,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
   const handleOpenCreateDeskModal = () => {
     setNewDeskForm({
       code: '', name: '', address: '', region: regions[0]?.name || 'Auckland East',
-      primaryAdminId: currentUser?.id || '', secondaryAdminId: '',
+      primaryAdminId: '', secondaryAdminId: '',
       siteContactName: '', siteContactEmail: '', contactPerson: '', notes: ''
     });
     setCreateDeskModalOpen(true);
@@ -2855,18 +2853,54 @@ export default function App({ initialProfile = null, initialRecovery = false, on
 
     if (!canMaintainDesk(editingDeskId)) return;
 
-    if (!editDeskForm.primaryAdminId) {
-      alert('A Service Desk must always have a valid Primary Desk Admin.');
-      return;
-    }
-    if (editDeskForm.primaryAdminId === editDeskForm.secondaryAdminId) {
+    if (editDeskForm.primaryAdminId && editDeskForm.primaryAdminId === editDeskForm.secondaryAdminId) {
       alert('Primary Admin and Secondary Admin cannot be the same person.');
       return;
     }
 
+    const desk = serviceDesks.find(item => item.id === editingDeskId);
+    const primaryAdminId = editDeskForm.primaryAdminId || null;
+    const secondaryAdminId = editDeskForm.secondaryAdminId || null;
     const region = regions.find(item => item.name === editDeskForm.region) || regions[0];
-    const { error } = await supabase.from('service_desks').update({ code: editDeskForm.code.toUpperCase(), name: editDeskForm.name, address: editDeskForm.address, region_id: region.id, primary_admin_id: editDeskForm.primaryAdminId, secondary_admin_id: editDeskForm.secondaryAdminId || null, site_contact_name: editDeskForm.siteContactName || '', site_contact_email: editDeskForm.siteContactEmail || '', contact_person: editDeskForm.contactPerson || '', notes: editDeskForm.notes || '' }).eq('id', editingDeskId);
-    if (error) { alert(`Unable to save service desk: ${error.message}`); return; }
+    const { error } = await supabase.rpc('update_service_desk_with_administrators', {
+      p_desk_id: editingDeskId,
+      p_code: editDeskForm.code,
+      p_name: editDeskForm.name,
+      p_address: editDeskForm.address,
+      p_region_id: region.id,
+      p_primary_admin_id: primaryAdminId,
+      p_secondary_admin_id: secondaryAdminId,
+      p_expected_primary_admin_id: desk?.primaryAdminId || null,
+      p_expected_secondary_admin_id: desk?.secondaryAdminId || null,
+      p_site_contact_name: editDeskForm.siteContactName || '',
+      p_site_contact_email: editDeskForm.siteContactEmail || '',
+      p_contact_person: editDeskForm.contactPerson || '',
+      p_notes: editDeskForm.notes || ''
+    });
+    if (error) {
+      const message = error.code === '40001'
+        ? error.message
+        : `Unable to save service desk: ${error.message}`;
+      alert(message);
+      const refreshedRoster = await loadSupabaseRoster(currentUser);
+      const refreshedDesk = refreshedRoster.desks.find(item => item.id === editingDeskId);
+      if (refreshedDesk) {
+        setEditDeskForm({
+          code: refreshedDesk.code || '',
+          name: refreshedDesk.name || '',
+          address: refreshedDesk.address || '',
+          region: refreshedDesk.region || regions[0]?.name || 'Auckland East',
+          primaryAdminId: refreshedDesk.primaryAdminId || '',
+          secondaryAdminId: refreshedDesk.secondaryAdminId || '',
+          siteContactName: refreshedDesk.siteContactName || '',
+          siteContactEmail: refreshedDesk.siteContactEmail || '',
+          contactPerson: refreshedDesk.contactPerson || '',
+          notes: refreshedDesk.notes || ''
+        });
+        setEditingDeskId(refreshedDesk.id);
+      }
+      return;
+    }
     await loadSupabaseRoster(currentUser);
     setEditingDeskId(null);
   };
@@ -3622,7 +3656,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                         </button>
                       </div>
 
-                      {canUseDeskMaintenance && (
+                      {currentUser?.role === 'Registrar' && (
                         <button type="button" onClick={handleOpenCreateDeskModal} className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold shadow flex items-center space-x-1 cursor-pointer">
                           <Plus className="w-4 h-4" />
                           <span>Create Service Desk</span>
@@ -3726,11 +3760,11 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                                     <div>
                                       <label className="block font-extrabold text-slate-800 mb-1">Primary Desk Admin</label>
                                       <select 
-                                        required
                                         value={editDeskForm.primaryAdminId} 
                                         onChange={(e) => setEditDeskForm(prev => ({ ...prev, primaryAdminId: e.target.value }))} 
                                         className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                                       >
+                                        <option value="">-- Vacant --</option>
                                         {eligibleAdminsList.map(u => (
                                           <option key={u.id} value={u.id}>{formatEligibleDeskAdmin(u)}</option>
                                         ))}
@@ -3744,7 +3778,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                                         onChange={(e) => setEditDeskForm(prev => ({ ...prev, secondaryAdminId: e.target.value }))} 
                                         className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                                       >
-                                        <option value="">-- Select Secondary Desk Admin --</option>
+                                        <option value="">-- Vacant --</option>
                                         {eligibleAdminsList
                                           .filter(u => u.id !== editDeskForm.primaryAdminId)
                                           .map(u => (
@@ -6171,11 +6205,11 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 <div>
                   <label className="block font-extrabold text-slate-800 mb-1">Primary Desk Admin</label>
                   <select 
-                    required
                     value={newDeskForm.primaryAdminId} 
                     onChange={(e) => setNewDeskForm(prev => ({ ...prev, primaryAdminId: e.target.value }))} 
                     className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                   >
+                    <option value="">-- Vacant --</option>
                     {eligibleAdminsList.map(u => (
                       <option key={u.id} value={u.id}>{u.role ? `${u.fullName} (${u.role})` : u.fullName}</option>
                     ))}
@@ -6189,7 +6223,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                     onChange={(e) => setNewDeskForm(prev => ({ ...prev, secondaryAdminId: e.target.value }))} 
                     className="w-full border border-slate-300 rounded p-2 font-bold text-slate-900 bg-white"
                   >
-                    <option value="">-- Select Secondary Admin --</option>
+                    <option value="">-- Vacant --</option>
                     {eligibleAdminsList
                       .filter(u => u.id !== newDeskForm.primaryAdminId)
                       .map(u => (

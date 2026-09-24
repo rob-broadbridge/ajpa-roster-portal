@@ -2,6 +2,10 @@ import { isApproved } from '../utils/eligibility.js';
 
 // Defence against accidental client loaders, not a replacement for database RLS.
 export function createEligibilityTransport(fetchRequest) {
+  const operationSpecificRpcPaths = new Set([
+    '/rest/v1/rpc/update_service_desk_with_administrators',
+    '/rest/v1/rpc/create_service_desk_for_current_user'
+  ]);
   let profile = null;
   let ownProfileId = null;
   let epoch = 0;
@@ -39,8 +43,9 @@ export function createEligibilityTransport(fetchRequest) {
       if (generation !== epoch) throw new DOMException('Eligibility changed', 'AbortError');
       const failure = !response.ok ? await response.clone().json().catch(() => null) : null;
       if (generation !== epoch) throw new DOMException('Eligibility changed', 'AbortError');
-      const permissionDenied = response.status === 401 || response.status === 403 || failure?.code === '42501'
-        || (failure?.code === 'P0001' && /your account is not approved|you are not an assigned|only registrars|you must be an approved/i.test(failure.message));
+      const operationSpecificRpc = method === 'POST' && operationSpecificRpcPaths.has(url.pathname);
+      const permissionDenied = !operationSpecificRpc && (response.status === 401 || response.status === 403 || failure?.code === '42501'
+        || (failure?.code === 'P0001' && /your account is not approved|you are not an assigned|only registrars|you must be an approved/i.test(failure.message)));
       if (!ownProfileRead && permissionDenied) {
         queueMicrotask(() => denied());
       }
