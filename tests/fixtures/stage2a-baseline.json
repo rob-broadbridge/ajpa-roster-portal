@@ -3537,6 +3537,14 @@
     {
       "object_name": "user_preferences",
       "position": "5",
+      "column_name": "desk_maintenance_filters",
+      "data_type": "jsonb",
+      "not_null": "true",
+      "default_or_generation_expression": "'{}'::jsonb"
+    },
+    {
+      "object_name": "user_preferences",
+      "position": "6",
       "column_name": "updated_at",
       "data_type": "timestamp with time zone",
       "not_null": "true",

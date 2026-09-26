@@ -78,6 +78,21 @@ before(async () => {
 });
 after(async () => { await db?.close(); });
 
+test('user preferences persist Desk Maintenance filters with other preference fields', async () => {
+  const columns = (await db.query("select column_name,data_type,is_nullable,column_default from information_schema.columns where table_schema='public' and table_name='user_preferences' and column_name='desk_maintenance_filters'" )).rows;
+  assert.deepEqual(columns, [{
+    column_name: 'desk_maintenance_filters',
+    data_type: 'jsonb',
+    is_nullable: 'NO',
+    column_default: "'{}'::jsonb"
+  }]);
+  const profileId = actors[1].id;
+  await db.query("insert into user_preferences(profile_id,calendar_filters,desk_maintenance_filters) values ($1,$2,$3) on conflict(profile_id) do update set calendar_filters=excluded.calendar_filters,desk_maintenance_filters=excluded.desk_maintenance_filters", [profileId, { region: 'Auckland East' }, { preset: 'NEXT_4_WEEKS', desk: 'desk-1' }]);
+  const saved = (await db.query('select calendar_filters,desk_maintenance_filters from user_preferences where profile_id=$1', [profileId])).rows[0];
+  assert.deepEqual(saved.calendar_filters, { region: 'Auckland East' });
+  assert.deepEqual(saved.desk_maintenance_filters, { preset: 'NEXT_4_WEEKS', desk: 'desk-1' });
+});
+
 async function as(actor, work, role='authenticated') {
   await db.exec(`begin; set local role ${role};`);
   await db.query("select set_config('request.jwt.claim.sub',$1,true)", [actor?.id || '']);
