@@ -140,3 +140,40 @@ test('confirmation and approval ordering depend only on the authenticated profil
   assert.equal(controller.getSnapshot().phase, 'signed-out');
   person = profile(); await controller.refresh(); assert.equal(controller.getSnapshot().phase, 'approved');
 });
+
+test('restored authenticated sessions resolve to the correct PortalAccessBoundary experience', async () => {
+  for (const status of ['Pending', 'Rejected', 'Archived', 'Approved']) {
+    const person = profile(status, 'Member');
+    const controller = createEligibilityController({ readProfile: async () => person, readScope: async () => [], setNetworkProfile: () => {}, invalidateRequests: () => {} });
+    await controller.refresh();
+    const snapshot = controller.getSnapshot();
+    assert.equal(snapshot.profile, person, `${status} restored session remains authenticated`);
+    assert.equal(snapshot.phase, status === 'Approved' ? 'approved' : status === 'Pending' ? 'pending' : 'inactive');
+  }
+});
+
+test('restored inactive sessions cannot retain operational scope or stale portal state', async () => {
+  let person = profile('Approved', 'Admin'); let scope = ['desk-a']; let scopeReads = 0; const networkProfiles = [];
+  const controller = createEligibilityController({ readProfile: async () => person, readScope: async () => { scopeReads += 1; return scope; },
+    setNetworkProfile: value => networkProfiles.push(value), invalidateRequests: () => {} });
+  await controller.refresh(); assert.equal(controller.getSnapshot().phase, 'approved');
+  person = profile('Archived', 'Admin'); scope = ['desk-b']; await controller.refresh();
+  assert.equal(controller.getSnapshot().phase, 'inactive'); assert.equal(scopeReads, 1);
+  assert.equal(networkProfiles.at(-1).status, 'Archived');
+});
+
+test('live Pending approval and Approved archival transition the boundary without signing out', async () => {
+  let person = profile('Pending', 'Member');
+  const controller = createEligibilityController({ readProfile: async () => person, readScope: async () => [], setNetworkProfile: () => {}, invalidateRequests: () => {} });
+  await controller.refresh(); assert.equal(controller.getSnapshot().phase, 'pending');
+  person = profile('Approved', 'Member'); await controller.refresh(); assert.equal(controller.getSnapshot().phase, 'approved');
+  person = profile('Archived', 'Member'); await controller.refresh();
+  assert.equal(controller.getSnapshot().phase, 'inactive'); assert.equal(controller.getSnapshot().profile.status, 'Archived');
+});
+
+test('Approved to Rejected is not modelled as a supported normal transition', async () => {
+  let person = profile('Approved', 'Member');
+  const controller = createEligibilityController({ readProfile: async () => person, readScope: async () => [], setNetworkProfile: () => {}, invalidateRequests: () => {} });
+  await controller.refresh(); person = profile('Rejected', 'Member'); await controller.refresh();
+  assert.equal(controller.getSnapshot().phase, 'inactive'); assert.equal(controller.getSnapshot().profile.status, 'Rejected');
+});

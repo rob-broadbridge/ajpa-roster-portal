@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { supabase } from './supabaseClient';
 import { requestPasswordReset, signInPortalUser, signOutUser, updatePassword } from './services/authService';
-import { fetchDeskFollowerContacts, fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, fetchStatisticsForWindow, retryDutyNotificationFailure } from './services/rosterService';
+import { applyMemberLifecycleTransition, fetchDeskFollowerContacts, fetchDutyNotificationFailures, fetchFullRosterArchiveData, fetchIncompleteDutyStatistics, fetchRosterActivityAudit, fetchRosterData, fetchRosterOperationalHealth, fetchStatisticsForWindow, getMemberLifecyclePreview, retryDutyNotificationFailure, updateMemberProfileAndRole } from './services/rosterService';
 import { saveUserPreferences } from './services/preferencesService';
 import { DEFAULT_DAY_FILTER, DEFAULT_TIME_OF_DAY_FILTER } from './config/calendar';
 import { INITIAL_ASSIGNMENTS, INITIAL_FOLLOWED_DESKS, INITIAL_LOGGED_STATISTICS, INITIAL_REGIONS, INITIAL_SERVICE_DESKS, INITIAL_SLOT_TEMPLATES, INITIAL_USERS } from './config/demoRosterData';
@@ -10,6 +10,8 @@ import { IANA_TIME_ZONES } from './config/timezones';
 import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, DEFAULT_ROSTER_TIME_ZONE, getNextMondayMidnight, getTimeZoneDateString, getWeekStartMonday } from './utils/calendarDates';
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
 import { statisticsInputSelection } from './utils/statisticsInputSelection';
+import { formatActivityAction, formatActivityRuleDetail } from './utils/activityLog';
+import { getRegistrarMemberCounts, matchesRegistrarMemberFilter } from './utils/memberDirectory';
 import { isApproved } from './utils/eligibility';
 import PortalNavigation from './components/PortalNavigation';
 import PlatformHeader from './components/PlatformHeader';
@@ -305,6 +307,12 @@ export default function App({ initialProfile = null, initialRecovery = false, on
   const [editingUserId, setEditingUserId] = useState(null);
   const [userForm, setUserForm] = useState({ fullName: '', email: '', phone: '', warrantNumber: '', password: 'password123', role: 'Member', isProvisional: false, status: 'Approved' });
   const [pendingArchiveUserId, setPendingArchiveUserId] = useState(null);
+  const [archivePreview, setArchivePreview] = useState(null);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState('');
+  const [pendingReinstateUser, setPendingReinstateUser] = useState(null);
+  const [reinstateRole, setReinstateRole] = useState('');
+  const [reinstateSubmitting, setReinstateSubmitting] = useState(false);
   const [memberDirectoryFilter, setMemberDirectoryFilter] = useState('ACTIVE');
   const [memberDirectorySearch, setMemberDirectorySearch] = useState('');
 
@@ -587,8 +595,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
         if (!restoredUser || !isMounted) return;
 
         if (restoredUser.status !== 'Approved') {
-          if (restoredUser.status === 'Pending') setPendingApprovalUser(restoredUser);
-          else await signOutUser();
+          setPendingApprovalUser(restoredUser);
           return;
         }
 
@@ -644,7 +651,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
 
       if (pendingDeleteDeskId) setPendingDeleteDeskId(null);
       else if (pendingDeleteRegionId) setPendingDeleteRegionId(null);
-      else if (pendingArchiveUserId) setPendingArchiveUserId(null);
+      else if (pendingReinstateUser) setPendingReinstateUser(null);
+      else if (pendingArchiveUserId) { setPendingArchiveUserId(null); setArchivePreview(null); }
       else if (confirmDeleteStatId) setConfirmDeleteStatId(null);
       else if (pendingDeleteSlotId) setPendingDeleteSlotId(null);
       else if (slotActionConfirm) setSlotActionConfirm(null);
@@ -692,6 +700,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
     pastRegistrationConfirmationOcc,
     pastWithdrawalConfirmationOcc,
     pendingArchiveUserId,
+    pendingReinstateUser,
     pendingDeleteDeskId,
     pendingDeleteRegionId,
     pendingDeleteSlotId,
@@ -925,20 +934,17 @@ export default function App({ initialProfile = null, initialRecovery = false, on
     return [...pending, ...nonPending];
   }, [users]);
 
-  const memberDirectoryCounts = useMemo(() => ({
-    active: users.filter(user => user.status === 'Approved' || user.status === 'Pending').length,
-    archived: users.filter(user => user.status === 'Archived').length,
-    all: users.length
-  }), [users]);
+
+  const memberDirectoryCounts = useMemo(() => getRegistrarMemberCounts(users), [users]);
+
 
   const visibleUsersForRegistrar = useMemo(() => {
     const searchTerm = memberDirectorySearch.trim().toLocaleLowerCase();
 
     return sortedUsersForRegistrar.filter(user => {
-      const matchesFilter = memberDirectoryFilter === 'ALL'
-        || (memberDirectoryFilter === 'ARCHIVED'
-          ? user.status === 'Archived'
-          : user.status === 'Approved' || user.status === 'Pending');
+
+      const matchesFilter = matchesRegistrarMemberFilter(user, memberDirectoryFilter);
+
       if (!matchesFilter) return false;
       if (!searchTerm) return true;
 
@@ -1332,15 +1338,15 @@ export default function App({ initialProfile = null, initialRecovery = false, on
   };
 
   const handleApprovePendingUser = async (userId) => {
-    const { error } = await supabase.from('profiles').update({ status: 'Approved' }).eq('id', userId);
-    if (error) { alert(`Unable to approve member: ${error.message}`); return; }
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Approved' } : u));
+    setLifecycleError('');
+    try { await applyMemberLifecycleTransition({ memberId: userId, action: 'APPROVE', expectedStatus: 'Pending' }); await loadSupabaseRoster(currentUser); }
+    catch (error) { setLifecycleError(`Unable to approve member: ${error.message}`); await loadSupabaseRoster(currentUser).catch(() => {}); }
   };
 
   const handleRejectPendingUser = async (userId) => {
-    const { error } = await supabase.from('profiles').update({ status: 'Rejected' }).eq('id', userId);
-    if (error) { alert(`Unable to reject member: ${error.message}`); return; }
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: 'Rejected' } : u));
+    setLifecycleError('');
+    try { await applyMemberLifecycleTransition({ memberId: userId, action: 'REJECT', expectedStatus: 'Pending' }); await loadSupabaseRoster(currentUser); }
+    catch (error) { setLifecycleError(`Unable to reject member: ${error.message}`); await loadSupabaseRoster(currentUser).catch(() => {}); }
   };
 
   const validateSlotForm = (form) => {
@@ -1620,12 +1626,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       return `"${safeText.replace(/"/g, '""')}"`;
     };
 
-    const actionLabel = (activity) => {
-      if (activity.eventType === 'DUTY_REGISTERED') return 'Registered for shift';
-      if (activity.eventType === 'DUTY_WITHDRAWN') return 'Withdrew from shift';
-      if (activity.eventType === 'RULE_CREATED') return `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule created`;
-      return `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule removed`;
-    };
+    const actionLabel = (activity) => formatActivityAction(activity);
 
     const rows = rosterActivityAudit.map((activity) => {
       const actor = userMap[activity.actorProfileId];
@@ -1633,9 +1634,9 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       const account = activity.actorProfileId
         ? actor?.fullName || 'Unavailable account'
         : 'Automated recurring roster process';
-      const ruleDetail = activity.ruleType
-        ? `${activity.ruleType.replaceAll('_', ' ').toLowerCase()}${activity.ruleCount ? ` · ${activity.ruleCount} slot${activity.ruleCount === 1 ? '' : 's'}` : ''}`
-        : 'Single shift';
+
+      const ruleDetail = formatActivityRuleDetail(activity);
+
       const occurredAtAuckland = activity.occurredAt
         ? new Date(activity.occurredAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' })
         : '';
@@ -2634,6 +2635,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
 
   const handleSaveUserSubmit = async (e) => {
     e.preventDefault();
+    setLifecycleError('');
     const warrantNumber = normaliseWarrantNumber(userForm.warrantNumber);
     if (!warrantNumber) {
       alert('Enter the numeric part of the JP warrant number.');
@@ -2649,14 +2651,14 @@ export default function App({ initialProfile = null, initialRecovery = false, on
         alert('Use Restore from the Archived member list to reactivate a member.');
         return;
       }
-      const { error } = await supabase.from('profiles').update({ full_name: userForm.fullName, phone: userForm.phone, warrant_number: warrantNumber, role: userForm.role, is_provisional: userForm.isProvisional, status: userForm.status }).eq('id', editingUserId);
-      if (error) {
-        alert(error.code === '23505'
-          ? 'This JP warrant number is already registered. Please check the number.'
-          : `Unable to save member: ${error.message}`);
-        return;
-      }
-      setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, ...userForm, warrantNumber } : u));
+      try {
+        if (existingUser.status === 'Approved') await updateMemberProfileAndRole({ memberId: editingUserId, fullName: userForm.fullName, phone: userForm.phone, warrantNumber, isProvisional: userForm.isProvisional, newRole: userForm.role, expectedStatus: existingUser.status, expectedRole: existingUser.role });
+        else {
+          const { error } = await supabase.from('profiles').update({ full_name: userForm.fullName, phone: userForm.phone, warrant_number: warrantNumber, is_provisional: userForm.isProvisional }).eq('id', editingUserId);
+          if (error) throw error;
+        }
+      } catch (error) { alert(error.code === '23505' ? 'This JP warrant number is already registered. Please check the number.' : `Unable to save member: ${error.message}`); return; }
+      await loadSupabaseRoster(currentUser);
     } else {
       alert('Create new accounts through the Supabase sign-up process. They will appear here as Pending for approval.');
       return;
@@ -2664,7 +2666,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
     setUserModalOpen(false);
   };
 
-  const handleRequestArchiveUser = (memberId) => {
+  const handleRequestArchiveUser = async (memberId) => {
     const member = users.find(user => user.id === memberId);
     if (!member) return;
 
@@ -2680,7 +2682,11 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       return;
     }
 
-    setPendingArchiveUserId(memberId);
+    try {
+      setLifecycleError(''); setArchivePreview({ member, ...(await getMemberLifecyclePreview(memberId)) }); setPendingArchiveUserId(memberId);
+    } catch (error) {
+      setLifecycleError(`Unable to load the archive preview: ${error.message}`);
+    }
   };
 
   const confirmArchiveUser = async () => {
@@ -2701,44 +2707,17 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       return;
     }
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ status: 'Archived' })
-      .eq('id', memberId)
-      .select('id');
-
-    if (error) {
-      alert(`Unable to archive member: ${error.message}`);
-      setPendingArchiveUserId(null);
-      return;
-    }
-    if (!data || data.length !== 1) {
-      alert('The member was not archived. Refresh the member list and check that your Registrar access is still active.');
-      setPendingArchiveUserId(null);
-      return;
-    }
-
-    setUsers(previous => previous.map(user => user.id === memberId ? { ...user, status: 'Archived' } : user));
-    setPendingArchiveUserId(null);
+    try { setArchiveSubmitting(true); await applyMemberLifecycleTransition({ memberId, action: 'ARCHIVE', expectedStatus: 'Approved', expectedRole: users.find(user => user.id === memberId)?.role }); await loadSupabaseRoster(currentUser); setPendingArchiveUserId(null); setArchivePreview(null); }
+    catch (error) { setLifecycleError(`Unable to archive member: ${error.message}`); await loadSupabaseRoster(currentUser).catch(() => {}); }
+    finally { setArchiveSubmitting(false); }
   };
 
-  const handleRestoreArchivedUser = async (memberId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ status: 'Approved' })
-      .eq('id', memberId)
-      .select('id');
-
-    if (error) {
-      alert(`Unable to restore member: ${error.message}`);
-      return;
-    }
-    if (!data || data.length !== 1) {
-      alert('The member was not restored. Refresh the member list and check that your Registrar access is still active.');
-      return;
-    }
-
-    setUsers(previous => previous.map(user => user.id === memberId ? { ...user, status: 'Approved' } : user));
+  const handleRestoreArchivedUser = (memberId) => { const member = users.find(user => user.id === memberId); if (member) { setLifecycleError(''); setReinstateRole(''); setPendingReinstateUser(member); } };
+  const confirmRestoreArchivedUser = async () => {
+    if (!pendingReinstateUser || !reinstateRole) return;
+    try { setReinstateSubmitting(true); await applyMemberLifecycleTransition({ memberId: pendingReinstateUser.id, action: 'REINSTATE', newRole: reinstateRole, expectedStatus: 'Archived' }); await loadSupabaseRoster(currentUser); setPendingReinstateUser(null); }
+    catch (error) { setLifecycleError(`Unable to restore member: ${error.message}`); await loadSupabaseRoster(currentUser).catch(() => {}); }
+    finally { setReinstateSubmitting(false); }
   };
 
   const handleOpenAddRegionModal = () => {
@@ -4545,16 +4524,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                           {rosterActivityAudit.map(activity => {
                             const actor = userMap[activity.actorProfileId];
                             const subject = userMap[activity.subjectProfileId];
-                            const actionLabel = activity.eventType === 'DUTY_REGISTERED'
-                              ? 'Registered for shift'
-                              : activity.eventType === 'DUTY_WITHDRAWN'
-                                ? 'Withdrew from shift'
-                                : activity.eventType === 'RULE_CREATED'
-                                  ? `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule created`
-                                  : `${activity.ruleAction === 'WITHDRAW' ? 'Withdrawal' : 'Registration'} rule removed`;
-                            const ruleDetail = activity.ruleType
-                              ? `${activity.ruleType.replaceAll('_', ' ').toLowerCase()}${activity.ruleCount ? ` · ${activity.ruleCount} slot${activity.ruleCount === 1 ? '' : 's'}` : ''}`
-                              : 'Single shift';
+                            const actionLabel = formatActivityAction(activity);
+                            const ruleDetail = formatActivityRuleDetail(activity);
                             const occurredAt = activity.occurredAt
                               ? new Date(activity.occurredAt).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' })
                               : '—';
@@ -4640,6 +4611,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 {/* SUBTAB 1: JP MEMBERS */}
                 {registrarSubTab === 'members' && (
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                    {lifecycleError && !pendingArchiveUserId && !pendingReinstateUser && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{lifecycleError}</div>}
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="font-bold text-slate-900 text-base">Association Members & Sign-up Queue</h3>
@@ -4658,6 +4630,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                         </button>
                         <button type="button" onClick={() => setMemberDirectoryFilter('ARCHIVED')} className={`px-3 py-1.5 rounded-md cursor-pointer ${memberDirectoryFilter === 'ARCHIVED' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
                           Archived ({memberDirectoryCounts.archived})
+                        </button>                        <button type="button" onClick={() => setMemberDirectoryFilter('REJECTED')} className={`px-3 py-1.5 rounded-md cursor-pointer ${memberDirectoryFilter === 'REJECTED' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
+                          Rejected ({memberDirectoryCounts.rejected})
                         </button>
                         <button type="button" onClick={() => setMemberDirectoryFilter('ALL')} className={`px-3 py-1.5 rounded-md cursor-pointer ${memberDirectoryFilter === 'ALL' ? 'bg-slate-900 text-amber-400 shadow' : 'text-slate-600 hover:bg-slate-100'}`}>
                           All ({memberDirectoryCounts.all})
@@ -4714,6 +4688,10 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                                   <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-bold text-[10px]">
                                     Active / Approved
                                   </span>
+                                ) : u.status === 'Rejected' ? (
+                                  <button onClick={async () => { setLifecycleError(''); try { await applyMemberLifecycleTransition({ memberId: u.id, action: 'RECONSIDER', expectedStatus: 'Rejected' }); await loadSupabaseRoster(currentUser); } catch (error) { setLifecycleError(`Unable to return member to Pending: ${error.message}`); await loadSupabaseRoster(currentUser).catch(() => {}); } }} className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-bold text-[10px] cursor-pointer">
+                                    Reconsider
+                                  </button>
                                 ) : u.status === 'Archived' ? (
                                   <span className="bg-slate-200 text-slate-700 border border-slate-300 px-2 py-0.5 rounded font-bold text-[10px]">
                                     Archived / Sign-in Disabled
@@ -5340,7 +5318,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                           <li>Navigate to <b>Registrar Portal &rarr; JP Members</b>.</li>
                           <li>Review new member registrations in the <b>Pending Approval</b> queue.</li>
                           <li>Click <b>"Approve"</b> to activate their account or <b>"Reject"</b> to deny access. Approval sends the new member an automated welcome email with the JP Member guidance.</li>
-                          <li>Use the Active, Archived, and All filters together with Search to locate a member by name, warrant number, email address, or phone number.</li>
+                          <li>Use the Active, Rejected, Archived, and All filters together with Search to locate a member by name, warrant number, email address, or phone number.</li>
                           <li>Click the edit icon next to any member to update warrant numbers, system roles (Member, Admin, Registrar), or provisional status.</li>
                           <li>Archive a former member to disable sign-in while retaining their profile, historical statistics, and Activity Log references. A member assigned as a Primary or Secondary Desk Admin must be reassigned or cleared from those desks before they can be archived. Archived members can be restored.</li>
                         </ol>
@@ -6605,12 +6583,8 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Account Status</label>
-                  <select value={userForm.status} onChange={(e) => setUserForm(prev => ({ ...prev, status: e.target.value }))} className="w-full border rounded p-2 font-bold">
-                    <option value="Approved">Approved</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Archived">Archived</option>
-                  </select>
+                  <div className="w-full border rounded p-2 font-bold bg-slate-50 text-slate-600">{userForm.status}</div>
+                  <p className="text-[10px] text-slate-500 mt-1">Status changes use the explicit Approve, Reject, Reconsider, Archive and Restore actions.</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2 pt-1">
@@ -6627,14 +6601,26 @@ export default function App({ initialProfile = null, initialRecovery = false, on
         </div>
       )}
 
-      <DestructiveConfirmationDialog
-        confirmLabel="Archive Member"
-        isOpen={Boolean(pendingArchiveUserId)}
-        message="Archive this JP member? Their sign-in will be disabled and they will move out of the active member list. Their profile, history, statistics and Activity Log references will be retained."
-        onCancel={() => setPendingArchiveUserId(null)}
-        onConfirm={confirmArchiveUser}
-        title="Confirm Member Archival"
-      />
+      {archivePreview && pendingArchiveUserId && <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="archive-dialog-title">
+        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+          <h3 id="archive-dialog-title" className="text-lg font-black text-rose-700">Confirm Member Archival</h3>
+          <p className="text-sm text-slate-700">Archive <b>{archivePreview.member.fullName}</b>?</p>
+          <ul className="text-xs text-slate-600 list-disc pl-5 space-y-1"><li>Future bookings cancelled: <b>{archivePreview.future_booking_count || 0}</b></li><li>Recurring rules stopped: <b>{archivePreview.recurring_rule_count || 0}</b></li><li>Desk-admin assignments cleared: <b>{archivePreview.desk_admin_assignment_count || 0}</b></li></ul>
+          <p className="text-xs text-slate-600">Historical duties, statistics and cancellation evidence are retained. Operational access ceases immediately; the authentication account is not deleted.</p>
+          {lifecycleError && <p role="alert" className="text-xs text-rose-700">{lifecycleError}</p>}
+          <div className="flex justify-end gap-2 border-t pt-3"><button disabled={archiveSubmitting} onClick={() => { setPendingArchiveUserId(null); setArchivePreview(null); }} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100">Cancel</button><button disabled={archiveSubmitting} onClick={confirmArchiveUser} className="px-4 py-2 rounded-lg text-xs font-black bg-rose-600 text-white">{archiveSubmitting ? 'Archiving…' : 'Archive Member'}</button></div>
+        </div>
+      </div>}
+
+      {pendingReinstateUser && <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="reinstate-dialog-title">
+        <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+          <h3 id="reinstate-dialog-title" className="text-lg font-black text-emerald-700">Reinstate Member</h3>
+          <p className="text-sm text-slate-700">Choose the new role for <b>{pendingReinstateUser.fullName}</b>. This restores Approved access but does not restore cancelled bookings, recurring rules, or former desk-admin assignments.</p>
+          <label className="block text-xs font-bold text-slate-700">New role<select value={reinstateRole} onChange={event => setReinstateRole(event.target.value)} disabled={reinstateSubmitting} className="block w-full border rounded p-2 mt-1"><option value="">Select a role…</option><option value="Member">Member</option><option value="Admin">Admin</option><option value="Registrar">Registrar</option></select></label>
+          {lifecycleError && <p role="alert" className="text-xs text-rose-700">{lifecycleError}</p>}
+          <div className="flex justify-end gap-2 border-t pt-3"><button disabled={reinstateSubmitting} onClick={() => setPendingReinstateUser(null)} className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100">Cancel</button><button disabled={reinstateSubmitting || !reinstateRole} onClick={confirmRestoreArchivedUser} className="px-4 py-2 rounded-lg text-xs font-black bg-emerald-600 text-white">{reinstateSubmitting ? 'Reinstating…' : 'Reinstate Member'}</button></div>
+        </div>
+      </div>}
 
       {/* --- ADD / EDIT REGION MODAL --- */}
       {regionModalOpen && (

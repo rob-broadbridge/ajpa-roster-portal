@@ -4,7 +4,10 @@ import { isApproved } from '../utils/eligibility.js';
 export function createEligibilityTransport(fetchRequest) {
   const operationSpecificRpcPaths = new Set([
     '/rest/v1/rpc/update_service_desk_with_administrators',
-    '/rest/v1/rpc/create_service_desk_for_current_user'
+    '/rest/v1/rpc/create_service_desk_for_current_user',
+    '/rest/v1/rpc/get_member_lifecycle_preview',
+    '/rest/v1/rpc/apply_member_lifecycle_transition'
+    ,'/rest/v1/rpc/update_member_profile_and_role'
   ]);
   let profile = null;
   let ownProfileId = null;

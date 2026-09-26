@@ -1,5 +1,32 @@
 import { supabase } from '../supabaseClient';
 
+export async function getMemberLifecyclePreview(memberId) {
+  const { data, error } = await supabase.rpc('get_member_lifecycle_preview', { p_member_id: memberId });
+  if (error) throw error;
+  return data;
+}
+
+export async function applyMemberLifecycleTransition({ memberId, action, newRole = null, expectedStatus = null, expectedRole = null }) {
+  const { data, error } = await supabase.rpc('apply_member_lifecycle_transition', {
+    p_member_id: memberId,
+    p_action: action,
+    p_new_role: newRole,
+    p_expected_status: expectedStatus,
+    p_expected_role: expectedRole
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function updateMemberProfileAndRole({ memberId, fullName, phone, warrantNumber, isProvisional, newRole, expectedStatus, expectedRole }) {
+  const { data, error } = await supabase.rpc('update_member_profile_and_role', {
+    p_member_id: memberId, p_full_name: fullName, p_phone: phone, p_warrant_number: warrantNumber,
+    p_is_provisional: isProvisional, p_new_role: newRole, p_expected_status: expectedStatus, p_expected_role: expectedRole
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchRosterActivityAudit({ limit = 250, fromDate = null, toDate = null } = {}) {
   const { data, error } = await supabase.rpc('get_roster_activity_audit_for_current_user', {
     p_limit: limit,
@@ -15,6 +42,10 @@ export async function fetchRosterActivityAudit({ limit = 250, fromDate = null, t
     actorProfileId: activity.actor_profile_id,
     subjectProfileId: activity.subject_profile_id,
     eventType: activity.event_type,
+    previousStatus: activity.previous_status,
+    newStatus: activity.new_status,
+    previousRole: activity.previous_role,
+    newRole: activity.new_role,
     dutySlotId: activity.duty_slot_id,
     dutyDate: activity.duty_date,
     ruleAction: activity.rule_action,
