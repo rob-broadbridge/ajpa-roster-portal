@@ -11,6 +11,7 @@ import { addDaysToIsoDate, calendarDateFromIso, calendarDateToIso, DEFAULT_ROSTE
 import { buildCalendarFile, calculateJpDuties, compareRecurringSlots, getOperationalRosterWindow, hasShiftEnded } from './utils/rosterPresentation';
 import { statisticsInputSelection } from './utils/statisticsInputSelection';
 import { formatActivityAction, formatActivityRuleDetail } from './utils/activityLog';
+import { getRegionSelectedDeskSummary } from './utils/calendarFilters';
 import { getRegistrarMemberCounts, matchesRegistrarMemberFilter } from './utils/memberDirectory';
 import { isApproved } from './utils/eligibility';
 import PortalNavigation from './components/PortalNavigation';
@@ -3301,11 +3302,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
                             {calendarRegionFilter === 'ALL' ? 'All regions' : calendarRegionFilter}
                             {' · '}
                             {currentUser.role === 'Member'
-                              ? (followedDesks.length > 0 && followedDesks.every(deskId => memberCalendarDeskIds.includes(deskId))
-                                ? 'All followed desks'
-                                : memberCalendarDeskIds.length === 0
-                                  ? 'No desks selected'
-                                  : `${memberCalendarDeskIds.length} followed desk${memberCalendarDeskIds.length === 1 ? '' : 's'}`)
+                              ? getRegionSelectedDeskSummary(memberCalendarDeskIds, calendarRegionDesks)
                               : (calendarDeskFilter === 'ALL'
                                 ? 'All service desks'
                                 : calendarDeskFilter === 'FOLLOWED'
