@@ -176,6 +176,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
   const [registerModalOcc, setRegisterModalOcc] = useState(null);
   const [pastRegistrationConfirmationOcc, setPastRegistrationConfirmationOcc] = useState(null);
   const [registerOption, setRegisterOption] = useState('SINGLE'); // 'SINGLE', 'NEXT_N', 'UNTIL_DATE', 'ALL_FUTURE'
+  const recurringRegistrationRequestId = useRef(null);
   const [registerCountN, setRegisterCountN] = useState(4);
   const [registerUntilDate, setRegisterUntilDate] = useState('2026-12-31');
 
@@ -2484,6 +2485,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       return;
     }
     setRegisterModalOcc(occ);
+    recurringRegistrationRequestId.current = crypto.randomUUID();
     setRegisterOption('SINGLE');
     setRegisterCountN(4);
     setRegisterUntilDate(occ.date);
@@ -2497,14 +2499,24 @@ export default function App({ initialProfile = null, initialRecovery = false, on
       return;
     }
 
-    const { error } = await supabase.rpc('apply_duty_assignment_change', {
-      p_action: 'REGISTER',
-      p_slot_id: occurrence.slotId,
-      p_start_date: occurrence.date,
-      p_scope: scope,
-      p_count_n: scope === 'NEXT_N' ? (parseInt(countN, 10) || 1) : null,
-      p_until_date: scope === 'UNTIL_DATE' ? untilDate : null
-    });
+    const recurring = scope !== 'SINGLE';
+    const { error } = recurring
+      ? await supabase.rpc('apply_recurring_registration', {
+        p_slot_id: occurrence.slotId,
+        p_start_date: occurrence.date,
+        p_scope: scope,
+        p_count_n: scope === 'NEXT_N' ? (parseInt(countN, 10) || 1) : null,
+        p_until_date: scope === 'UNTIL_DATE' ? untilDate : null,
+        p_request_id: recurringRegistrationRequestId.current || crypto.randomUUID()
+      })
+      : await supabase.rpc('apply_duty_assignment_change', {
+        p_action: 'REGISTER',
+        p_slot_id: occurrence.slotId,
+        p_start_date: occurrence.date,
+        p_scope: scope,
+        p_count_n: null,
+        p_until_date: null
+      });
     if (error) {
       alert(`Unable to register: ${error.message}`);
       return;
@@ -2514,6 +2526,7 @@ export default function App({ initialProfile = null, initialRecovery = false, on
     // calendar view identical to the shared roster on every device.
     await loadSupabaseRoster(currentUser);
     setRegisterModalOcc(null);
+    recurringRegistrationRequestId.current = null;
     setRegistrationSuccessToast(true);
     setTimeout(() => setRegistrationSuccessToast(false), 6000);
   };
