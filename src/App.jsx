@@ -2575,6 +2575,13 @@ export default function App({ initialProfile = null, initialRecovery = false, on
     }
 
     await loadSupabaseRoster(currentUser);
+    const messages = {
+      SINGLE: 'You have withdrawn from this shift.',
+      NEXT_N: `You have withdrawn from the next ${parseInt(countN, 10) || 1} weekly shifts.`,
+      UNTIL_DATE: `You have withdrawn from shifts up to and including ${untilDate}.`,
+      ALL_FUTURE: 'You have withdrawn from all future shifts for this service desk registration.'
+    };
+    alert(messages[scope] || 'Your withdrawal was completed.');
     setWithdrawModalOcc(null);
   };
 
